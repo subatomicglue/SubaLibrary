@@ -1,0 +1,18 @@
+[Unit]
+Description=Soma File Server for Internal Networks
+After=network.target
+
+[Service]
+ExecStartPre=/bin/bash -c 'cd %h'
+ExecStart=/usr/bin/node soma-serv.js
+Restart=always
+User=%i
+Group=%i
+Environment=PATH=/usr/bin:/usr/local/bin:%h
+Environment=NODE_ENV=production
+Environment=NODE_PORT=3002
+WorkingDirectory=%h
+
+[Install]
+WantedBy=multi-user.target
+
