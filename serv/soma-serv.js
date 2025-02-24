@@ -8,9 +8,20 @@ const winston = require('winston');
 require('winston-daily-rotate-file');
 const cookieParser = require('cookie-parser');
 const SECRET_PASSCODE = require('./passcode.json') // txt file with single quoted string in it... e.g. "<your passcode here>"
-const {TITLE, PORT_DEFAULT, PUBLIC_DIR, LOGS_DIR, ALLOWED_EXTENSIONS: ALLOWED_EXTENSIONS_ARRAY, RATE_LIMIT_WINDOW_SECS, RATE_LIMIT_WINDOW_MAX_REQUESTS} = require('./soma-serv.json')
+const {
+  TITLE,
+  PORT_DEFAULT,
+  PUBLIC_DIR: PUBLIC_DIR_CONFIG,
+  LOGS_DIR: LOGS_DIR_CONFIG,
+  ALLOWED_EXTENSIONS: ALLOWED_EXTENSIONS_ARRAY,
+  RATE_LIMIT_WINDOW_SECS,
+  RATE_LIMIT_WINDOW_MAX_REQUESTS
+} = require('./soma-serv.json')
 
-const PORT = process.env.NODE_PORT ? process.env.NODE_PORT : PORT_DEFAULT; // default
+// validate/fixup config items
+const PUBLIC_DIR=path.resolve(PUBLIC_DIR_CONFIG); // resolve ensures abs path
+const LOGS_DIR=path.resolve(LOGS_DIR_CONFIG); // resolve ensures abs path
+const PORT = process.env.NODE_PORT ? process.env.NODE_PORT : PORT_DEFAULT; // override the default port with: $ NODE_PORT=3002 ./soma-serv.js
 const ALLOWED_EXTENSIONS = new Set(ALLOWED_EXTENSIONS_ARRAY);
 
 // Limit each IP to 10 file requests per minute
@@ -283,7 +294,9 @@ app.get('*', (req, res) => {
 
   try {
     // Check if the file exists
+    logger.warn(`[kevin] ${req.ip} -> ${fullPath}`);
     fs.accessSync(fullPath);
+    logger.warn(`[kevin] ${req.ip} -> ${fullPath}`);
 
     if (isFile( fullPath )) {
       logger.info(`[requested]: ${req.ip} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
@@ -321,50 +334,49 @@ app.get('*', (req, res) => {
             <style>
                 body { font-family: Arial, sans-serif; }
                 ul { list-style-type: none; padding: 0; }
-                li { margin: 5px 0; display: block; padding-right: 135px;white-space: nowrap;}
+                li { margin: 5px 0; display: block; white-space: nowrap; padding-left: 1em; padding-right: 1em;}
                 a { text-decoration: none; color: blue; }
-                .scroll-container {
-                    white-space: nowrap;  /* Prevents text wrapping */
-                    overflow-x: auto;     /* Enables horizontal scrolling */
-                    overflow-y: hidden;   /* Hides vertical scrolling */
-                    width: 100%;          /* Full width of the container */
-                    max-width: 100%;      /* Ensures no overflow beyond parent */
-                    display: block;       /* Ensures proper layout */
-                    width: 100%;
+                .scroll-parent {
+                  overflow: hidden;
                 }
-
-                .scroll-container::-webkit-scrollbar {
-                    height: 8px; /* Adjust scrollbar thickness */
+                .scroll-child {
+                  height: 100%;
+                  overflow: scroll;
                 }
-
-                .scroll-container::-webkit-scrollbar-thumb {
-                    background-color: #888; /* Color of the scrollbar */
-                    border-radius: 4px;
-                }
-
-                .scroll-container::-webkit-scrollbar-track {
-                    background: #f1f1f1; /* Background of the scrollbar track */
+                table, td {
+                  padding:0;
+                  margin:0;
+                  vertical-align: top;
                 }
             </style>
         </head>
-        <body>
-            <h2>Browsing: /${relPath}</h2>
-            <ul class="scroll-container">
-                ${req_path !== '/' ? `<li><a href="${req_path.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a></li>` : '<a href="">📁 /</a>'}
-                ${directoryContents.map(item => `
-                    <li>
-                        ${item.isDirectory 
-                            ? `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📁 ${item.name}</a>`
-                            : `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📄 ${item.name}</a> <a href="/${encodeURIComponent( path.join( relPath, item.path ) )}" download target="_blank">⬇️&nbsp;&nbsp;</a>`}
-                    </li>
-                `).join('')}
-            </ul>
-            <a href="/logout">logout</a>
+        <body style="padding: 0; margin: 0;" >
+          <div style="width: 100%; height: 100vh; display: flex; flex-direction: column; padding: 0; margin: 0;">
+            <div style="background:#333; color: #fff; padding: 1em; padding-top: .5em; padding-bottom: .5em; margin: 0;">
+              <table style="width:100%;"><tr><td style="width:100%;">
+                <div><strong>/${relPath}</strong></div>
+              </td><td>
+                <div style="text-align: right">${TITLE}<BR><a style="color: grey;" href="/logout">logout</a></div>
+              </td></tr></table>
+            </div>
+            <div class="scroll-parent" style="flex-grow: 1; padding: 0; margin: 0">
+              <ul class="scroll-child">
+                  <li>${req_path !== '/' ? `<a href="${req_path.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li>
+                  ${directoryContents.map(item => `
+                      <li>
+                          ${item.isDirectory
+                              ? `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📁 ${item.name}</a>`
+                              : `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📄 ${item.name}</a> <a href="/${encodeURIComponent( path.join( relPath, item.path ) )}" download target="_blank">⬇️&nbsp;&nbsp;</a>`}
+                      </li>
+                  `).join('')}
+              </ul>
+            </div>
+          </div>
         </body>
         </html>
     `);
   } catch (error) {
-    logger.warn(`[error] ${req.ip} -> 404 Not Found: ${fullPath}`);
+    logger.warn(`[error] ${req.ip} -> 404 Not Found: ${fullPath}, ${error}`);
     res.status(404).send('404 - Not Found');
   }
 });

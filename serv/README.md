@@ -23,6 +23,7 @@ npm run ...
 ```
 
 # HOWTO run
+run soma-serv on port 3002:
 ```
 NODE_PORT=3002 ./soma-serv.js
 ```
