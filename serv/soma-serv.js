@@ -13,16 +13,19 @@ const {
   PORT_DEFAULT,
   PUBLIC_DIR: PUBLIC_DIR_CONFIG,
   LOGS_DIR: LOGS_DIR_CONFIG,
+  ASSETS_DIR: ASSETS_DIR_CONFIG,
   ALLOWED_EXTENSIONS: ALLOWED_EXTENSIONS_ARRAY,
   RATE_LIMIT_WINDOW_SECS,
   RATE_LIMIT_WINDOW_MAX_REQUESTS
 } = require('./soma-serv.json')
 
 // validate/fixup config items
-const PUBLIC_DIR=path.resolve(PUBLIC_DIR_CONFIG); // resolve ensures abs path
-const LOGS_DIR=path.resolve(LOGS_DIR_CONFIG); // resolve ensures abs path
+const PUBLIC_DIR=path.resolve(PUBLIC_DIR_CONFIG); // resolve ensures abs path, share location for served files
+const LOGS_DIR=path.resolve(LOGS_DIR_CONFIG); // resolve ensures abs path, location for logs
 const PORT = process.env.NODE_PORT ? process.env.NODE_PORT : PORT_DEFAULT; // override the default port with: $ NODE_PORT=3002 ./soma-serv.js
 const ALLOWED_EXTENSIONS = new Set(ALLOWED_EXTENSIONS_ARRAY);
+const ASSETS_DIR = path.resolve(ASSETS_DIR_CONFIG); // resolve ensures abs path, location for assets (fonts, logos, for soma-serv)
+const ASSETS_MAGIC = "____aSsEtS____" // magic URL key for pulling assets (if URL request is not present here, it'll still fallback to public_dir next...)
 
 // Limit each IP to 10 file requests per minute
 const fileDownloadLimiter = rateLimit({
@@ -293,14 +296,23 @@ app.get('*', (req, res) => {
   }
 
   try {
-    // Check if the file exists
-    logger.warn(`[kevin] ${req.ip} -> ${fullPath}`);
-    fs.accessSync(fullPath);
-    logger.warn(`[kevin] ${req.ip} -> ${fullPath}`);
+    // if we see a path starting with ASSETS_MAGIC, it may be an ASSET_DIR/ request, if file is present there, return it;  if not, pass through to next stages
+    let asset_match_result = relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )
+    let asset_info = (asset_match_result && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1] ) : undefined
+    if ((asset_match_result && asset_match_result[1]) && isFile( asset_info.fullPath )) {
+      res.setHeader('Content-Disposition', 'inline'); // open in browser
+      res.setHeader('Content-Type', asset_info.mimeType);
+      res.sendFile(asset_info.fullPath);
+      return
+    }
 
+    // Check if the requested path exists
+    fs.accessSync(fullPath);
+
+    // if the path points at a file, serv that up:
     if (isFile( fullPath )) {
       logger.info(`[requested]: ${req.ip} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
-  
+
       if (!ALLOWED_EXTENSIONS.has(ext)) {
           logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
           return res.status(403).send('403 - Forbidden: File type not allowed');
@@ -316,6 +328,7 @@ app.get('*', (req, res) => {
       return
     }
 
+    // otherwise, it's a directory, serv that up:
     logger.info(`[listing] : '${relPath}'`);
     const directoryContents = getDirectoryContents(relPath);
     if (directoryContents === null) {
@@ -348,20 +361,65 @@ app.get('*', (req, res) => {
                   margin:0;
                   vertical-align: top;
                 }
-            </style>
+                .heading-container {
+                  display: flex;
+                  padding: 1em;
+                }
+                .heading-backbutton {
+                  text-align: center;
+                  white-space: nowrap;
+                }
+                .heading-left {
+                  flex: 1;
+                  min-width: 0;
+                  text-align: left;
+                }
+                .heading-left-child-left-ellipsis {
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  display: block;
+                  direction: rtl;
+                  height: 100%;
+                  line-height: 2em;
+                }
+                .heading-left-child-wrapword {
+                  white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
+                  white-space: -webkit-pre-wrap;          /* Chrome & Safari */ 
+                  white-space: -pre-wrap;                 /* Opera 4-6 */
+                  white-space: -o-pre-wrap;               /* Opera 7 */
+                  white-space: pre-wrap;                  /* CSS3 */
+                  word-wrap: break-word;                  /* Internet Explorer 5.5+ */
+                  word-break: break-all;
+                  white-space: normal;
+                }
+                .heading-right {
+                  text-align: right;
+                  white-space: nowrap;
+                }
+                .heading-left, .heading-backbutton, .heading-right {
+                  flex-direction:column;
+                  justify-content:space-around;
+                  display:flex;
+                }
+          </style>
         </head>
         <body style="padding: 0; margin: 0;" >
-          <div style="width: 100%; height: 100vh; display: flex; flex-direction: column; padding: 0; margin: 0;">
-            <div style="background:#333; color: #fff; padding: 1em; padding-top: .5em; padding-bottom: .5em; margin: 0;">
-              <table style="width:100%;"><tr><td style="width:100%;">
-                <div><strong>/${relPath}</strong></div>
-              </td><td>
-                <div style="text-align: right">${TITLE}<BR><a style="color: grey;" href="/logout">logout</a></div>
-              </td></tr></table>
+          <div id="page" style="max-width: 100%; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: 0; margin: 0;">
+            <div id="page-title" style="max-width: 100%; width:100%; background:#333; color: #fff; margin: 0;">
+              <div class="heading-container" style="">
+                <div class="heading-backbutton">
+                  <a href="/${relPath.split('/').slice(0, -1).join('/')}"><img style="margin-left: -5px; visibility:${relPath == '' ? "hidden" : "visible"}" src="${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"></a>
+                </div><div class="heading-left">
+                  <span dir="ltr" class="heading-left-child-left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
+                </div><div class="heading-right">
+                  &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;logout</a>
+                </div>
+              </div>
             </div>
-            <div class="scroll-parent" style="flex-grow: 1; padding: 0; margin: 0">
-              <ul class="scroll-child">
-                  <li>${req_path !== '/' ? `<a href="${req_path.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li>
+            <div id="page-body" class="scroll-parent" style="flex-grow: 1; padding: 0; margin: 0">
+              <ul class="scroll-child" style="padding-top: 0; margin-top: 0.5em">
+                  <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
                   ${directoryContents.map(item => `
                       <li>
                           ${item.isDirectory
@@ -369,6 +427,8 @@ app.get('*', (req, res) => {
                               : `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📄 ${item.name}</a> <a href="/${encodeURIComponent( path.join( relPath, item.path ) )}" download target="_blank">⬇️&nbsp;&nbsp;</a>`}
                       </li>
                   `).join('')}
+                  &nbsp;<BR>
+                  &nbsp;<BR>
               </ul>
             </div>
           </div>

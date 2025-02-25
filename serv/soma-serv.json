@@ -3,6 +3,7 @@
   "PORT_DEFAULT": 3000,
   "PUBLIC_DIR": "public",
   "LOGS_DIR": "logs",
+  "ASSETS_DIR": "assets",
   "ALLOWED_EXTENSIONS": [
     "mp4", "m4a", "jpeg", "jpg", "png",
     "gif", "webp", "mp3", "pdf", "docx",
