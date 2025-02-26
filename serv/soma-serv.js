@@ -411,6 +411,11 @@ app.get('*', (req, res) => {
                 <div class="heading-backbutton">
                   <a href="/${relPath.split('/').slice(0, -1).join('/')}"><img style="margin-left: -5px; visibility:${relPath == '' ? "hidden" : "visible"}" src="${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"></a>
                 </div><div class="heading-left">
+                  <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
+                        - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
+                        - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
+                        - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
+                  -->
                   <span dir="ltr" class="heading-left-child-left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
                 </div><div class="heading-right">
                   &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;logout</a>
