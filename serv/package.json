@@ -14,7 +14,7 @@
     "systemd-setup": "sudo systemctl daemon-reload; sudo systemctl enable soma-serv; sudo systemctl start soma-serv",
     "systemd-status": "sudo systemctl status soma-serv",
     "systemd-restart": "sudo systemctl restart soma-serv",
-    "expose-wifi": "echo \"open your wifi router app, and add to your port forwarding\"; ifconfig | grep inet | grep -v inet6; echo \"public ip\"; curl ifconfig.me; echo \"\"; curl icanhazip.com",
+    "expose-wifi": "echo \"open your wifi router app, and add to your port forwarding\"; echo \"\ninternal ip\"; ifconfig | grep inet | grep -v inet6; echo \"\npublic ip: $(curl -s ifconfig.me) (using ifconfig.me)\"; echo \"public ip: $(curl -s icanhazip.com) (using icanhazip.com)\";",
     "help": "echo \"npm run ...\n  expose-wifi\n  systemd-setup | systemd-status | systemd-restart\n  start | logs | stop | restart\"",
     "audit2": "nsp audit-shrinkwrap; nsp audit-package"
   },
