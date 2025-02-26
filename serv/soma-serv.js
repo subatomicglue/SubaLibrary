@@ -374,16 +374,14 @@ app.get('*', (req, res) => {
                   min-width: 0;
                   text-align: left;
                 }
-                .heading-left-child-left-ellipsis {
+                .left-ellipsis {
                   white-space: nowrap;
                   overflow: hidden;
                   text-overflow: ellipsis;
                   display: block;
                   direction: rtl;
-                  height: 100%;
-                  line-height: 2em;
                 }
-                .heading-left-child-wrapword {
+                .wrapword {
                   white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
                   white-space: -webkit-pre-wrap;          /* Chrome & Safari */ 
                   white-space: -pre-wrap;                 /* Opera 4-6 */
@@ -392,6 +390,10 @@ app.get('*', (req, res) => {
                   word-wrap: break-word;                  /* Internet Explorer 5.5+ */
                   word-break: break-all;
                   white-space: normal;
+                }
+                .heading-left-child {
+                  height: 100%;
+                  line-height: 2em;
                 }
                 .heading-right {
                   text-align: right;
@@ -416,7 +418,7 @@ app.get('*', (req, res) => {
                         - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
                         - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
                   -->
-                  <span dir="ltr" class="heading-left-child-left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
+                  <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
                 </div><div class="heading-right">
                   &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;logout</a>
                 </div>
