@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 const express = require('express');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
@@ -50,10 +52,63 @@ const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp(),
+        winston.format.errors({ stack: true }), // Ensures stack traces are logged
         winston.format.json()
     ),
-    transports: [transport, new winston.transports.Console()]
+    transports: [transport, new winston.transports.Console()],
+    exceptionHandlers: [transport, new winston.transports.Console()],
+    rejectionHandlers: [transport, new winston.transports.Console()]
 });
+
+// Track new connections
+let activeConnections = {};
+const activeConnectionsTimeout = 60 * 1000; // minute
+const uptimeTimer = 60 * 60 * 1000; // hour
+function numActiveConnections() {
+  return Object.keys(activeConnections).map( r=>activeConnections[r] ).reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+}
+function reportConnections() {
+  Object.keys(activeConnections).forEach( r=> logger.info( `[🔌 connections] ip:'${r}' count:${activeConnections[r]}` ) )
+}
+function reportMemory() {
+  const uptime = process.uptime();
+  const memoryUsage = process.memoryUsage();
+  logger.info(`[🕒 Uptime] t:${uptime.toFixed(2)}s | connections:${numActiveConnections()} | Memory Usage: ${JSON.stringify(memoryUsage)}`);
+}
+
+// Capture Unhandled Errors
+process.on('uncaughtException', (err) => {
+  logger.error(`🔥 Uncaught Exception: ${err.stack || err.message} connections:${numActiveConnections()}`);
+  reportConnections();
+  console.trace();  // Logs full trace
+  process.exit(1); // Ensure exit, so PM2 logs a proper restart reason
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`⚠️ Unhandled Promise Rejection: ${reason} connections:${numActiveConnections()}`);
+  reportConnections();
+});
+
+// Capture Process Signals (SIGTERM from PM2, etc.)
+['SIGINT', 'SIGTERM', 'SIGHUP'].forEach((signal) => {
+  process.on(signal, () => {
+    logger.error(`🚦 Received signal: ${signal}. Exiting... connections:${numActiveConnections()}`);
+    reportConnections();
+    process.exit(0);
+  });
+});
+
+process.on('exit', (code) => {
+  logger.error(`👋 Process exiting with code: ${code}`);
+  reportConnections();
+});
+
+// Log Uptime & Memory Usage Periodically
+setInterval(() => {
+  reportMemory()
+  reportConnections();
+}, uptimeTimer); // Log every 30 seconds
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // app
@@ -117,7 +172,7 @@ test_filterInvalidPaths( "/../../", "" )
 test_filterInvalidPaths( "my/file/is/so/amazing/../../.../file..ext", "my/file/is/file..ext" )
 
 // Function to sanitize and securely resolve paths.  Does NOT check if file exists
-function sanitize( baseDir, rel_path ) {
+function sanitize( baseDir, rel_path, options = {forceTypeAllowed: false} ) {
   try {
     // Sanitize the path by removing any ".." segments, making sure it's relative under the base dir (no shenanigans from the requestor).
     const relPath = path.relative( baseDir, path.join(baseDir, ___filterInvalidPaths( rel_path ) ) );
@@ -126,7 +181,7 @@ function sanitize( baseDir, rel_path ) {
     if (!fullPath.startsWith( baseDir )) {
       // something unsafe is happening, abort.
       logger.error(`[ERROR] : SHOULD NEVER HAPPEN: path goes outside of the public directory -> ${fullPath}`);
-      return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?" }; // Return null if the path goes outside of the public directory
+      return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?", forceTypeAllowed: options.forceTypeAllowed == true }; // Return null if the path goes outside of the public directory
     }
     // if (!fs.existsSync( fullPath )) {
     //   // it's ok, but it's file not found
@@ -135,10 +190,10 @@ function sanitize( baseDir, rel_path ) {
     //const realPath = fs.realpathSync( fullPath );
     let mimeType = mime.lookup(fullPath) || 'application/octet-stream'
     let ext = path.extname(fullPath).substring(1).toLowerCase()
-    return { relPath, fullPath/*, realPath*/, mimeType, ext };
+    return { relPath, fullPath/*, realPath*/, mimeType, ext, forceTypeAllowed: options.forceTypeAllowed == true };
   } catch (error) {
     logger.error(`[ERROR] : ${baseDir}, ${rel_path} ${error}`);
-    return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?" }; // Return null if the path goes outside of the public directory
+    return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?", forceTypeAllowed: options.forceTypeAllowed == true }; // Return null if the path goes outside of the public directory
   }
 }
 
@@ -286,9 +341,15 @@ app.use(authGuard);
 // [browse] 1. Serve directory listing or 2. Serve Files, from under the PUBLIC_DIR (user input sanitized to ensure safety)
 app.get('*', (req, res) => {
   const req_path = decodeURIComponent( req.path )
+  const sanitized = sanitize( PUBLIC_DIR, req_path )
+  let asset_match_result = undefined;
 
   // get sanitized version of what's asked for:
-  const { relPath, fullPath, mimeType, ext } = sanitize( PUBLIC_DIR, req_path ); // ensure path is under PUBLIC_DIR, no shenanigans with "..", etc.
+  // ensure path is under PUBLIC_DIR, no shenanigans with "..", etc.
+  const { relPath, fullPath, mimeType, ext, forceTypeAllowed } = 
+    sanitized.relPath.match( /^\/?favicon\.ico$/ ) ? sanitize( ASSETS_DIR, "favicon.ico", { forceTypeAllowed: true } ) :
+    ((asset_match_result = sanitized.relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )) && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1], { forceTypeAllowed: true } ) :
+    sanitized;
   logger.info(`[browse]: ${req.ip} -> '${req_path}' -> '${relPath}' -> '${fullPath}'`);
   if (fullPath == "") {
     logger.warn(`[error] ${req.ip} -> 403 - Forbidden: ${relPath}`);
@@ -296,15 +357,27 @@ app.get('*', (req, res) => {
   }
 
   try {
-    // if we see a path starting with ASSETS_MAGIC, it may be an ASSET_DIR/ request, if file is present there, return it;  if not, pass through to next stages
-    let asset_match_result = relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )
-    let asset_info = (asset_match_result && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1] ) : undefined
-    if ((asset_match_result && asset_match_result[1]) && isFile( asset_info.fullPath )) {
-      res.setHeader('Content-Disposition', 'inline'); // open in browser
-      res.setHeader('Content-Type', asset_info.mimeType);
-      res.sendFile(asset_info.fullPath);
-      return
-    }
+    // // map favicon.ico to the assets folder
+    // logger.warn(`[favicon.ico] ${req.ip} -> ${relPath}`);
+    // if (relPath.match( /^\/?favicon\.ico$/ )) {
+    //   let f = sanitize( ASSETS_DIR, "favicon.ico" )
+    //   fs.accessSync(f.fullPath);
+    //   res.setHeader('Content-Disposition', 'inline'); // open in browser
+    //   res.setHeader('Content-Type', f.mimeType);
+    //   res.sendFile(f.fullPath);
+    //   return;
+    // }
+
+    // // if we see a path starting with ASSETS_MAGIC, it may be an ASSET_DIR/ request, if file is present there, return it;  if not, pass through to next stages
+    // let asset_match_result = relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )
+    // let asset_info = (asset_match_result && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1] ) : undefined
+    // if ((asset_match_result && asset_match_result[1]) && isFile( asset_info.fullPath )) {
+    //   fs.accessSync(asset_info.fullPath);
+    //   res.setHeader('Content-Disposition', 'inline'); // open in browser
+    //   res.setHeader('Content-Type', asset_info.mimeType);
+    //   res.sendFile(asset_info.fullPath);
+    //   return
+    // }
 
     // Check if the requested path exists
     fs.accessSync(fullPath);
@@ -313,7 +386,7 @@ app.get('*', (req, res) => {
     if (isFile( fullPath )) {
       logger.info(`[requested]: ${req.ip} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
 
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
+      if (!ALLOWED_EXTENSIONS.has(ext) && !forceTypeAllowed) {
           logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
           return res.status(403).send('403 - Forbidden: File type not allowed');
       }
@@ -460,4 +533,18 @@ app.use((err, req, res, next) => {
 })
 
 // Start server
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+const server = http.createServer(app);
+server.on('connection', (socket) => {
+  //logger.info( `[connection open]: ${socket.remoteAddress}` )
+  if (activeConnections[socket.remoteAddress] == undefined) activeConnections[socket.remoteAddress] = 0;
+  activeConnections[socket.remoteAddress]++;
+  socket.on('close', () => {
+    //logger.info( `[connection close]: ${socket.remoteAddress}` )
+    setTimeout( () => {
+      activeConnections[socket.remoteAddress]--;
+      //logger.info( `[connection count]: ${socket.remoteAddress} has ${activeConnections[socket.remoteAddress]} connections open` )
+    }, activeConnectionsTimeout )
+  });
+});
+//app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
