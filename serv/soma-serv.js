@@ -357,28 +357,6 @@ app.get('*', (req, res) => {
   }
 
   try {
-    // // map favicon.ico to the assets folder
-    // logger.warn(`[favicon.ico] ${req.ip} -> ${relPath}`);
-    // if (relPath.match( /^\/?favicon\.ico$/ )) {
-    //   let f = sanitize( ASSETS_DIR, "favicon.ico" )
-    //   fs.accessSync(f.fullPath);
-    //   res.setHeader('Content-Disposition', 'inline'); // open in browser
-    //   res.setHeader('Content-Type', f.mimeType);
-    //   res.sendFile(f.fullPath);
-    //   return;
-    // }
-
-    // // if we see a path starting with ASSETS_MAGIC, it may be an ASSET_DIR/ request, if file is present there, return it;  if not, pass through to next stages
-    // let asset_match_result = relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )
-    // let asset_info = (asset_match_result && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1] ) : undefined
-    // if ((asset_match_result && asset_match_result[1]) && isFile( asset_info.fullPath )) {
-    //   fs.accessSync(asset_info.fullPath);
-    //   res.setHeader('Content-Disposition', 'inline'); // open in browser
-    //   res.setHeader('Content-Type', asset_info.mimeType);
-    //   res.sendFile(asset_info.fullPath);
-    //   return
-    // }
-
     // Check if the requested path exists
     fs.accessSync(fullPath);
 
@@ -397,6 +375,8 @@ app.get('*', (req, res) => {
       //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
       res.setHeader('Content-Disposition', 'inline'); // open in browser
       res.setHeader('Content-Type', mimeType);
+      if (forceTypeAllowed) // it's an assets resource, cache it, otherwise no cache
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
       res.sendFile(fullPath);
       return
     }
