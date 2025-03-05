@@ -540,9 +540,9 @@ app.get('*', (req, res) => {
     sanitized.relPath.match( /^\/?favicon\.ico$/ ) ? sanitize( ASSETS_DIR, "favicon.ico", { forceTypeAllowed: true } ) :
     ((asset_match_result = sanitized.relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )) && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1], { forceTypeAllowed: true } ) :
     sanitized;
-  logger.info(`[browse]   ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${relPath}' -> '${fullPath}'`);
+  logger.info(`[browse]   ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
   if (fullPath == "" || path.resolve(fullPath) != fullPath) {
-    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 403 - Forbidden: ${relPath}`);
+    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 403 - Forbidden: ${fullPath}`);
     return res.status(403).send('403 - Forbidden');
   }
 
@@ -552,15 +552,15 @@ app.get('*', (req, res) => {
 
     // if the path points at a file, serv that up:
     if (isFile( fullPath )) {
-      logger.info(`[request]  ${userLogDisplay(req.user, req.ip)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
+      logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
 
       if (!ALLOWED_EXTENSIONS.has(ext) && !forceTypeAllowed) {
           logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
           return res.status(403).send('403 - Forbidden: File type not allowed');
       }
   
-      logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> ${fullPath} (${ext} | ${mimeType})`);
-  
+      // logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> ${fullPath} (${ext} | ${mimeType})`);
+
       // Set headers to force download
       //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
       res.setHeader('Content-Disposition', 'inline'); // open in browser
@@ -572,10 +572,10 @@ app.get('*', (req, res) => {
     }
 
     // otherwise, it's a directory, serv that up:
-    logger.info(`[listing] ${userLogDisplay(req.user, req.ip)} -> '${relPath}'`);
+    logger.info(`[listing]  ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
     const directoryContents = getDirectoryContents(relPath);
     if (directoryContents === null) {
-      logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: ${relPath}`);
+      logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: ${fullPath}`);
       return res.status(404).send('404 - Not Found');
     }
 
