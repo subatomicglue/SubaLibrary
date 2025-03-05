@@ -41,7 +41,6 @@ const ASSETS_MAGIC = "____aSsEtS____" // magic URL key for pulling assets (if UR
 const isPM2 = process.env.pm_id !== undefined;
 let pm2_currentProcess = undefined;
 const MAX_PATH_LENGTH = MAX_PATH_LENGTH_CONFIG ? MAX_PATH_LENGTH_CONFIG : 4096; // 4KB max path length default
-let current_user = "unknown"
 
 // Limit each IP to 10 file requests per minute
 const fileDownloadLimiter = rateLimit({
@@ -83,7 +82,7 @@ function numActiveConnections() {
 }
 function reportConnections() {
   logger.info( `🔌 [connections] total:${numActiveConnections()}` )
-  Object.keys(activeConnections).forEach( r=> logger.info( `[🔌 connections] ip:'${r}' count:${activeConnections[r]}` ) )
+  Object.keys(activeConnections).forEach( r=> logger.info( `🔌 [connections] ip:'${r}' count:${activeConnections[r]}` ) )
 }
 function reportMemory() {
   const uptime = process.uptime();
@@ -261,6 +260,10 @@ function isFile( path ) {
   }
 }
 
+function userLogDisplay(req_user, req_ip) {
+  return `[${req_user!=""?`${req_user}@`:""}${req_ip.replace(/^::ffff:/, '')}]`
+}
+
 // for use by sanitize() only...
 function ___filterInvalidPaths( p ) {
   return path.normalize( p )
@@ -416,7 +419,7 @@ function failedLoginGuard(req, res, next) {
     // If user is locked out, check if the lockout time has expired
     if (Date.now() < attempt.nextTry) {
       const waitTime = Math.ceil((attempt.nextTry - Date.now()) / 1000);
-      logger.info(`[login locked out]: ${req.ip} -> Too many failed attempts.  Try again in ${waitTime} seconds.`);
+      logger.info(`[login locked out] ${req.ip} -> Too many failed attempts.  Try again in ${waitTime} seconds.`);
       return res.status(429).send(`Too many failed attempts. Try again in ${waitTime} seconds.  <a href="/">Try again</a>`);
     }
 
@@ -428,7 +431,7 @@ function authGuard(req, res, next) {
   if (req.cookies.passcode && req.cookies.passcode.length <= 4096) {
     const passcode = req.cookies.passcode; // Get passcode from cookie
     if (passcode === SECRET_PASSCODE) {
-      current_user = ""
+      req.user = ""
       return next(); // Passcode matches - Proceed to the next middleware
     }
   }
@@ -440,13 +443,13 @@ function authGuard(req, res, next) {
     const password = userpass_data && userpass_data.password; // Get password from cookie
     if (username && password && username.length <= 256 && password.length <= 4096) {
       if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
-        current_user = username;
+        req.user = username;
         return next(); // Passcode matches - Proceed to the next middleware
       }
     }
   }
 
-  logger.info(`[login]: ${req.ip} -> Please Enter Passcode for ${TITLE}`);
+  logger.info(`[login] ${req.ip} -> Please Enter Passcode for ${TITLE}`);
 
   // If passcode is incorrect/missing, show the login page
   res.send(`
@@ -482,26 +485,26 @@ app.post('/login', failedLoginGuard, (req, res) => {
   if (req.body.passcode) {
     const passcode = req.body.passcode;
     if (passcode === SECRET_PASSCODE) {
-      logger.info(`[login authorized]: ${req.ip} -> Accepted Secret Passcode`);
+      logger.info(`[login authorized] ${req.ip} -> Accepted Secret Passcode`);
       res.cookie('passcode', passcode, { httpOnly: true });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }
-    logger.warn(`[login unauthorized]: ${req.ip} -> Incorrect passcode '${passcode}'`);
+    logger.warn(`[login unauthorized] ${req.ip} -> Incorrect passcode '${passcode}'`);
   }
 
   // user/pass auth
   if (req.body.username && req.body.password) {
     const username = req.body.username;
     const password = req.body.password;
-    logger.warn(`[login testing...]: ${req.ip} -> Incorrect user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
+    logger.warn(`[login testing...] ${req.ip} -> Incorrect user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
     if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
-      logger.info(`[login authorized]: ${req.ip} -> Accepted User/Pass for '${username}'`);
+      logger.info(`[login authorized] ${req.ip} -> Accepted User/Pass for '${username}'`);
       res.cookie('userpass', JSON.stringify( { username, password } ), { httpOnly: true });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }
-    logger.warn(`[login unauthorized]: ${req.ip} -> Incorrect user/pass '${username}' '${password}'`);
+    logger.warn(`[login unauthorized] ${req.ip} -> Incorrect user/pass '${username}' '${password}'`);
   }
 
   // Track failed attempts and enforce increasing delay
@@ -537,9 +540,9 @@ app.get('*', (req, res) => {
     sanitized.relPath.match( /^\/?favicon\.ico$/ ) ? sanitize( ASSETS_DIR, "favicon.ico", { forceTypeAllowed: true } ) :
     ((asset_match_result = sanitized.relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )) && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1], { forceTypeAllowed: true } ) :
     sanitized;
-  logger.info(`[browse]: ${req.ip} -> '${req_path}' -> '${relPath}' -> '${fullPath}'`);
+  logger.info(`[browse]   ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${relPath}' -> '${fullPath}'`);
   if (fullPath == "" || path.resolve(fullPath) != fullPath) {
-    logger.warn(`[error] ${req.ip} -> 403 - Forbidden: ${relPath}`);
+    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 403 - Forbidden: ${relPath}`);
     return res.status(403).send('403 - Forbidden');
   }
 
@@ -549,14 +552,14 @@ app.get('*', (req, res) => {
 
     // if the path points at a file, serv that up:
     if (isFile( fullPath )) {
-      logger.info(`[requested]: ${req.ip} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
+      logger.info(`[request]  ${userLogDisplay(req.user, req.ip)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
 
       if (!ALLOWED_EXTENSIONS.has(ext) && !forceTypeAllowed) {
           logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
           return res.status(403).send('403 - Forbidden: File type not allowed');
       }
   
-      logger.info(`[download]: ${req.ip} -> ${fullPath} (${ext} | ${mimeType})`);
+      logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> ${fullPath} (${ext} | ${mimeType})`);
   
       // Set headers to force download
       //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
@@ -569,10 +572,10 @@ app.get('*', (req, res) => {
     }
 
     // otherwise, it's a directory, serv that up:
-    logger.info(`[listing] : '${relPath}'`);
+    logger.info(`[listing] ${userLogDisplay(req.user, req.ip)} -> '${relPath}'`);
     const directoryContents = getDirectoryContents(relPath);
     if (directoryContents === null) {
-      logger.warn(`[error] ${req.ip} -> 404 - Not Found: ${relPath}`);
+      logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: ${relPath}`);
       return res.status(404).send('404 - Not Found');
     }
 
@@ -660,7 +663,7 @@ app.get('*', (req, res) => {
                   -->
                   <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
                 </div><div class="heading-right">
-                  &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;${current_user}&nbsp;logout</a>
+                  &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;logout</a>
                 </div>
               </div>
             </div>
@@ -683,7 +686,7 @@ app.get('*', (req, res) => {
         </html>
     `);
   } catch (error) {
-    logger.warn(`[error] ${req.ip} -> 404 Not Found: ${fullPath}, ${error}`);
+    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: ${fullPath}, ${error}`);
     res.status(404).send('404 - Not Found');
   }
 });
@@ -706,15 +709,15 @@ const server = USE_HTTPS ?
 
 // track some connection stats
 server.on('connection', (socket) => {
-  //logger.info( `[connection open]: ${socket.remoteAddress}` )
+  //logger.info( `[connection open] ${socket.remoteAddress}` )
   if (activeConnections[socket.remoteAddress] == undefined) activeConnections[socket.remoteAddress] = 0;
   activeConnections[socket.remoteAddress]++;
   socket.on('close', () => {
-    //logger.info( `[connection close]: ${socket.remoteAddress}` )
+    //logger.info( `[connection close] ${socket.remoteAddress}` )
     setTimeout( () => {
       activeConnections[socket.remoteAddress]--;
       if (activeConnections[socket.remoteAddress] == 0) delete activeConnections[socket.remoteAddress];
-      //logger.info( `[connection count]: ${socket.remoteAddress} has ${activeConnections[socket.remoteAddress]} connections open` )
+      //logger.info( `[connection count] ${socket.remoteAddress} has ${activeConnections[socket.remoteAddress]} connections open` )
     }, activeConnectionsTimeout )
   });
 });
