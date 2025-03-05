@@ -575,7 +575,7 @@ app.get('*', (req, res) => {
     logger.info(`[listing]  ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
     const directoryContents = getDirectoryContents(relPath);
     if (directoryContents === null) {
-      logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: ${fullPath}`);
+      logger.warn(`[error]    ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: '${req_path}' -> ${fullPath}`);
       return res.status(404).send('404 - Not Found');
     }
 
@@ -686,7 +686,7 @@ app.get('*', (req, res) => {
         </html>
     `);
   } catch (error) {
-    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: ${fullPath}, ${error}`);
+    logger.warn(`[error]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: ${fullPath}, ${error}`);
     res.status(404).send('404 - Not Found');
   }
 });
