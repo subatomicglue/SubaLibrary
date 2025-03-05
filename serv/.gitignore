@@ -1,4 +1,8 @@
 logs
 node_modules
 passcode.json
+users.json
+*.crt
+*.csr
+*.key
 public/**

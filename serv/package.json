@@ -20,8 +20,9 @@
     "systemd-stop": "sudo systemctl stop soma-serv",
     "systemd-logs": "journalctl -u soma-serv",
     "expose-wifi": "echo \"open your wifi router app, and add to your port forwarding\"; echo \"\ninternal ip\"; ifconfig | grep inet | grep -v inet6; echo \"\npublic ip: $(curl -s ifconfig.me) (using ifconfig.me)\"; echo \"public ip: $(curl -s icanhazip.com) (using icanhazip.com)\";",
-    "help": "echo \"npm run ...\n  expose-wifi\n  systemd-install | systemd-uninstall | systemd-reinstall\n  systemd-status | systemd-logs\n  systemd-start | systemd-stop | systemd-restart\n  start | logs | stop | restart\"",
-    "audit2": "nsp audit-shrinkwrap; nsp audit-package"
+    "help": "echo \"npm run ...\n  certs\n  expose-wifi\n  systemd-install | systemd-uninstall | systemd-reinstall\n  systemd-status | systemd-logs\n  systemd-start | systemd-stop | systemd-restart\n  start | logs | stop | restart\"",
+    "audit2": "nsp audit-shrinkwrap; nsp audit-package",
+    "certs": "openssl genpkey -algorithm RSA -out private.key; openssl req -new -key private.key -out csr.csr; openssl x509 -req -in csr.csr -signkey private.key -out certificate.crt"
   },
   "author": "",
   "license": "ISC",

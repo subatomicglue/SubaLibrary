@@ -10,5 +10,10 @@
     "pptx", "xlsx", "txt", "md"
   ],
   "RATE_LIMIT_WINDOW_SECS": 60,
-  "RATE_LIMIT_WINDOW_MAX_REQUESTS": 10
+  "RATE_LIMIT_WINDOW_MAX_REQUESTS": 10,
+  "MAX_PATH_LENGTH": 4096,
+  "USE_HTTPS": true,
+  "HTTPS_CERT_CRT": "./certificate.crt",
+  "HTTPS_CERT_CSR": "./csr.csr",
+  "HTTPS_CERT_KEY": "./private.key"
 }

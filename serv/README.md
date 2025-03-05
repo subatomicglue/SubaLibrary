@@ -4,21 +4,45 @@ recommended for a small appliance like raspberry pi
 there's a simple passcode system, you can give to your friends
 
 # future features:
-- add an popular SSO logins + whitelist of emails to accept from this SSO
+- add some popular SSO logins (google, facebook, etc)
 - add AWS cognito auth
-- add https support (using nodejs/express)
 
 # contributing: please feel free to open pull request to contribute...
 - keep it simple, keep dependencies low.
 - keep 0 vulnerabilities with npm audit
+
+# HOWTO setup
+look at `soma-serv.json`, and edit settings there...
+
+generate development certs for https, and make sure those certs appear in `soma-serv.json`
+```
+> npm run certs
+```
+
+# HOWTO setup auth
+`passcode.json` (simple global passcode auth)
+```
+"my passcode"
+```
+
+`users.json` (simple user/pass auth)
+```
+{
+    "username1": "someBetterPasswordThanThis!!!1"
+}
+```
+
 
 # HOWTO get help
 ```
 > npm run help
 
 npm run ...
+  certs
   expose-wifi
-  systemd-setup | systemd-status | systemd-restart
+  systemd-install | systemd-uninstall | systemd-reinstall
+  systemd-status | systemd-logs
+  systemd-start | systemd-stop | systemd-restart
   start | logs | stop | restart
 ```
 
