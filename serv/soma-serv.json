@@ -15,5 +15,11 @@
   "USE_HTTPS": true,
   "HTTPS_CERT_CRT": "./certificate.crt",
   "HTTPS_CERT_CSR": "./csr.csr",
-  "HTTPS_CERT_KEY": "./private.key"
+  "HTTPS_CERT_KEY": "./private.key",
+  "ALLOW_DOTFILES": false,
+  "PATH_BLACKLIST": [
+    ".*\\.DS_Files",
+    ".*\\.bashrc"
+  ],
+  "VERBOSE": false
 }

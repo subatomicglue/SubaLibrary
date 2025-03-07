@@ -24,7 +24,9 @@ const {
   USE_HTTPS,
   HTTPS_CERT_CRT,
   HTTPS_CERT_CSR,
-  HTTPS_CERT_KEY
+  HTTPS_CERT_KEY,
+  ALLOW_DOTFILES,
+  VERBOSE
 } = require('./soma-serv.json')
 let USERS_WHITELIST;
 try {USERS_WHITELIST = require('./users.json')} catch(error) {console.log( "INFO: you may define users.json with { 'username': 'pass' } format" )}
@@ -266,32 +268,56 @@ function userLogDisplay(req_user, req_ip) {
 
 // for use by sanitize() only...
 function ___filterInvalidPaths( p ) {
-  return path.normalize( p )
+  let result = path.normalize( p )
   .replace(/\0/g, '')                  // Remove any null bytes to prevent poison null byte attacks
+  .replace( /\/\.+$/, '' )             // no trailing /. /.. /... etc.
   .replace( /^\//g, '' )               // no "/*"
   .replace( /\.\.?\.?\//g, '' )        // no ../ or .../ or ./
-  .replace( /\/\.\.?\.?/g, '' )        // no /.. or /... or /.      (right, no dot files)
-  .replace( /^\./g, '' )               // no ".*"
+  .replace( /\/\.\.+/g, '/' )          // no /.. or /... or beyond  
   .replace( /\/\.$/g, '' )             // no "*/."
   .replace( /^\.\./g, '' )             // no "..*"
   .replace( /\/\.\.$/g, '' )           // no "*/.."
   .replace( /^\.+$/g, '' )             // no ".." or ".." or "..."
   .replace( /^\/$/, '' )               // no "/"
+
+  if (ALLOW_DOTFILES != true)
+    result = result.replace( /(^|\/)\.([^\/]+).*/, '' )       // (no dot files)
+  return result;
 }
 
 // auto tests:
 function test_filterInvalidPaths( p, expected_result ) {
   let pp = ___filterInvalidPaths( p );
-  logger.info(`[auto test] : '${p}' -> '${pp}'`);
-  if (expected_result != pp)
+  if (expected_result != pp) {
+    logger.error(`[auto test] : '${p}' -> '${pp}' (expected ${expected_result})`);
     throw `unexpected result in test_filterInvalidPaths ${p} != ${pp}`
+  }
 }
+test_filterInvalidPaths( ".", "" )
 test_filterInvalidPaths( "..", "" )
+test_filterInvalidPaths( "...", "" )
 test_filterInvalidPaths( "../", "" )
+test_filterInvalidPaths( "./", "" )
+test_filterInvalidPaths( "../", "" )
+test_filterInvalidPaths( ".../", "" )
+test_filterInvalidPaths( "bok/.", "bok" )
 test_filterInvalidPaths( "bok/..", "" )
+test_filterInvalidPaths( "bok/...", "bok" )
+test_filterInvalidPaths( "bok/.././", "" )
 test_filterInvalidPaths( "bok/../../", "" )
+test_filterInvalidPaths( "bok/../.../", "" )
+test_filterInvalidPaths( "/.", "" )
+test_filterInvalidPaths( "/..", "" )
+test_filterInvalidPaths( "/...", "" )
 test_filterInvalidPaths( "/../../", "" )
 test_filterInvalidPaths( "my/file/is/so/amazing/../../.../file..ext", "my/file/is/file..ext" )
+if (ALLOW_DOTFILES != true) {
+  test_filterInvalidPaths( "bok/.dotdir/otherdir", "bok" )
+  test_filterInvalidPaths( "bok/.dotfile", "bok" )
+} else {
+  test_filterInvalidPaths( "bok/.dotdir/otherdir", "bok/.dotdir/otherdir" )
+  test_filterInvalidPaths( "bok/.dotfile", "bok/.dotfile" )
+}
 
 // Function to sanitize and securely resolve paths.  Does NOT check if file exists
 function sanitize( baseDir, rel_path, options = {forceTypeAllowed: false} ) {
@@ -321,9 +347,10 @@ function sanitize( baseDir, rel_path, options = {forceTypeAllowed: false} ) {
 
 function test_sanitize( p, expected_result ) {
   let pp = sanitize( PUBLIC_DIR, p ).relPath;
-  logger.info(`[auto test] : '${p}' -> '${pp}'`);
-  if (expected_result != pp)
-    throw `unexpected result in test_sanitize ${p} != ${pp}`
+  if (expected_result != pp) {
+    logger.error(`[auto test] : '${p}' -> '${pp}'`);
+    throw `unexpected result in test_sanitize ${p} != ${pp} (expected: ${expected_result})`
+  }
 }
 test_sanitize( "", "" )
 test_sanitize( "/", "" )
@@ -335,7 +362,18 @@ test_sanitize( "../../../../../etc", "etc" )
 test_sanitize( "../../../../../etc/../../../..", "" )
 test_sanitize( "../../../../../etc/../../../../", "" )
 test_sanitize( "etc/../../../..", "" )
-
+test_sanitize( "my/path/to/dotfile", "my/path/to/dotfile" )
+if (ALLOW_DOTFILES != true) {
+  test_sanitize( ".dotfile", "" )
+  test_sanitize( ".dotdir/", "" )
+  test_sanitize( "my/path/to/.dotfile", "my/path/to" )
+  test_sanitize( "my/path/to/.dotdir/otherdir", "my/path/to" )
+} else {
+  test_sanitize( ".dotfile", ".dotfile" )
+  test_sanitize( ".dotdir/", ".dotdir" )
+  test_sanitize( "my/path/to/.dotfile", "my/path/to/.dotfile" )
+  test_sanitize( "my/path/to/.dotdir/otherdir", "my/path/to/.dotdir/otherdir" )
+}
 
 // Function to get directory contents
 function getDirectoryContents( rel_dir ) {
@@ -359,7 +397,14 @@ function getDirectoryContents( rel_dir ) {
           ext: s.ext
         }
       })
-      .filter(item => item.isDirectory || ALLOWED_EXTENSIONS.has(item.ext))  // Only show allowed files
+      .filter(item => {
+        let is_sane = sanitize( fullPath, item.name ).relPath == item.name; // fullPath is sane already, but, the item.name may NOT be sane
+        let is_sane_and_dir_or_goodtype = is_sane && (item.isDirectory || ALLOWED_EXTENSIONS.has(item.ext))
+        if (!is_sane) {
+          VERBOSE && logger.warn(`[listing] SKIPPING: Not an allowed path, sanitized: ${relPath}/${item.name} != ${sanitize( fullPath, item.name ).relPath}`);
+        }
+        return is_sane_and_dir_or_goodtype;
+      })  // Only show allowed files
       .sort((a, b) => (a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1));  // Sort directories first
   } catch (error) {
     logger.warn(`[error] : Error reading '${rel_dir}' -> ${error}`);
@@ -654,7 +699,7 @@ app.get('*', (req, res) => {
             <div id="page-title" style="max-width: 100%; width:100%; background:#333; color: #fff; margin: 0;">
               <div class="heading-container" style="">
                 <div class="heading-backbutton">
-                  <a href="/${relPath.split('/').slice(0, -1).join('/')}"><img style="margin-left: -5px; visibility:${relPath == '' ? "hidden" : "visible"}" src="${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"></a>
+                  <a href="/${relPath.split('/').slice(0, -1).join('/')}"><img style="margin-left: -5px; visibility:${relPath == '' ? "hidden" : "visible"}" src="${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg">&nbsp;&nbsp;</a>
                 </div><div class="heading-left">
                   <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
                         - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
