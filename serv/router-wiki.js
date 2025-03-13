@@ -1,10 +1,7 @@
-
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const router = express.Router();
-
-const WIKI_DIR = path.join(__dirname, "wiki"); // Base directory for wiki storage
 
 const {
   TITLE,
@@ -31,6 +28,7 @@ const {
 
 
 let logger;
+const WIKI_DIR = path.join(__dirname, "wiki"); // Base directory for wiki storage
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {
@@ -38,15 +36,77 @@ if (!fs.existsSync(WIKI_DIR)) {
 }
 
 // Basic Markdown to HTML conversion using regex
-function markdownToHtml(markdown) {
+function markdownToHtml(markdown, basepath) {
   return markdown
       .replace(/^# (.*$)/gim, "<h1>$1</h1>") // # Header
       .replace(/^## (.*$)/gim, "<h2>$1</h2>") // ## Sub-header
       .replace(/\*\*(.*?)\*\*/gim, "<b>$1</b>") // **bold**
       .replace(/\*(.*?)\*/gim, "<i>$1</i>") // *italic*
       .replace(/`(.*?)`/gim, "<code>$1</code>") // `code`
-      .replace(/\n/g, "<br>"); // New lines to <br>
+      .replace(/\n/g, "<br>") // New lines to <br>
+      .replace(/\[([^\]]+)\]\(([^\]]+)\)/g, `<a href="${basepath}/view/$2">$1</a>`) // link
 }
+
+function wrapWithFrame(content, topic) {
+  return `
+    <html>
+      <head>
+        <title>Wiki - ${topic}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+          }
+          header {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+          }
+          main {
+            flex: 1;
+            padding: 20px;
+            background-color: white;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+          }
+          footer {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+          }
+          footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+          }
+          footer a:hover {
+            text-decoration: underline;
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>Wiki: ${topic}</h1>
+        </header>
+        <main>
+          ${content}
+        </main>
+        <footer>
+          <p><a href="/wiki/edit?topic=${topic}">Click here to edit this page</a></p>
+        </footer>
+      </body>
+    </html>
+  `;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // endpoints
@@ -57,8 +117,7 @@ router.use((req, res, next) => {
   const req_path = decodeURIComponent( req.path )
   logger.warn(`[guard] : ${req_path} - TODO set up the guards!`);
 
-  // wiki doesn't want these blocks...
-  // todo: set this section up.
+  // wiki under development... todo: set this section up.
   next();
   return
 
@@ -93,23 +152,26 @@ router.use((req, res, next) => {
 });
 
 // GET /wiki/view?topic=<TOPICNAME>&version=<VERSION>
-router.get("/view", (req, res) => {
-  const topic = req.query.topic;
-  const version = req.query.version ? `.${req.query.version}` : "";
+router.get("/view/:topicParam?/:versionParam?", (req, res) => {
+  const { topicParam, versionParam } = req.params; // Accessing the parameters directly from the path
+  logger.info(`[wiki] ${topicParam} ${versionParam}`);
+  const topic = topicParam ? `${topicParam}` : "index";   // Default to index if no topic provided
+  const version = versionParam ? `.${versionParam}` : ""; // Default to empty string if no version provided
   
   logger.info(`[wiki] ${topic} ${version}`);
-  if (!topic) {
-    return res.status(400).send("Missing topic name.");
-  }
 
   const filePath = path.join(WIKI_DIR, `${topic}${version}.md`);
-
   if (!fs.existsSync(filePath)) {
-    return res.status(404).send("Topic not found.");
+    //return res.status(404).send("Topic not found.");
+    const editUrl = `${req.baseUrl}/edit?topic=${topic}`;
+    return res.send(`
+      <p>Topic "${topic}" not found.</p>
+      <p><a href="${editUrl}">Click here</a> to create or edit this topic.</p>
+    `);
   }
 
   const markdown = fs.readFileSync(filePath, "utf8");
-  const html = markdownToHtml(markdown);
+  const html = wrapWithFrame(markdownToHtml(markdown, req.baseUrl), topic);
   res.send(html);
 });
 
@@ -179,11 +241,20 @@ router.get("/edit", (req, res) => {
           .then(res => res.text())
           .then(html => document.getElementById("preview").innerHTML = html);
         }
+
         function saveWiki() {
           let markdown = document.getElementById("markdown").value;
-          fetch("/wiki", { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ topic: "${topic}", content: markdown }) })
+          fetch("/wiki", { 
+            method: "PUT", 
+            headers: {"Content-Type": "application/json"}, 
+            body: JSON.stringify({ topic: "${topic}", content: markdown }) 
+          })
           .then(res => res.json())
-          .then(data => alert("Saved! Version: " + data.version));
+          .then(data => {
+            alert("Saved! Version: " + data.version);
+            // Redirect to the view page for the updated topic
+            window.location.href = "/wiki/view/${topic}";
+          });
         }
       </script>
     </head>
