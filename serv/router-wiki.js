@@ -24,11 +24,11 @@ const {
   PORT,
   ASSETS_MAGIC,
   isPM2,
+  WIKI_DIR,
 } = require('./settings');
 
 
 let logger;
-const WIKI_DIR = path.join(__dirname, "wiki"); // Base directory for wiki storage
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {

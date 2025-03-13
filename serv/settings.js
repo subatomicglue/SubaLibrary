@@ -22,6 +22,7 @@ module.exports = {
   ASSETS_MAGIC: "____aSsEtS____", // Magic URL key for pulling assets
   isPM2: process.env.pm_id !== undefined,
   MAX_PATH_LENGTH: config.MAX_PATH_LENGTH || 4096, // Default if not in config
+  WIKI_DIR: path.resolve( config.WIKI_DIR ),
 
   // few extras we want in our settings
   USERS_WHITELIST,

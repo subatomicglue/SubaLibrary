@@ -106,7 +106,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
   const ip = req.ip;
 
   // passcode auth
-  if (req.body.passcode) {
+  if (req.body.passcode && req.body.passcode <= 4096) {
     const passcode = req.body.passcode;
     if (passcode === SECRET_PASSCODE) {
       logger.info(`[login authorized] ${req.ip} -> Accepted Secret Passcode`);
@@ -118,7 +118,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
   }
 
   // user/pass auth
-  if (req.body.username && req.body.password) {
+  if (req.body.username && req.body.password && req.body.username <= 32 && req.body.password <= 4096) {
     const username = req.body.username;
     const password = req.body.password;
     logger.warn(`[login testing...] ${req.ip} -> Incorrect user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
