@@ -5,12 +5,13 @@
   "main": "soma-serv.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_PORT=3002 pm2 start soma-serv.js --watch --name soma-serv",
+    "start": "NODE_PORT=3002 pm2 start soma-serv.js --watch --ignore-watch 'public logs node_modules'  --name soma-serv",
     "logs": "pm2 logs soma-serv",
     "setup": "pm2 save; pm2 startup",
     "restart": "NODE_PORT=3002 pm2 restart soma-serv",
     "stop": "pm2 stop soma-serv",
     "reset": "pm2 stop soma-serv; rm -r ~/.pm2",
+    "delete": "pm2 delete soma-serv",
     "systemd-install": "sudo systemctl enable soma-serv; sudo systemctl start soma-serv; sudo systemctl daemon-reload; ",
     "systemd-remove": "sudo systemctl stop soma-serv; sudo systemctl disable soma-serv; sudo systemctl daemon-reload; ",
     "systemd-reinstall": "npm run systemd-remove; npm run systemd-install",
@@ -20,7 +21,7 @@
     "systemd-stop": "sudo systemctl stop soma-serv",
     "systemd-logs": "journalctl -u soma-serv",
     "expose-wifi": "echo \"open your wifi router app, and add to your port forwarding\"; echo \"\ninternal ip\"; ifconfig | grep inet | grep -v inet6; echo \"\npublic ip: $(curl -s ifconfig.me) (using ifconfig.me)\"; echo \"public ip: $(curl -s icanhazip.com) (using icanhazip.com)\";",
-    "help": "echo \"npm run ...\n  certs\n  expose-wifi\n  systemd-install | systemd-uninstall | systemd-reinstall\n  systemd-status | systemd-logs\n  systemd-start | systemd-stop | systemd-restart\n  start | logs | stop | restart\"",
+    "help": "echo \"npm run ...\n  certs\n  expose-wifi\n  systemd-install | systemd-uninstall | systemd-reinstall\n  systemd-status | systemd-logs\n  systemd-start | systemd-stop | systemd-restart\n  start | logs | stop | restart | delete\"",
     "audit2": "nsp audit-shrinkwrap; nsp audit-package",
     "certs": "openssl genpkey -algorithm RSA -out private.key; openssl req -new -key private.key -out csr.csr; openssl x509 -req -in csr.csr -signkey private.key -out certificate.crt"
   },
