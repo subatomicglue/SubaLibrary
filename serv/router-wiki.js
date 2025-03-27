@@ -219,7 +219,7 @@ router.get(`${edit_route}/:topic`, (req, res) => {
 
   logger.info(`[wiki] ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
-  res.send(`
+  res.send(template.data( `
     <html>
     <head>
       <title>Edit Wiki: ${topic}</title>
@@ -252,14 +252,8 @@ router.get(`${edit_route}/:topic`, (req, res) => {
         });
       </script>
       <style>
-      .markdown-table {
-          border-collapse: collapse; width: 100%;
-        }
-        .markdown-table tbody td, .markdown-table thead th {
-          border: 1px solid lightgrey;
-          padding: 0;
-        }
-          </style>
+        <%include "style.css"%>
+      </style>
     </head>
     <body>
       <h1>Edit Wiki: ${topic}</h1>
@@ -270,7 +264,8 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       <div id="preview"></div>
     </body>
     </html>
-  `);
+    `)
+  );
 });
 
 

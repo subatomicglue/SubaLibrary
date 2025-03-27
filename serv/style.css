@@ -1,0 +1,74 @@
+body { font-family: Arial, sans-serif; padding: 0;}
+ul { list-style-type: disc; }
+ol li { margin: 0px 0; display: list-item; white-space: nowrap; padding-left: 0em; padding-right: 1em;}
+ul li { margin: 5px 0; display: list-item; white-space: nowrap; padding-left: 1em; padding-right: 1em;}
+a { text-decoration: none; color: grey; }
+.scroll-parent {
+  overflow: hidden;
+}
+.scroll-child {
+  height: 100%;
+  overflow: scroll;
+}
+table, td {
+  padding:0;
+  margin:0;
+  vertical-align: top;
+}
+.heading-container {
+  display: flex;
+  padding: 1em;
+}
+.heading-backbutton {
+  text-align: center;
+  white-space: nowrap;
+}
+.heading-left {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.left-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  direction: rtl;
+}
+.wrapword {
+  white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
+  white-space: -webkit-pre-wrap;          /* Chrome & Safari */ 
+  white-space: -pre-wrap;                 /* Opera 4-6 */
+  white-space: -o-pre-wrap;               /* Opera 7 */
+  white-space: pre-wrap;                  /* CSS3 */
+  word-wrap: break-word;                  /* Internet Explorer 5.5+ */
+  word-break: break-all;
+  white-space: normal;
+}
+.heading-left-child {
+  height: 100%;
+  line-height: 2em;
+}
+.heading-right {
+  text-align: right;
+  white-space: nowrap;
+}
+.heading-left, .heading-backbutton, .heading-right {
+  flex-direction:column;
+  justify-content:space-around;
+  display:flex;
+}
+.markdown-table {
+  border-collapse: collapse; width: 100%;
+}
+.markdown-table tbody td, .markdown-table thead th {
+  border: 1px solid lightgrey;
+  padding: 0;
+}
+blockquote {
+  border-left: 4px solid #ccc;  /* Adds a left border */
+  padding-left: 1em;  /* Indents text */
+  margin: 0.5em 0;  /* Adds spacing */
+  color: #555;  /* Soft gray text color */
+  font-style: italic;
+}

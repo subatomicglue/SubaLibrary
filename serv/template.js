@@ -12,12 +12,16 @@ function data( d, vars = {} ) {
   });
   d = d.replace(/<%include\s+(["'`])([^"'`]+)\1\s*%>/g, (match, quotetype, filename) => {
     try {
-      if (!filename in cached_files)
+      if (!(filename in cached_files))
         cached_files[filename] = fs.readFileSync(filename, 'utf8')
+      if (cached_files[filename] == undefined) {
+        throw `File not found "${filename}", cwd:${process.cwd()} cached:${filename in cached_files}`
+      }
       let value = data( cached_files[filename], vars ); // recurse in case there's variables or other includes. 
-      logger.info(`[template] replacing: 'include ${filename}' -> '${value.substring(0, 32)}'`);
-      return ; // Read file contents
+      logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^(\s*\n)*/gm,'').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
+      return value; // Read file contents
     } catch (error) {
+      console.log( `Error: Could not include "${filename}"`, error )
       return `<!-- Error: Could not include "${filename}" -->`; // Handle missing files
     }
   });

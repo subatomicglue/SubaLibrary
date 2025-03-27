@@ -1,5 +1,7 @@
 
-// Basic Markdown to HTML conversion using regex
+// Basic Markdown to HTML conversion using regex, no dependencies,
+// Why not use "marked"? Some nice markup here that "marked" wasn't giving me, easy to customize... 
+// (happy to switch in the future, if someone can reach parity using marked...
 function markdownToHtml(markdown, baseUrl) {
   //return marked.parse( markdown );
 
@@ -16,7 +18,7 @@ function markdownToHtml(markdown, baseUrl) {
     .replace(/\[([^\]\n]+)\]\(([^\)\n]+)\)/g, (match, title, url) => {
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] link", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
-      return `<a href="${url.match( /^\// ) ? url : `${baseUrl}/${url}`}">${title}</a>` // [link](to url)
+      return `<a href="${url.match( /^(\/|http)/ ) ? url : `${baseUrl}/${url}`}">${title}</a>` // [link](to url)
     })
 
   // tables:
