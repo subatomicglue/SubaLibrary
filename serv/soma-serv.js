@@ -46,9 +46,13 @@ const transport = new winston.transports.DailyRotateFile({
 const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }), // Ensures stack traces are logged
-        winston.format.json()
+      winston.format.timestamp({
+        format: () => new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })
+      }),
+      //winston.format.timestamp(),
+      winston.format.errors({ stack: true }), // Ensures stack traces are logged
+      winston.format.json(),                                                // output json {"level":"info", "message":...., "timestamp":"3/18/2025, 10:46:13 AM"}
+      winston.format.printf(({ level, message, label, timestamp }) => `${(level+":").toUpperCase().padEnd(6, " ")} [${message}]` ),
     ),
     transports: [transport, new winston.transports.Console()],
     exceptionHandlers: [transport, new winston.transports.Console()],
@@ -235,7 +239,12 @@ app.use("/wiki", wikiMiddleware.router);
 // BROWSER
 const browserMiddleware = require("./router-browser");
 browserMiddleware.init( logger );
-app.use("/", browserMiddleware.router);
+app.use("/file", browserMiddleware.router);
+
+// DEFAULT
+app.use('/', (req, res, next) => {
+  res.redirect('/wiki');
+});
 
 // custom 404 for anything we forgot to cover in our routes.
 app.use((req, res, next) => {

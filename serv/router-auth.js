@@ -43,7 +43,7 @@ function failedLoginGuard(req, res, next) {
     // If user is locked out, check if the lockout time has expired
     if (Date.now() < attempt.nextTry) {
       const waitTime = Math.ceil((attempt.nextTry - Date.now()) / 1000);
-      logger.info(`[login locked out] ${req.ip} -> Too many failed attempts.  Try again in ${waitTime} seconds.`);
+      logger.info(`[login] locked out: ${req.ip} -> Too many failed attempts.  Try again in ${waitTime} seconds.`);
       return res.status(429).send(`Too many failed attempts. Try again in ${waitTime} seconds.  <a href="/">Try again</a>`);
     }
 
@@ -73,7 +73,7 @@ function authGuard(req, res, next) {
     }
   }
 
-  logger.info(`[login] ${req.ip} -> Please Enter Passcode for ${TITLE}`);
+  logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}`);
 
   // If passcode is incorrect/missing, show the login page
   res.send(`
@@ -106,29 +106,30 @@ router.post('/login', failedLoginGuard, (req, res) => {
   const ip = req.ip;
 
   // passcode auth
-  if (req.body.passcode && req.body.passcode <= 4096) {
+  if (req.body.passcode && req.body.passcode.length <= 4096) {
     const passcode = req.body.passcode;
+    VERBOSE && logger.warn(`[login] debug: ${req.ip} passcode:'${passcode}'`);
     if (passcode === SECRET_PASSCODE) {
-      logger.info(`[login authorized] ${req.ip} -> Accepted Secret Passcode`);
+      logger.info(`[login] authorized: ${req.ip} -> Accepted Secret Passcode`);
       res.cookie('passcode', passcode, { httpOnly: true });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }
-    logger.warn(`[login unauthorized] ${req.ip} -> Incorrect passcode '${passcode}'`);
+    logger.warn(`[login] unauthorized: ${req.ip} -> Incorrect passcode '${passcode}'`);
   }
 
   // user/pass auth
-  if (req.body.username && req.body.password && req.body.username <= 32 && req.body.password <= 4096) {
+  if (req.body.username && req.body.password && req.body.username.length <= 32 && req.body.password.length <= 4096) {
     const username = req.body.username;
     const password = req.body.password;
-    logger.warn(`[login testing...] ${req.ip} -> Incorrect user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
+    VERBOSE && logger.warn(`[login] debug: ${req.ip} -> user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
     if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
-      logger.info(`[login authorized] ${req.ip} -> Accepted User/Pass for '${username}'`);
+      logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}'`);
       res.cookie('userpass', JSON.stringify( { username, password } ), { httpOnly: true });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }
-    logger.warn(`[login unauthorized] ${req.ip} -> Incorrect user/pass '${username}' '${password}'`);
+    logger.warn(`[login] unauthorized: ${req.ip} -> Incorrect user/pass '${username}' '${password}'`);
   }
 
   // Track failed attempts and enforce increasing delay
@@ -139,7 +140,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
       loginAttempts[ip].nextTry = Date.now() + Math.min(60000, 5000 * loginAttempts[ip].count); // Increase timeout (max 60 sec)
   }
 
-  res.status(403).send(`Incorrect passcode. Too many attempts will result in a lockout.  <a href="/">Try again</a>`);
+  res.status(403).send(`[login] Incorrect passcode. Too many attempts will result in a lockout.  <a href="/">Try again</a>`);
 });
 
 // 🔒 Logout Route: Clears the cookie and redirects to login

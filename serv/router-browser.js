@@ -4,6 +4,9 @@ const os = require('os');
 const mime = require('mime-types');
 const express = require("express");
 const router = express.Router();
+const sanitizer = require('./sanitizer');
+const sanitize = sanitizer.sanitize;
+const template = require('./template');
 
 const {
   TITLE,
@@ -58,114 +61,6 @@ function userLogDisplay(req_user, req_ip) {
   return `[${req_user!=""?`${req_user}@`:""}${req_ip.replace(/^::ffff:/, '')}]`
 }
 
-// for use by sanitize() only...
-function ___filterInvalidPaths( p ) {
-  let result = path.normalize( p )
-  .replace(/\0/g, '')                  // Remove any null bytes to prevent poison null byte attacks
-  .replace( /\/\.+$/, '' )             // no trailing /. /.. /... etc.
-  .replace( /^\//g, '' )               // no "/*"
-  .replace( /\.\.?\.?\//g, '' )        // no ../ or .../ or ./
-  .replace( /\/\.\.+/g, '/' )          // no /.. or /... or beyond  
-  .replace( /\/\.$/g, '' )             // no "*/."
-  .replace( /^\.\./g, '' )             // no "..*"
-  .replace( /\/\.\.$/g, '' )           // no "*/.."
-  .replace( /^\.+$/g, '' )             // no ".." or ".." or "..."
-  .replace( /^\/$/, '' )               // no "/"
-
-  if (ALLOW_DOTFILES != true)
-    result = result.replace( /(^|\/)\.([^\/]+).*/, '' )       // (no dot files)
-  return result;
-}
-
-// auto tests:
-function test_filterInvalidPaths( p, expected_result ) {
-  let pp = ___filterInvalidPaths( p );
-  if (expected_result != pp) {
-    logger.error(`[auto test] : '${p}' -> '${pp}' (expected ${expected_result})`);
-    throw `unexpected result in test_filterInvalidPaths ${p} != ${pp}`
-  }
-}
-test_filterInvalidPaths( ".", "" )
-test_filterInvalidPaths( "..", "" )
-test_filterInvalidPaths( "...", "" )
-test_filterInvalidPaths( "../", "" )
-test_filterInvalidPaths( "./", "" )
-test_filterInvalidPaths( "../", "" )
-test_filterInvalidPaths( ".../", "" )
-test_filterInvalidPaths( "bok/.", "bok" )
-test_filterInvalidPaths( "bok/..", "" )
-test_filterInvalidPaths( "bok/...", "bok" )
-test_filterInvalidPaths( "bok/.././", "" )
-test_filterInvalidPaths( "bok/../../", "" )
-test_filterInvalidPaths( "bok/../.../", "" )
-test_filterInvalidPaths( "/.", "" )
-test_filterInvalidPaths( "/..", "" )
-test_filterInvalidPaths( "/...", "" )
-test_filterInvalidPaths( "/../../", "" )
-test_filterInvalidPaths( "my/file/is/so/amazing/../../.../file..ext", "my/file/is/file..ext" )
-if (ALLOW_DOTFILES != true) {
-  test_filterInvalidPaths( "bok/.dotdir/otherdir", "bok" )
-  test_filterInvalidPaths( "bok/.dotfile", "bok" )
-} else {
-  test_filterInvalidPaths( "bok/.dotdir/otherdir", "bok/.dotdir/otherdir" )
-  test_filterInvalidPaths( "bok/.dotfile", "bok/.dotfile" )
-}
-
-// Function to sanitize and securely resolve paths.  Does NOT check if file exists
-function sanitize( baseDir, rel_path, options = {forceTypeAllowed: false} ) {
-  try {
-    // Sanitize the path by removing any ".." segments, making sure it's relative under the base dir (no shenanigans from the requestor).
-    const relPath = path.relative( baseDir, path.join(baseDir, ___filterInvalidPaths( rel_path ) ) );
-    //logger.info(`[sanitize] : relPath: '${relPath}'`);
-    const fullPath = path.join( baseDir, relPath );
-    if (!fullPath.startsWith( baseDir )) {
-      // something unsafe is happening, abort.
-      logger.error(`[ERROR] : SHOULD NEVER HAPPEN: path goes outside of the public directory -> ${fullPath}`);
-      return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?", forceTypeAllowed: options.forceTypeAllowed == true }; // Return null if the path goes outside of the public directory
-    }
-    // if (!fs.existsSync( fullPath )) {
-    //   // it's ok, but it's file not found
-    //   return { relPath, fullPath, realPath: undefined };
-    // }
-    //const realPath = fs.realpathSync( fullPath );
-    let mimeType = mime.lookup(fullPath) || 'application/octet-stream'
-    let ext = path.extname(fullPath).substring(1).toLowerCase()
-    return { relPath, fullPath/*, realPath*/, mimeType, ext, forceTypeAllowed: options.forceTypeAllowed == true };
-  } catch (error) {
-    logger.error(`[ERROR] : ${baseDir}, ${rel_path} ${error}`);
-    return { relPath: "", fullPath: ""/*, realPath: undefined*/, mimeType: "application/octet-stream", ext: "?", forceTypeAllowed: options.forceTypeAllowed == true }; // Return null if the path goes outside of the public directory
-  }
-}
-
-function test_sanitize( p, expected_result ) {
-  let pp = sanitize( PUBLIC_DIR, p ).relPath;
-  if (expected_result != pp) {
-    logger.error(`[auto test] : '${p}' -> '${pp}'`);
-    throw `unexpected result in test_sanitize ${p} != ${pp} (expected: ${expected_result})`
-  }
-}
-test_sanitize( "", "" )
-test_sanitize( "/", "" )
-test_sanitize( "bok", "bok" )
-test_sanitize( "bok/bok", "bok/bok" )
-test_sanitize( "bok/../bok", "bok" )
-test_sanitize( "bok/../../../bok", "bok" )
-test_sanitize( "../../../../../etc", "etc" )
-test_sanitize( "../../../../../etc/../../../..", "" )
-test_sanitize( "../../../../../etc/../../../../", "" )
-test_sanitize( "etc/../../../..", "" )
-test_sanitize( "my/path/to/dotfile", "my/path/to/dotfile" )
-if (ALLOW_DOTFILES != true) {
-  test_sanitize( ".dotfile", "" )
-  test_sanitize( ".dotdir/", "" )
-  test_sanitize( "my/path/to/.dotfile", "my/path/to" )
-  test_sanitize( "my/path/to/.dotdir/otherdir", "my/path/to" )
-} else {
-  test_sanitize( ".dotfile", ".dotfile" )
-  test_sanitize( ".dotdir/", ".dotdir" )
-  test_sanitize( "my/path/to/.dotfile", "my/path/to/.dotfile" )
-  test_sanitize( "my/path/to/.dotdir/otherdir", "my/path/to/.dotdir/otherdir" )
-}
 
 // Function to get directory contents
 function getDirectoryContents( rel_dir ) {
@@ -303,111 +198,27 @@ router.get('*', (req, res) => {
     }
 
     // HTML response, render page DOM:
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${TITLE}</title>
-            <style>
-                body { font-family: Arial, sans-serif; }
-                ul { list-style-type: none; padding: 0; }
-                li { margin: 5px 0; display: block; white-space: nowrap; padding-left: 1em; padding-right: 1em;}
-                a { text-decoration: none; color: blue; }
-                .scroll-parent {
-                  overflow: hidden;
-                }
-                .scroll-child {
-                  height: 100%;
-                  overflow: scroll;
-                }
-                table, td {
-                  padding:0;
-                  margin:0;
-                  vertical-align: top;
-                }
-                .heading-container {
-                  display: flex;
-                  padding: 1em;
-                }
-                .heading-backbutton {
-                  text-align: center;
-                  white-space: nowrap;
-                }
-                .heading-left {
-                  flex: 1;
-                  min-width: 0;
-                  text-align: left;
-                }
-                .left-ellipsis {
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  display: block;
-                  direction: rtl;
-                }
-                .wrapword {
-                  white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
-                  white-space: -webkit-pre-wrap;          /* Chrome & Safari */ 
-                  white-space: -pre-wrap;                 /* Opera 4-6 */
-                  white-space: -o-pre-wrap;               /* Opera 7 */
-                  white-space: pre-wrap;                  /* CSS3 */
-                  word-wrap: break-word;                  /* Internet Explorer 5.5+ */
-                  word-break: break-all;
-                  white-space: normal;
-                }
-                .heading-left-child {
-                  height: 100%;
-                  line-height: 2em;
-                }
-                .heading-right {
-                  text-align: right;
-                  white-space: nowrap;
-                }
-                .heading-left, .heading-backbutton, .heading-right {
-                  flex-direction:column;
-                  justify-content:space-around;
-                  display:flex;
-                }
-          </style>
-        </head>
-        <body style="padding: 0; margin: 0;" >
-          <div id="page" style="max-width: 100%; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: 0; margin: 0;">
-            <div id="page-title" style="max-width: 100%; width:100%; background:#333; color: #fff; margin: 0;">
-              <div class="heading-container" style="">
-                <div class="heading-backbutton">
-                  <a href="/${relPath.split('/').slice(0, -1).join('/')}"><img style="margin-left: -5px; visibility:${relPath == '' ? "hidden" : "visible"}" src="${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg">&nbsp;&nbsp;</a>
-                </div><div class="heading-left">
-                  <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
-                        - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
-                        - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
-                        - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
-                  -->
-                  <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E/${relPath.replace( /\s/g, "&nbsp;" )}</span>
-                </div><div class="heading-right">
-                  &nbsp;${TITLE}<BR><a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;logout</a>
-                </div>
-              </div>
-            </div>
-            <div id="page-body" class="scroll-parent" style="flex-grow: 1; padding: 0; margin: 0">
-              <ul class="scroll-child" style="padding-top: 0; margin-top: 0.5em">
-                  <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
-                  ${directoryContents.map(item => `
-                      <li>
-                          ${item.isDirectory
-                              ? `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📁 ${item.name}</a>`
-                              : `<a href="/${encodeURIComponent( path.join( relPath, item.path ) )}">📄 ${item.name}</a> <a href="/${encodeURIComponent( path.join( relPath, item.path ) )}" download target="_blank">⬇️&nbsp;&nbsp;</a>`}
-                      </li>
-                  `).join('')}
-                  &nbsp;<BR>
-                  &nbsp;<BR>
-              </ul>
-            </div>
-          </div>
-        </body>
-        </html>
-    `);
+    res.send(template.file( "page.template.html", {
+      TITLE,
+      ASSETS_MAGIC,
+      BACKBUTTON_PATH: `${relPath == "" ? "" : req.baseUrl}/${relPath.split('/').slice(0, -1).join('/')}`,
+      BACKBUTTON_VISIBILITY: `${relPath == '' ? "hidden" : "visible"}`,
+      PAGE_TITLE: `/${relPath.replace( /\s/g, "&nbsp;" )}`,
+      USER: `${req.user}`,
+      BODY: `
+            <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
+            ${directoryContents.map(item => `
+                <li>
+                    ${item.isDirectory
+                        ? `<a href="${req.baseUrl}/${encodeURIComponent( path.join( relPath, item.path ) )}">📁 ${item.name}</a>`
+                        : `<a href="${req.baseUrl}/${encodeURIComponent( path.join( relPath, item.path ) )}">📄 ${item.name}</a> <a href="${req.baseUrl}/${encodeURIComponent( path.join( relPath, item.path ) )}" download target="_blank">⬇️&nbsp;&nbsp;</a>`}
+                </li>
+            `).join('')}
+            &nbsp;<BR>
+            &nbsp;<BR>
+      `
+    })
+  );
   } catch (error) {
     logger.warn(`[error]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: ${fullPath}, ${error}`);
     res.status(404).send('404 - Not Found');
@@ -417,6 +228,8 @@ router.get('*', (req, res) => {
 
 function init(l) {
   logger = l
+  template.init( l );
+  sanitizer.init( l, ALLOW_DOTFILES );
 }
 
 // Plug into Express

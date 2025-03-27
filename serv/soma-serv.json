@@ -7,7 +7,7 @@
   "ALLOWED_EXTENSIONS": [
     "mp4", "m4a", "jpeg", "jpg", "png",
     "gif", "webp", "mp3", "pdf", "docx",
-    "pptx", "xlsx", "txt", "md"
+    "pptx", "xlsx", "txt", "md", "mov", "mkv", "avi"
   ],
   "RATE_LIMIT_WINDOW_SECS": 60,
   "RATE_LIMIT_WINDOW_MAX_REQUESTS": 10,
@@ -21,6 +21,6 @@
     ".*\\.DS_Files",
     ".*\\.bashrc"
   ],
-  "VERBOSE": false,
+  "VERBOSE": true,
   "WIKI_DIR": "wiki"
 }
