@@ -6,3 +6,4 @@ users.json
 *.csr
 *.key
 public/**
+wiki/**
