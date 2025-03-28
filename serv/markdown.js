@@ -15,13 +15,17 @@ function markdownToHtml(markdown, baseUrl) {
     .replace(/\*([^*\n]+)\*/gm, "<i>$1</i>") // *italic*
     .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```
     .replace(/`([^`\n]+)`/gm, "<tt>$1</tt>") // `code`
+    // Convert images
+    .replace(/\!\[([^\]]+)\]\(([^\)\n]+)\)/g, (match, title, url) => {
+      const VERBOSE=false
+      VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
+      return `<img src="${url.match( /^(\/|http)/ ) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>` // [link](to url)
+    })
     .replace(/\[([^\]\n]+)\]\(([^\)\n]+)\)/g, (match, title, url) => {
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] link", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
       return `<a href="${url.match( /^(\/|http)/ ) ? url : `${baseUrl}/${url}`}">${title}</a>` // [link](to url)
     })
-    // Convert images
-    .replace(/!\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<img src="$2" alt="$1">');
 
   // tables:
   // | Header 1 | Header 2 | Header 3 |

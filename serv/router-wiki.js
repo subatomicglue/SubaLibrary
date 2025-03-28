@@ -254,7 +254,7 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       <style>
         <%include "style.css"%>
         body {
-          background-color: #333333;
+          background-color: #0D1116;
           color: #aaaaaa;
         }
         .fake-body {
@@ -301,22 +301,22 @@ router.get(`${edit_route}/:topic`, (req, res) => {
         }
 
         .button1 {
-          border: 1px solid #35883C;
-          background-color: #1F7729;
-          color: #F3F8F3;
+          border: 1px solid #3f944b;
+          background-color: #228736;
+          color: #ffffff;
           //color: #9A61F8;
         }
 
         .button1:hover {
-          border: 1px solid #45984C;
-          background-color: #1F7729;
-          color: #ffffff;
+          border: 1px solid #4fa45b;
+          background-color: #228736;
+          color: #F3F8F3;
         }
 
         .button1:disabled,
         .button1[disabled]{
-          border: 1px solid #35883C;
-          background-color: #1F7729;
+          border: 1px solid #3f944b;
+          background-color: #228736;
           //color: #F3F8F3;
           color: #8E96a0;
           //color: #9A61F8;
@@ -324,21 +324,21 @@ router.get(`${edit_route}/:topic`, (req, res) => {
 
         .button2 {
           border: 1px solid #7E8690;
-          background-color: #191E24;
+          background-color: #22282F;
           color: #F3F8F3;
           //color: #9A61F8;
         }
 
         .button2:hover {
           border: 1px solid #8E96a0;
-          background-color: #191E24;
+          background-color: #22282F;
           color: #FFFFFF;
         }
 
         .button2:disabled,
         .button2[disabled]{
           border: 1px solid #8E96a0;
-          background-color: #191E24;
+          background-color: #22282F;
           color: #8E96a0;
           //color: #9A61F8;
         }        
@@ -348,6 +348,9 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       <h1>Edit Wiki: ${topic}</h1>
       <textarea id="markdown" class="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown}</textarea>
       <div class="buttons-tray">
+      <!-- Upload button -->
+        <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
+        <button id="uploadBtn" class="button2" type="file" accept="image/*" >Upload</button>
         <button class="button2" onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
         <button class="button1" onclick="saveWiki()">Save</button><BR>
       </div>
@@ -355,6 +358,66 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       <div class="fake-body">
         <div id="preview"></div>
       </div>
+      <script>
+
+      const dropzone = document.getElementById("markdown");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const textarea = document.getElementById("markdown");
+      const uploadInput = document.getElementById("uploadInput");
+
+      uploadBtn.addEventListener("click", () => {
+        uploadInput.click();
+      });
+
+      // handle the file selection
+      uploadInput.addEventListener("change", handleFileSelect);
+
+      // Handle image file drop
+      dropzone.addEventListener("dragover", (event) => {
+          event.preventDefault(); // Prevent default behavior to allow drop
+      });
+
+      dropzone.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const file = event.dataTransfer.files[0]; // Get the first file
+          handleFileSelect({ target: { files: [file] } });
+      });
+
+      // Function to handle the file selection or drop
+      function handleFileSelect(event) {
+      console.log( "handleFileSelect" )
+          const file = event.target.files[0];
+          if (file && file.type.startsWith("image/")) {
+              const formData = new FormData();
+              formData.append("image", file);
+      console.log( "fetch" )
+
+              fetch("${req.baseUrl}/upload", {
+                  method: "POST",
+                  body: formData,
+              })
+              .then(response => response.json())
+              .then(data => {
+      console.log( "data.success", data.success )
+                  if (data.success) {
+                    setTimeout( () => {
+                      textarea.value += \`![an image](\${data.imageUrl})\`; // Set image URL into textarea
+                      setTimeout( () => {
+                        updatePreview()
+                      }, 400 )
+                    }, 400 )
+                  } else {
+                      alert("Failed to upload image.");
+                  }
+              })
+              .catch(error => {
+                  console.error("Error uploading file:", error);
+              });
+          } else {
+              alert("Please upload a valid image.");
+          }
+      }
+      </script>
     </body>
     </html>
     `)
@@ -393,6 +456,47 @@ router.post("/preview", express.json(), (req, res) => {
   }
   res.send(markdownToHtml(content, `${req.baseUrl}${view_route}`));
 });
+
+const multer = require("multer");
+
+// Set up multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+      // Make sure the 'uploads' directory exists
+      const uploadDir = path.join(__dirname, "wiki");
+      if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir);
+      }
+      cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+      // Use the original file name, or a unique one based on the current time
+      cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Static directory to serve uploaded files
+router.use('/uploads', (req, res, next) => {
+  logger.error(`[wiki] /uploadSSSS `);
+  let func = express.static(`${WIKI_DIR}`)
+  return func(req, res, next)
+});
+
+// Route to handle image upload
+router.post("/upload", upload.single("image"), (req, res) => {
+  logger.error(`[wiki] /upload `);
+  if (req.file) {
+    console.log( "/upload",req.file )
+    // Return the URL of the uploaded image
+      const imageUrl = `${req.baseUrl}/uploads/${req.file.filename}`;
+      res.json({ success: true, imageUrl: imageUrl });
+  } else {
+      res.status(400).json({ success: false, message: "No image uploaded." });
+  }
+});
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
