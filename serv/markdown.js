@@ -20,6 +20,8 @@ function markdownToHtml(markdown, baseUrl) {
       VERBOSE && console.log( "[markdown] link", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
       return `<a href="${url.match( /^(\/|http)/ ) ? url : `${baseUrl}/${url}`}">${title}</a>` // [link](to url)
     })
+    // Convert images
+    .replace(/!\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<img src="$2" alt="$1">');
 
   // tables:
   // | Header 1 | Header 2 | Header 3 |
@@ -137,6 +139,10 @@ function markdownToHtml(markdown, baseUrl) {
     }
     return result.trim();
   });
+
+
+  // Convert line breaks (two spaces at the end of a line)
+  //markdown = markdown.replace(/\n\s*\n/g, '<br>');
 
   return markdown
   .replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
