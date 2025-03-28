@@ -5,9 +5,9 @@ const config = require('./soma-serv.json');
 
 // optional settings
 let USERS_WHITELIST;
-try {USERS_WHITELIST = require('./users.json')} catch(error) {console.log( "INFO: you may define users.json with { 'username': 'pass' } format" )}
+try {USERS_WHITELIST = require('./users.json')} catch(error) {console.log( "INFO: you may define users.json with { \"username\": \"pass\" } format" )}
 let SECRET_PASSCODE;
-try {SECRET_PASSCODE = require('./passcode.json')} catch(error) {console.log( "INFO: you may define passcode.json with \"<your passcode here>\" format" )}
+try {SECRET_PASSCODE = require('./passcode.json')} catch(error) {USERS_WHITELIST || console.log( "INFO: you may define passcode.json with \"<your passcode here>\" format" )}
 
 // export settings
 module.exports = {
