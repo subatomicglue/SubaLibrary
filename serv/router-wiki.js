@@ -253,13 +253,98 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       </script>
       <style>
         <%include "style.css"%>
+        body {
+          background-color: #333333;
+          color: #aaaaaa
+        }
+        .markdown, .buttons-tray {
+          width: 90vw; 
+          max-width: 800px; 
+          margin: 20px auto; 
+          padding: 12px;
+        }
+        .buttons-tray {
+          padding-top:0;
+          margin-top:0;
+          text-align:right;
+        }
+        .markdown {
+          height: 66vh; /* Cover top 2/3 of the viewport */
+          max-height: 500px; /* Prevent it from becoming too tall */
+          display: block;
+          font-size: 16px;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+          box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+          resize: vertical; /* Allow resizing, but only vertically */
+          padding-bottom:0;
+          margin-bottom:0;
+        }
+
+        @media (max-width: 600px) {
+          .markdown {
+            width: 95vw; /* Slightly more width on small screens */
+            height: 60vh; /* Slightly shorter on mobile */
+            font-size: 14px; /* Make text more mobile-friendly */
+          }
+        }
+
+        .button1, .button2 {
+          padding: 0.75em 2em;
+          font-size: 1em;
+        }
+
+        .button1 {
+          border: 1px solid #35883C;
+          background-color: #1F7729;
+          color: #F3F8F3;
+          //color: #9A61F8;
+        }
+
+        .button1:hover {
+          border: 1px solid #45984C;
+          background-color: #1F7729;
+          color: #ffffff;
+        }
+
+        .button1:disabled,
+        .button1[disabled]{
+          border: 1px solid #35883C;
+          background-color: #1F7729;
+          //color: #F3F8F3;
+          color: #8E96a0;
+          //color: #9A61F8;
+        }
+
+        .button2 {
+          border: 1px solid #7E8690;
+          background-color: #191E24;
+          color: #F3F8F3;
+          //color: #9A61F8;
+        }
+
+        .button2:hover {
+          border: 1px solid #8E96a0;
+          background-color: #191E24;
+          color: #FFFFFF;
+        }
+
+        .button2:disabled,
+        .button2[disabled]{
+          border: 1px solid #8E96a0;
+          background-color: #191E24;
+          color: #8E96a0;
+          //color: #9A61F8;
+        }        
       </style>
     </head>
     <body>
       <h1>Edit Wiki: ${topic}</h1>
-      <textarea id="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown}</textarea>
-      <button onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
-      <button onclick="saveWiki()">Save</button>
+      <textarea id="markdown" class="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown}</textarea>
+      <div class="buttons-tray">
+        <button class="button2" onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
+        <button class="button1" onclick="saveWiki()">Save</button><BR>
+      </div>
       <h2>Preview:</h2>
       <div id="preview"></div>
     </body>
