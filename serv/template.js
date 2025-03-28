@@ -10,13 +10,12 @@ function data( d, vars = {} ) {
     logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
     return value;
   });
-  d = d.replace(/<%include\s+(["'`])([^"'`]+)\1\s*%>/g, (match, quotetype, filename) => {
+  d = d.replace(/([\t ]*)<%include\s+(["'`])([^"'`]+)\2\s*%>/g, (match, whitespace, quotetype, filename) => {
     try {
       if (!(filename in cached_files))
-        cached_files[filename] = fs.readFileSync(filename, 'utf8')
-      if (cached_files[filename] == undefined) {
+        cached_files[filename] = fs.readFileSync(filename, 'utf8').replace( /^/gm, whitespace )
+      if (cached_files[filename] == undefined)
         throw `File not found "${filename}", cwd:${process.cwd()} cached:${filename in cached_files}`
-      }
       let value = data( cached_files[filename], vars ); // recurse in case there's variables or other includes. 
       logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^(\s*\n)*/gm,'').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
       return value; // Read file contents
