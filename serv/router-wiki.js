@@ -255,7 +255,11 @@ router.get(`${edit_route}/:topic`, (req, res) => {
         <%include "style.css"%>
         body {
           background-color: #333333;
-          color: #aaaaaa
+          color: #aaaaaa;
+        }
+        .fake-body {
+          background-color: #ffffff;
+          color: #111111;
         }
         .markdown, .buttons-tray {
           width: 90vw; 
@@ -290,8 +294,10 @@ router.get(`${edit_route}/:topic`, (req, res) => {
         }
 
         .button1, .button2 {
-          padding: 0.75em 2em;
-          font-size: 1em;
+          padding: 0.40em 0.80em;
+          font-size: 1.4em;
+          font-weight: 600;
+          border-radius: 0.50em;
         }
 
         .button1 {
@@ -346,7 +352,9 @@ router.get(`${edit_route}/:topic`, (req, res) => {
         <button class="button1" onclick="saveWiki()">Save</button><BR>
       </div>
       <h2>Preview:</h2>
-      <div id="preview"></div>
+      <div class="fake-body">
+        <div id="preview"></div>
+      </div>
     </body>
     </html>
     `)
