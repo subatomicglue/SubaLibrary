@@ -72,7 +72,7 @@ function escapeRegex(str) {
 }
 
 function sanitizeTopic( topic ) {
-  return topic.replace( /[^\p{L}0-9 \-_]/ug, '' ).substring(0, 255)
+  return topic.replace( /[^\p{L}0-9 \-_]/ug, '' ).substring(0, 255) // << this is a whitelist, any chars NOT in this whitelist WILL be removed
 }
 
 function sanitizeInt( n ) {
@@ -135,11 +135,12 @@ router.get(`/`, (req, res) => {
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, (req, res) => {
+  logger.info(`[wiki] RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
   const { topic, version } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
     version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : "" // Default to empty string if no version provided
   };
-  logger.info(`[wiki] ${view_route}/${topic}/${version}`);
+  logger.info(`[wiki] ${view_route}/${topic}${version != "" ?`/${version}`:''}`);
 
   const filePath = sanitize( WIKI_DIR, `${topic}${version}.md`).fullPath
   if (filePath == "") {
@@ -147,7 +148,7 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
     return res.status(403).send(`Forbidden`);
   }
   if (!fs.existsSync(filePath)) {
-    logger.info(`[wiki] ${view_route}/${topic}/${version} NOT FOUND: ${topic}${version}.md`);
+    logger.info(`[wiki] ${view_route}/${topic}${version != "" ?`/${version}`:''} NOT FOUND: ${topic}${version}.md`);
     //return res.status(404).send("Topic not found.");
     const editUrl = `${req.baseUrl}${edit_route}/${topic}`;
     return res.send(`
@@ -570,7 +571,7 @@ function runTests() {
       throw `unexpected result in test_sanitizeTopic ${msg}`
     }
   }
-  test_sanitizeTopic( "Hello_World - 123!@#Γεια_σου-🌍", "Hello_World - 123Γεια_σου-" );
+  test_sanitizeTopic( "../Hello_World - 123!@#Γεια_σου-🌍", "Hello_World - 123Γεια_σου-" );
 }
 function init( l ) {
   logger = l;

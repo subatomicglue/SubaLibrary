@@ -25,7 +25,7 @@ const {
   isPM2,
 } = require('./settings');
 
-const public_routes = [ "^/wiki/view" ]
+const public_routes = [ "^/wiki/view", "^/wiki" ]
 const sec_to_ms = 1000;
 const sec_to_wait = 30;
 const wait_sec_max = 120;
