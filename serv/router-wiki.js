@@ -52,7 +52,8 @@ function wrapWithFrame(content, topic, req) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
-    BODY: `<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`
+    BODY: `<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    USER_LOGOUT: req.user == undefined ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
   })
 }
 
@@ -479,6 +480,7 @@ router.get(`${edit_route}/:topic`, (req, res) => {
     `, {
       SCROLL_CLASS: "scroll-child-wiki",
       WHITESPACE: "normal",
+      USER_LOGOUT: req.user == undefined ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
     })
   );
 });

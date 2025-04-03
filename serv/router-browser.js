@@ -207,6 +207,7 @@ router.get('*', (req, res) => {
       USER: `${req.user}`,
       SCROLL_CLASS: "scroll-child-browser",
       WHITESPACE: "nowrap",
+      USER_LOGOUT: req.user == undefined ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
       BODY: `
             <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
             ${directoryContents.map(item => `

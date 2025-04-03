@@ -25,6 +25,11 @@ const {
   isPM2,
 } = require('./settings');
 
+const public_routes = [ "^/wiki/view" ]
+const sec_to_ms = 1000;
+const sec_to_wait = 30;
+const wait_sec_max = 120;
+
 // Middleware to parse cookies and URL-encoded form data
 router.use(cookieParser());
 router.use(express.urlencoded({ extended: true })); // Needed to parse form submissions
@@ -35,17 +40,23 @@ function failedLoginGuard(req, res, next) {
     const ip = req.ip; // Get user's IP address
 
     if (!loginAttempts[ip]) {
-        loginAttempts[ip] = { count: 0, nextTry: Date.now() };
+        loginAttempts[ip] = { count: 0, nextTry: Date.now() }; // weak, now, because we dont know if their user/pass was wrong or not...
     }
 
     const attempt = loginAttempts[ip];
 
     // If user is locked out, check if the lockout time has expired
+    let waitTime = Math.ceil((attempt.nextTry - Date.now()) / sec_to_ms);
+    console.log( `[failedLoginGuard] now:${Date.now()} < nextTry:${attempt.nextTry} waittime:${waitTime}` )
     if (Date.now() < attempt.nextTry) {
-      const waitTime = Math.ceil((attempt.nextTry - Date.now()) / 1000);
-      logger.info(`[login] locked out: ${req.ip} -> Too many failed attempts.  Try again in ${waitTime} seconds.`);
+      loginAttempts[ip].count++;
+      loginAttempts[ip].nextTry = Date.now() + Math.min(wait_sec_max * sec_to_ms, sec_to_wait * sec_to_ms * loginAttempts[ip].count); // Increase timeout (max 60 sec)
+      // logger.info(`[failedLoginGuard] locked out: ${req.ip} -> Too many failed attempts ${loginAttempts[ip].count}.  Try again in ${waitTime} seconds.`);
       return res.status(429).send(`Too many failed attempts. Try again in ${waitTime} seconds.  <a href="/">Try again</a>`);
     }
+    //else {
+    //   logger.info(`[failedLoginGuard] ok to log in ip:${req.ip} -> count:${loginAttempts[ip].count}.  Try again in ${waitTime} seconds.`);
+    // }
 
     next(); // Allow the login attempt
 }
@@ -71,6 +82,14 @@ function authGuard(req, res, next) {
         return next(); // Passcode matches - Proceed to the next middleware
       }
     }
+  }
+
+  // is it public?
+  const req_path = decodeURIComponent( req.path )
+  const is_public = public_routes.filter( r => req_path.match( new RegExp( r ) ) != undefined ).length > 0;
+  if (is_public) {
+    console.log( "[authGuard] serving public path: ", req_path )
+    return next(); // Passcode matches - Proceed to the next middleware
   }
 
   logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}`);
@@ -134,10 +153,12 @@ router.post('/login', failedLoginGuard, (req, res) => {
 
   // Track failed attempts and enforce increasing delay
   if (!loginAttempts[ip]) {
-      loginAttempts[ip] = { count: 1, nextTry: Date.now() };
+    logger.warn( `[login] ip:${ip} count:1`)
+    loginAttempts[ip] = { count: 1, nextTry: Date.now() + sec_to_wait * sec_to_ms };
   } else {
       loginAttempts[ip].count++;
-      loginAttempts[ip].nextTry = Date.now() + Math.min(60000, 5000 * loginAttempts[ip].count); // Increase timeout (max 60 sec)
+      logger.warn( `[login] ip:${ip} count:${loginAttempts[ip].count}`)
+      loginAttempts[ip].nextTry = Date.now() + Math.min(wait_sec_max * sec_to_ms, sec_to_wait * sec_to_ms * loginAttempts[ip].count); // Increase timeout (max 60 sec)
   }
 
   res.status(403).send(`[login] Incorrect passcode. Too many attempts will result in a lockout.  <a href="/">Try again</a>`);

@@ -5,7 +5,7 @@ let cached_files = {} // key is the filename
 let logger;
 
 function data( d, vars = {} ) {
-  d = d.replace(/<%=\s*([^\s]+)\s*%>/g, (match, key) => {
+  d = d.replace(/<%=\s*([^\s%>]+)\s*%>/g, (match, key) => {
     let value = key in vars ? vars[key] : `!!! ${key} not set !!!`;
     logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
     return value;
