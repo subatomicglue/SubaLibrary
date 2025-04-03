@@ -17,7 +17,7 @@ function data( d, vars = {} ) {
       if (cached_files[filename] == undefined)
         throw `File not found "${filename}", cwd:${process.cwd()} cached:${filename in cached_files}`
       let value = data( cached_files[filename], vars ); // recurse in case there's variables or other includes. 
-      logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^\s+/m, '').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
+      logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^[\n\s]+/m, '').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
       return value; // Read file contents
     } catch (error) {
       console.log( `Error: Could not include "${filename}"`, error )

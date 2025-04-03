@@ -50,6 +50,8 @@ function wrapWithFrame(content, topic, req) {
     BACKBUTTON_VISIBILITY: `hidden`,
     PAGE_TITLE: `<a href="${req.baseUrl}">/</a>${topic} ${req.user ? `(<a href="${req.baseUrl}${edit_route}/${topic}">edit</a>)`:``}`,
     USER: `${req.user}`,
+    SCROLL_CLASS: "scroll-child-wiki",
+    WHITESPACE: "normal",
     BODY: `<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`
   })
 }
@@ -124,7 +126,7 @@ router.use((req, res, next) => {
   next();
 });
 
-// default (redirect to "view")
+// DEFAULT (redirects to "view")
 router.get(`/`, (req, res) => {
   res.redirect(`${req.baseUrl}${view_route}`);  // Redirects to another route in the same app
 });
@@ -154,7 +156,14 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
   }
 
   const markdown = fs.readFileSync(filePath, "utf8");
-  const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`), topic, req);
+  const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
+    // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
+    link_relative_callback: (baseUrl, link_topic) => {
+      const topic = sanitizeTopic( decodeURIComponent( link_topic ) )
+      const filePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
+      return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${topic}` : `${req.baseUrl}${edit_route}/${topic}`
+    }
+  }), topic, req);
   res.send(html);
 });
 
@@ -240,15 +249,122 @@ router.get(`${edit_route}/:topic`, (req, res) => {
           })
           .then(res => res.json())
           .then(data => {
-            alert(\`Msg:'\${data.message}' Ver:'\${data.version}'\`);
-            // Redirect to the view page for the updated topic
-            window.location.href = "${req.baseUrl}${view_route}/${topic}";
+            //alert(\`Msg:'\${data.message}' Ver:'\${data.version}'\`);
+            document.getElementById("preview").innerHTML = \`<p>Msg:'\${data.message}' Ver:'\${data.version}'\`
+            setTimeout( ()=> {
+              // Redirect to the view page for the updated topic
+              window.location.href = "${req.baseUrl}${view_route}/${topic}";
+            }, 1500 );
           });
         }
 
         // Ensure updatePreview() runs once when the page loads
         document.addEventListener("DOMContentLoaded", () => {
           updatePreview();
+
+          const dropzone = document.getElementById("markdown");
+          const uploadBtn = document.getElementById("uploadBtn");
+          const textarea = document.getElementById("markdown");
+          const uploadInput = document.getElementById("uploadInput");
+
+          uploadBtn.addEventListener("click", () => {
+            uploadInput.click();
+          });
+
+          // handle the file selection
+          uploadInput.addEventListener("change", handleFileSelect);
+
+          // Handle image file drop
+          dropzone.addEventListener("dragover", (event) => {
+              event.preventDefault(); // Prevent default behavior to allow drop
+          });
+
+          dropzone.addEventListener("drop", (event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files[0]; // Get the first file
+              handleFileSelect({ target: { files: [file] } });
+          });
+
+          // Function to handle the file selection or drop
+          function handleFileSelect(event) {
+          console.log( "handleFileSelect" )
+              const file = event.target.files[0];
+              if (file && file.type.startsWith("image/")) {
+                  const formData = new FormData();
+                  formData.append("image", file);
+          console.log( "fetch" )
+
+                  fetch("${req.baseUrl}/upload", {
+                      method: "POST",
+                      body: formData,
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+          console.log( "data.success", data.success )
+                      if (data.success) {
+                        setTimeout( () => {
+                          textarea.value += \`![an image](\${data.imageUrl})\`; // Set image URL into textarea
+                          setTimeout( () => {
+                            updatePreview()
+                          }, 400 )
+                        }, 400 )
+                      } else {
+                          alert("Failed to upload image.");
+                      }
+                  })
+                  .catch(error => {
+                      console.error("Error uploading file:", error);
+                  });
+              } else {
+                  alert("Please upload a valid image.");
+              }
+          }
+
+          let module = { exports: {} }
+          <%include "markdown.js"%>
+
+          textarea.addEventListener("paste", function (event) {
+            event.preventDefault();
+
+            console.log( "paste" )
+
+            // Get clipboard data
+            const clipboardData = event.clipboardData || window.clipboardData;
+            const html = clipboardData.getData("text/html");
+            console.log( html ) // debugging, this is a way to get the raw HTML...
+            const plainText = clipboardData.getData("text/plain");
+
+            if (clipboardData.types.includes("text/html")) {
+              // Convert HTML to Markdown
+              const markdown = htmlToMarkdown(html);
+
+              // Insert Markdown into the textarea
+              const selectionStart = textarea.selectionStart;
+              const selectionEnd = textarea.selectionEnd;
+              const textBefore = textarea.value.substring(0, selectionStart);
+              const textAfter = textarea.value.substring(selectionEnd);
+              
+              textarea.value = textBefore + markdown + textAfter;
+              
+              // Move cursor after inserted text
+              textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+            } else if (clipboardData.types.includes("text/plain")) {
+              const markdown = plainText;
+
+              // Insert Markdown into the textarea
+              const selectionStart = textarea.selectionStart;
+              const selectionEnd = textarea.selectionEnd;
+              const textBefore = textarea.value.substring(0, selectionStart);
+              const textAfter = textarea.value.substring(selectionEnd);
+
+              textarea.value = textBefore + markdown + textAfter;
+              
+              // Move cursor after inserted text
+              textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+            } else {
+              console.log("Unsupported Clipboard type(s) pasted:", clipboardData.types);
+            }
+          });
         });
       </script>
       <style>
@@ -358,69 +474,12 @@ router.get(`${edit_route}/:topic`, (req, res) => {
       <div class="fake-body">
         <div id="preview"></div>
       </div>
-      <script>
-
-      const dropzone = document.getElementById("markdown");
-      const uploadBtn = document.getElementById("uploadBtn");
-      const textarea = document.getElementById("markdown");
-      const uploadInput = document.getElementById("uploadInput");
-
-      uploadBtn.addEventListener("click", () => {
-        uploadInput.click();
-      });
-
-      // handle the file selection
-      uploadInput.addEventListener("change", handleFileSelect);
-
-      // Handle image file drop
-      dropzone.addEventListener("dragover", (event) => {
-          event.preventDefault(); // Prevent default behavior to allow drop
-      });
-
-      dropzone.addEventListener("drop", (event) => {
-          event.preventDefault();
-          const file = event.dataTransfer.files[0]; // Get the first file
-          handleFileSelect({ target: { files: [file] } });
-      });
-
-      // Function to handle the file selection or drop
-      function handleFileSelect(event) {
-      console.log( "handleFileSelect" )
-          const file = event.target.files[0];
-          if (file && file.type.startsWith("image/")) {
-              const formData = new FormData();
-              formData.append("image", file);
-      console.log( "fetch" )
-
-              fetch("${req.baseUrl}/upload", {
-                  method: "POST",
-                  body: formData,
-              })
-              .then(response => response.json())
-              .then(data => {
-      console.log( "data.success", data.success )
-                  if (data.success) {
-                    setTimeout( () => {
-                      textarea.value += \`![an image](\${data.imageUrl})\`; // Set image URL into textarea
-                      setTimeout( () => {
-                        updatePreview()
-                      }, 400 )
-                    }, 400 )
-                  } else {
-                      alert("Failed to upload image.");
-                  }
-              })
-              .catch(error => {
-                  console.error("Error uploading file:", error);
-              });
-          } else {
-              alert("Please upload a valid image.");
-          }
-      }
-      </script>
     </body>
     </html>
-    `)
+    `, {
+      SCROLL_CLASS: "scroll-child-wiki",
+      WHITESPACE: "normal",
+    })
   );
 });
 

@@ -205,6 +205,8 @@ router.get('*', (req, res) => {
       BACKBUTTON_VISIBILITY: `${relPath == '' ? "hidden" : "visible"}`,
       PAGE_TITLE: `/${relPath.replace( /\s/g, "&nbsp;" )}`,
       USER: `${req.user}`,
+      SCROLL_CLASS: "scroll-child-browser",
+      WHITESPACE: "nowrap",
       BODY: `
             <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
             ${directoryContents.map(item => `

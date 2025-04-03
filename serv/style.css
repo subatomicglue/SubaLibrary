@@ -1,14 +1,19 @@
 body { font-family: Arial, sans-serif; padding: 0;}
 ul { list-style-type: disc; }
-ol li { margin: 0px 0; display: list-item; white-space: nowrap; padding-left: 0em; padding-right: 1em;}
-ul li { margin: 5px 0; display: list-item; white-space: nowrap; padding-left: 1em; padding-right: 1em;}
+ol li { margin: 0px 0; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0em; padding-right: 1em;}
+ul li { margin: 5px 0; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 1em; padding-right: 1em;}
 a { text-decoration: none; color: grey; }
 .scroll-parent {
   overflow: hidden;
 }
-.scroll-child {
+.scroll-child-browser {
   height: 100%;
   overflow: scroll;
+}
+.scroll-child-wiki {
+  height: 100%;
+  overflow-y: scroll; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Disable horizontal scrolling */
 }
 table, td {
   padding:0;
@@ -71,4 +76,10 @@ blockquote {
   margin: 0.5em 0;  /* Adds spacing */
   color: #555;  /* Soft gray text color */
   font-style: italic;
+}
+
+tt, pre {
+  background-color: #eeeeee;
+  color: #222222;
+  font-family: monospace, 'Courier New', Courier;
 }
