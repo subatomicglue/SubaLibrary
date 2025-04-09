@@ -36,6 +36,7 @@ router.get('/rss.xml', (req, res) => {
   </channel>
 </rss>`;
 
+    res.set('Cache-Control', 'no-store');
     res.set('Content-Type', 'application/rss+xml');
     res.send(rss);
   } catch (err) {
