@@ -5,9 +5,10 @@ let cached_files = {} // key is the filename
 let logger;
 
 function data( d, vars = {} ) {
+  const VERBOSE = false;
   d = d.replace(/<%=\s*([^\s%>]+)\s*%>/g, (match, key) => {
     let value = key in vars ? vars[key] : `!!! ${key} not set !!!`;
-    logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
+    VERBOSE && logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
     return value;
   });
   d = d.replace(/([\t ]*)<%include\s+(["'`])([^"'`]+)\2\s*%>/g, (match, whitespace, quotetype, filename) => {
@@ -17,7 +18,7 @@ function data( d, vars = {} ) {
       if (cached_files[filename] == undefined)
         throw `File not found "${filename}", cwd:${process.cwd()} cached:${filename in cached_files}`
       let value = data( cached_files[filename], vars ); // recurse in case there's variables or other includes. 
-      logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^[\n\s]+/m, '').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
+      VERBOSE && logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^[\n\s]+/m, '').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
       return value; // Read file contents
     } catch (error) {
       console.log( `Error: Could not include "${filename}"`, error )

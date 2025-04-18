@@ -1,0 +1,50 @@
+{
+  "TITLE": "SomaLibrary",
+  "AUTHOR": "<author>",
+  "COPYRIGHT": "Copyright (C) <year>-Present by <author>",
+  "SOCIAL_DESCRIPTION": "inside the library of Soma",
+  "SOCIAL_KEYWORDS": "soma library",
+  "SOCIAL_IMAGE": "library-large.jpg",
+  "HTTP_PORT_DEFAULT": 3000,
+  "HTTPS_PORT_DEFAULT": 443,
+  "ALLOWED_EXTENSIONS": [
+    "mp4", "m4a", "jpeg", "jpg", "png",
+    "gif", "webp", "mp3", "pdf", "docx",
+    "pptx", "xlsx", "txt", "md", "mov", "mkv", "avi"
+  ],
+  "RATE_LIMIT_WINDOW_SECS": 60,
+  "RATE_LIMIT_WINDOW_MAX_REQUESTS": 10,
+  "MAX_PATH_LENGTH": 4096,
+  "USE_HTTPS": false,
+  "ALLOW_DOTFILES": false,
+  "PATH_BLACKLIST": [
+    ".*\\.DS_Files",
+    ".*\\.bashrc"
+  ],
+  "WIKI_ENDPOINT": "wiki",
+  "FILE_ENDPOINT": "files",
+  "RSS_ENDPOINT": "rss",
+  "USER_ANON_DISPLAY": "guest",
+  "PUBLIC_DIR": "public",
+  "LOGS_DIR": "logs",
+  "ASSETS_DIR": "assets",
+  "WIKI_DIR": "wiki",
+  "TORRENT_DIR": "torrents",
+  "CERTS_DIR": "certs",
+  "CERT_CRT": "cert.pem",
+  "CERT_KEY": "privkey.pem",
+  "EMAIL": "happyuser@example.com",
+  "DOMAINS": [
+    "example.com",
+    "www.example.com",
+    "librarians.example.com"
+  ],
+  "HOSTED_ZONES": [
+    {
+      "HOSTED_ZONE_ID": "/hostedzone/Z0767......",
+      "RECORD_NAME": "example.com."
+    }
+  ],
+  "HOSTNAME_FOR_EDITS": "www",
+  "VERBOSE": true
+}

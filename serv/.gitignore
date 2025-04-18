@@ -1,4 +1,6 @@
-logs
+torrents/**
+certs/**
+logs/**
 node_modules
 passcode.json
 users.json
@@ -7,3 +9,9 @@ users.json
 *.key
 public/**
 wiki/**
+soma-serv.json
+assets/apple-touch-icon-precomposed.png
+assets/apple-touch-icon.png
+assets/favicons
+assets/favicon.ico
+

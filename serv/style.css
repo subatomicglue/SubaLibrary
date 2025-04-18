@@ -75,11 +75,58 @@ blockquote {
   padding-left: 1em;  /* Indents text */
   margin: 0.5em 0;  /* Adds spacing */
   color: #555;  /* Soft gray text color */
-  font-style: italic;
 }
 
 tt, pre {
   background-color: #eeeeee;
   color: #222222;
   font-family: monospace, 'Courier New', Courier;
+}
+
+h1 {
+  margin: 0;
+  padding: 0;
+  display: block;
+  font-size: 2em;
+  margin-block-start: 0.67em;
+  margin-block-end: 0.67em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
+  font-weight: bold;
+}
+h2 {
+  margin: 0;
+  padding: 0;
+  display: block;
+  font-size: 1.5em;
+  margin-block-start: 0.83em;
+  margin-block-end: 0.83em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
+  font-weight: bold;
+}
+
+h3, h4, h5, h6 {
+  margin: 0;
+  padding: 0;
+  display: block;
+  font-size: 1em;
+  margin-block-start: 0.83em;
+  margin-block-end: 0.83em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
+  font-weight: bold;
+}
+
+img {
+  max-width: 90%;
+  max-height: 40vh;
+}
+
+p {
+  display: block;
+  margin-block-start: 1em;
+  margin-block-end: 1em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
 }

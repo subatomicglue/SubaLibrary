@@ -10,7 +10,6 @@ const template = require('./template');
 
 const {
   TITLE,
-  PORT_DEFAULT,
   PUBLIC_DIR,
   LOGS_DIR,
   ASSETS_DIR,
@@ -19,16 +18,13 @@ const {
   RATE_LIMIT_WINDOW_MAX_REQUESTS,
   MAX_PATH_LENGTH,
   USE_HTTPS,
-  HTTPS_CERT_CRT,
-  HTTPS_CERT_CSR,
-  HTTPS_CERT_KEY,
   ALLOW_DOTFILES,
   VERBOSE,
   USERS_WHITELIST,
   SECRET_PASSCODE,
-  PORT,
   ASSETS_MAGIC,
   isPM2,
+  USER_ANON_DISPLAY,
 } = require('./settings');
 
 let logger; // init() sets this
@@ -147,26 +143,19 @@ router.use((req, res, next) => {
 // [browse] 1. Serve directory listing or 2. Serve Files, from under the PUBLIC_DIR (user input sanitized to ensure safety)
 router.get('*', (req, res) => {
   const req_path = decodeURIComponent( req.path )
-  logger.info(`[browse]   ${req_path}`);
-  
   const sanitized = sanitize( PUBLIC_DIR, req_path )
+  const { relPath, fullPath, mimeType, ext, forceTypeAllowed } = sanitized;
   let asset_match_result = undefined;
-
-  // get sanitized version of what's asked for:
-  // ensure path is under PUBLIC_DIR, no shenanigans with "..", etc.
-  const { relPath, fullPath, mimeType, ext, forceTypeAllowed } = 
-    sanitized.relPath.match( /^\/?favicon\.ico$/ ) ? sanitize( ASSETS_DIR, "favicon.ico", { forceTypeAllowed: true } ) :
-    ((asset_match_result = sanitized.relPath.match( new RegExp( `${ASSETS_MAGIC}(.*)$` ) )) && asset_match_result[1]) ? sanitize( ASSETS_DIR, asset_match_result[1], { forceTypeAllowed: true } ) :
-    sanitized;
   logger.info(`[browse]   ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
-  if (fullPath == "" || path.resolve(fullPath) != fullPath) {
-    logger.warn(`[error] ${userLogDisplay(req.user, req.ip)} -> 403 - Forbidden: ${fullPath}`);
-    return res.status(403).send('403 - Forbidden');
-  }
 
   try {
     // Check if the requested path exists
     fs.accessSync(fullPath);
+
+    // sanity on the sanity, one last guard.
+    if (fullPath == "" || path.resolve(fullPath) != fullPath) {
+      throw `unexpected ${fullPath}`
+    }  
 
     // if the path points at a file, serv that up:
     if (isFile( fullPath )) {
@@ -199,15 +188,18 @@ router.get('*', (req, res) => {
 
     // HTML response, render page DOM:
     res.send(template.file( "page.template.html", {
+      ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
       TITLE,
+      SOCIAL_TITLE: `${TITLE} - ${`/${relPath.replace( /\s/g, "&nbsp;" )}`}`,
       ASSETS_MAGIC,
       BACKBUTTON_PATH: `${relPath == "" ? "" : req.baseUrl}/${relPath.split('/').slice(0, -1).join('/')}`,
-      BACKBUTTON_VISIBILITY: `${relPath == '' ? "hidden" : "visible"}`,
+      BACKBUTTON_VISIBILITY: "visible", //`${relPath == '' ? "hidden" : "visible"}`,
+      BACKBUTTON_IMAGE: `/${ASSETS_MAGIC}/${relPath == '' ? "home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" : "arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"}`,
       PAGE_TITLE: `/${relPath.replace( /\s/g, "&nbsp;" )}`,
       USER: `${req.user}`,
       SCROLL_CLASS: "scroll-child-browser",
       WHITESPACE: "nowrap",
-      USER_LOGOUT: req.user == undefined ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
       BODY: `
             <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
             ${directoryContents.map(item => `
@@ -229,8 +221,9 @@ router.get('*', (req, res) => {
 });
 
 
-function init(l) {
+function init(l, browser_dir) {
   logger = l
+  BROWSER_DIRECTORY = browser_dir
   template.init( l );
   sanitizer.init( l, ALLOW_DOTFILES );
 }

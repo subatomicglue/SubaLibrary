@@ -14,51 +14,145 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   options = { ...options_defaults, ...options };
 
   function isYouTubeURL(url) {
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:&.*)?$/;
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
     const match = url.match(youtubeRegex);
     return match != undefined
   }
   function convertToYouTubeEmbed(url) {
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:&.*)?$/;
+    const VERBOSE = false;
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
     const match = url.match(youtubeRegex);
     if (match) {
       const videoId = match[1];
-      console.log( "videoID", videoId)
-      return `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      const startTime = match[2];
+      VERBOSE && console.log( "videoID", url, videoId, startTime, match.length)
+      let embed = `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}${startTime?`?start=${startTime}`:``}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      return embed
     }
     return url;
   }
-  
 
-  markdown = markdown
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')  // Must come first
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+  }
+  
+  
+  function transformCustomBlocks(markdown) {
+    return markdown.replace(
+      /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)\n([\s\S]*?\n)\1$/gm,
+      (_, fence, content) => {
+        console.log( `transformCustomBlocks "${content}"` )
+        function recurse(content) {
+          //return markdownToHtml(fence === '```' ? escapeHtml( content ) : content, baseUrl, options);
+          return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+        }
+        if (fence === '---' || fence === '+--') { // box with border color
+          const inner = recurse(content);
+          return `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '-+-') { // box: centered
+          const inner = recurse(content);
+          return `<div style="text-align: center; border: 1px solid #ccc; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '--+') { // box: right justified
+          const inner = recurse(content);
+          return `<div style="text-align: right; border: 1px solid #ccc; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '>>>') { // blockquote
+          const inner = recurse(content);
+          return `<blockquote style="border-left: 4px solid #888; margin: 1em 0; padding-left: 1em; color: #555;"><intentional newline>${inner}<intentional newline></blockquote>`;
+        } else if (fence === '}}}') { // invisible blockquote (indent)
+          const inner = recurse(content);
+          return `<blockquote style="border-left: 4px solid transparent; margin: 1em 0; padding-left: 1em; color: #555;"><intentional newline>${inner}<intentional newline></blockquote>`;
+        } else if (fence === '===' || fence === '+==') { // box with no border color
+          const inner = recurse(content);
+          return `<div style="padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '=+=') { // box: centered
+          const inner = recurse(content);
+          return `<div style="text-align: center; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '==+') { // box: right justified
+          const inner = recurse(content);
+          return `<div style="text-align: right; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
+        } else if (fence === '```') { // code box
+          const inner = escapeHtml( content );
+          return `<pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code>${inner/*.replace(/</g, '&lt;').replace(/>/g, '&gt;')*/.replace(/\n/g, '<intentional newline>')}</code></pre>`;
+        }
+      }
+    );
+  }
+
+  // nested lists
+  // * my bullet
+  //   1. my hindu numbered bullets
+  //     i. my roman numbered bullets
+  //     ii. my roman numbered bullets
+  //     iii. my roman numbered bullets
+  //       a. my english alphabet lowercase bullets
+  //         A. my english alphabet uppercase bullets
+  //           8. can begin at any 'number' in whatever numeric alphabet (except 'i')
+  //           3. but, subsequent ones will auto-number (ignores your typed number on the 2-n ones)
+  //             i. beginning with 'i' starts a roman numbered list, rather than "starting at 'i'" english alphabet list, sad but nessesary.
+  //   2. continuing from 1 above
+  function processBulletLists( markdown ) {
+    //console.log( `processBulletLists "${markdown}"` )
+    return markdown.replace( /((^ ( *)([-*+]|[0-9]{1,2}\.|[ivxlcdm]+\.|[IVXLCDM]+\.|[a-hj-z]{1,2}\.|[A-HJ-Z]{1,2}\.) +[^\n]+\n?)+)/gm, (markdown) => {
+      for (let depth = 6; depth >= 0; --depth) { // Depth levels
+        let indent = " ".repeat(depth * 2) + "?"; // Match increasing indentation levels
+  
+        // unordered lists (-, +, *)
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(( ${indent})([-+*]) .*(?:\\n\\2\\3 .*)*)`, "gim" ), (match, match2, indents, bullet) => {
+          return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, `<li>$1</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
+        })
+        // numbered lists (1., 2., 3., etc.)
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(( ${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*)*)`, "gim" ), (match, match2, indents, bullet) => {
+          // type="1"	The list items will be numbered with numbers (default)
+          // type="A"	The list items will be numbered with uppercase letters
+          // type="a"	The list items will be numbered with lowercase letters
+          // type="I"	The list items will be numbered with uppercase roman numbers
+          // type="i"	The list items will be numbered with lowercase roman numbers
+          let type = bullet.match(/^[0-9]{1,2}$/) ? "1" :
+                    bullet.match(/^i/) ? "i" : // roman numeral. detect the start of an <ol>, look for the first, just i, since it overlaps with a-z. we're limited to start with i. Also, HTML can't start with anything but i.
+                    bullet.match(/^I/) ? "I" : // roman numeral. detect the start of an <ol>, look for the first, just I, since it overlaps with a-z, we're limited to start with I. Also, HTML can't start with anything but I.
+                    bullet.match(/^[a-z]{1,2}$/) ? "a" :
+                    bullet.match(/^[A-Z]{1,2}$/) ? "A" :
+                    "1"
+          return `<ol type="${type}" start="${bullet}">` + match.replace( /^\s*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.\s+(.*?)$/gim, `<li>$2</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
+        })
+      }
+      //console.log( ` - processBulletLists returning "${markdown}"` )
+      return markdown;
+    })
+  }
+
+  // big structure comes first (theyll recurse inside)
+  markdown = transformCustomBlocks( processBulletLists( markdown ) )
     .replace(/^# ([^\n]*)$/gm, "<h1>$1</h1><intentional newline>") // # Header
     .replace(/^## ([^\n]*)$/gm, "<h2>$1</h2><intentional newline>") // ## Sub-header
     .replace(/^### ([^\n]*)$/gm, "<h3>$1</h3><intentional newline>") // ## Sub-header
     .replace(/^#### ([^\n]*)$/gm, "<h4>$1</h4><intentional newline>") // ## Sub-header
     .replace(/^##### ([^\n]*)$/gm, "<h5>$1</h5><intentional newline>") // ## Sub-header
-    .replace(/\*\*([^*\n]+)\*\*/gm, "<b>$1</b>") // **bold**
-    .replace(/\*([^*\n]+)\*/gm, "<i>$1</i>") // *italic*
-    .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```
-    .replace(/`([^`\n]*)`/gm, (match, codecontents) => { // `code`
-      return codecontents == "" ? "" : `<tt>${codecontents}</tt>`
+    .replace(/\*\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*/gm, "<b>$1</b>") // **bold**
+    .replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*/gm, "<i>$1</i>") // *italic*
+    // .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```
+    .replace(/`([^`\n]*)`/gm, (match, content) => { // `code`
+      const inner = escapeHtml(content)
+      return inner == "" ? "" : `<tt>${inner}</tt>`
     })
-    // Convert images
-    .replace(/\!\[([^\]]+)\]\(([^\)\n]+)\)/g, (match, title, url) => { // ![image title](image url)
+    .replace(/\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g, (match, title, url) => { // ![image title](image url)
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
-      return `<img src="${url.match( /^(\/|http)/ ) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>`
+      return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>`
     })
-    .replace(/\[([^\]\n]+)\]\(([^\)\n]+)\)/g, (match, title, url) => { // [title text](url)
+    .replace(/\[([^\[\]\n]+)\]\(([^\)\n]*)\)/g, (match, title, url) => { // [title text](url)
       const VERBOSE=false
       const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : options.link_relative_callback( baseUrl, url );
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url))
         return convertToYouTubeEmbed(url)
       else
-        return `<a href="${THEURL}">${title}</a>`
+        return THEURL == "" ? `${title}` : `<a href="${THEURL}">${title}</a>`
     })
-    // Convert naked URLs
-    .replace(/(?<=^|\s)https?:\/\/[^\s<]+[^\s<\.,;](?=\s|\n|$)/g, (url) => { 
+    .replace(/(?<=^|\s)https?:\/\/[^\s<]+[^\s<\.,;](?=\s|\n|$)/g, (url) => { // naked URLs:      https://www.google.com
       const VERBOSE = false;
       VERBOSE && console.log("[markdown] naked URL", url);
       if (isYouTubeURL(url))
@@ -66,6 +160,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       else
         return `<a href="${url}">${url}</a>`;
     })
+    .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
 
   // tables:
   // | Header 1 | Header 2 | Header 3 |
@@ -110,56 +205,22 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     return result
   })
 
-  // nested lists
-  // * my bullet
-  //   1. my hindu numbered bullets
-  //     i. my roman numbered bullets
-  //     ii. my roman numbered bullets
-  //     iii. my roman numbered bullets
-  //       a. my english alphabet lowercase bullets
-  //         A. my english alphabet uppercase bullets
-  //           8. can begin at any 'number' in whatever numeric alphabet (except 'i')
-  //           3. but, subsequent ones will auto-number (ignores your typed number on the 2-n ones)
-  //             i. beginning with 'i' starts a roman numbered list, rather than "starting at 'i'" english alphabet list, sad but nessesary.
-  //   2. continuing from 1 above
-  for (let depth = 6; depth >= 1; --depth) { // Depth levels
-    let indent = " ".repeat(depth * 2) + "?"; // Match increasing indentation levels
+  // blockquote >, >>, >>> (or }, }}, }}} for invisible)
+  markdown = markdown.replace(/(^([>}]+)[^\S\r\n]?.*?(?:\n[>}]+[^\S\r\n]?.*)*)(?=\n(?![^>}])|$)/gm, (match, fullBlock, marker) => {
+    const markerChar = marker[0]; // either '>' or '}'
 
-    // unordered lists (-, +, *)
-    markdown = markdown.replace( new RegExp( `(?:^|\\n)((${indent})([-+*]) .*(?:\\n\\2\\3 .*)*)`, "gim" ), (match, match2, indents, bullet) => {
-      return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, `<li>$1</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
-    })
-    // numbered lists (1., 2., 3., etc.)
-    markdown = markdown.replace( new RegExp( `(?:^|\\n)((${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*)*)`, "gim" ), (match, match2, indents, bullet) => {
-      // type="1"	The list items will be numbered with numbers (default)
-      // type="A"	The list items will be numbered with uppercase letters
-      // type="a"	The list items will be numbered with lowercase letters
-      // type="I"	The list items will be numbered with uppercase roman numbers
-      // type="i"	The list items will be numbered with lowercase roman numbers
-      let type = bullet.match(/^[0-9]{1,2}$/) ? "1" :
-                 bullet.match(/^i$/) ? "i" : // roman numeral. detect the start of an <ol>, look for the first, just i, since it overlaps with a-z. we're limited to start with i. Also, HTML can't start with anything but i.
-                 bullet.match(/^I$/) ? "I" : // roman numeral. detect the start of an <ol>, look for the first, just I, since it overlaps with a-z, we're limited to start with I. Also, HTML can't start with anything but I.
-                 bullet.match(/^[a-z]{1,2}$/) ? "a" :
-                 bullet.match(/^[A-Z]{1,2}$/) ? "A" :
-                 "1"
-      return `<ol type="${type}" start="${bullet}">` + match.replace( /^\s*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.\s+(.*?)$/gim, `<li>$2</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
-    })
-  }
-
-  // blockquote >, >>, >>>
-  markdown = markdown.replace(/(^>+[^\S\r\n]?.*?(?:\n>+[^\S\r\n]?.*)*)(?=\n[^>]|$)/gm, (match) => {
     // Map lines to { level, content }
     const lines = match.trim().split('\n').map(line => {
-        const level = line.match(/^>+/)[0].length; // Count number of '>'
-        const content = line.replace(/^>+\s?/, ''); // Remove '>' and space
-        return { level, content };
+      const level = line.match(new RegExp(`^[>}]+`))[0].length;
+      const content = line.replace(new RegExp(`^[>}]+\\s+`), '');
+      return { level, content };
     });
 
     // Combine consecutive lines of the same "level"
     const reducedLines = lines.reduce((acc, curr) => {
         const prev = acc[acc.length - 1];
         if (prev && prev.level === curr.level) {
-            prev.content += ' ' + curr.content; // Merge lines with same level
+            prev.content += '<BR>' + curr.content; // Merge lines with same level
         } else {
             acc.push(curr);
         }
@@ -175,8 +236,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
             stack.pop();
         }
         while (stack.length < level) {
-            result += '<blockquote>';
-            stack.push('<blockquote>');
+            result += `<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`;
+            stack.push(`<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`);
         }
         result += content + '\n';
     }
@@ -194,6 +255,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   .replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
   .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <BR>
   .replace(/\n/gm, "<br>\n") // New lines to <br>
+  .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
   .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
 }
 
@@ -266,6 +328,10 @@ function _htmlTreeToMarkdown(tree) {
   const indentLevelStart = 0;
   let indentLevel = indentLevelStart;
   let list_stats = []
+  let insideAHREF = 0;
+  let insideBold = 0;
+  let insideItalics = 0;
+  let insideUnderscore = 0;
 
   // Helper function to check for `font-weight > 400` in the `style` attribute
   function isBold(node) {
@@ -282,19 +348,36 @@ function _htmlTreeToMarkdown(tree) {
   function isColor(node) {
     if (node.attributes && node.attributes.style) {
       const colorMatch = node.attributes.style.match(/color:\s*(#[0-9a-fA-F]+)/);
-      if (colorMatch && colorMatch[1] && colorMatch[1] != "#000000") {
+      if (colorMatch && colorMatch[1] && colorMatch[1] != "#000000" && colorMatch[1] != "#212529" && colorMatch[1] != "#434343") {
         return colorMatch[1];
       }
     }
     return false;
   }
 
+  
   function isMonospace(node) {
     if (node.attributes && node.attributes.style) {
       return /font-family:[^:;]*monospace/.test(node.attributes.style) || /font-family:[^:;]*Courier/.test(node.attributes.style);
     }
     return false; // Default to false
   }
+
+  function isItalic(node) {
+    if (node.attributes && node.attributes.style) {
+      return /font-style:[^:;]*italic/.test(node.attributes.style);
+    }
+    return false; // Default to false
+  }
+
+  function isUnderscore(node) {
+    if (node.attributes && node.attributes.style) {
+      return /text-decoration:[^:;]*underline/.test(node.attributes.style);
+    }
+    return false; // Default to false
+  }
+
+  
 
   function isBulletlessList(node) {
     if (node.attributes && node.attributes.style) {
@@ -344,6 +427,21 @@ function _htmlTreeToMarkdown(tree) {
     return "-";
   }
 
+  // we like the greek letters to show in our urls...
+  const decodeURIGreekOnly = (str) => {
+    // Regex range: All Greek alphabetic characters (Ancient + Extended)
+    const greekAlphaRegex = /^[\u0370-\u0373\u0376-\u0377\u037A\u037B-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u038F\u0390\u0391-\u03A1\u03A3-\u03AB\u03AC-\u03CE\u03CF-\u03D7\u03D8-\u03EF\u03F0-\u03F5\u03F7-\u03FB\u03FC-\u03FF]+$/;
+    return str.replace(/(%[A-F0-9]{2})+/gi, (match) => {
+      try {
+        const decoded = decodeURIComponent(match);
+        return greekAlphaRegex.test(decoded) ? decoded : match;
+      } catch {
+        return match;
+      }
+    });
+  };
+  
+
   function convertNodeToMarkdown(node) {
     if (node.type === 'text') {
       //console.log( `TEXT:  "${node.content}"`)
@@ -354,6 +452,23 @@ function _htmlTreeToMarkdown(tree) {
     const isNodeBold = isBold(node);
     const isNodeMonospace = isMonospace(node);
     const isNodeColored = isColor(node)
+    const isNodeItalic = isItalic(node) // if the style info makes this node italic.
+    const isNodeUnderscore = isUnderscore(node) // if the style info makes this node italic.
+
+    function applyDecoration( content, options = {} ) {
+      const delimiters = (isNodeBold || options.isNodeBold) ? "**" : (isNodeItalic || options.isNodeItalic) ? "*" : (insideAHREF == 0 && (isNodeUnderscore || options.isNodeUnderscore)) ? "__" : ""
+      const applied_delimiters = (insideBold == 0 && insideItalics == 0 && insideUnderscore == 0) ? delimiters : ""
+      const c = content.replace(/^(\s*)/,`$1${applied_delimiters}`).replace(/(\s*)$/,`${applied_delimiters}$1`) // move the whitespace, delimiter must be butted up against the non-ws characters
+      //console.log( `c:'${c}'` )
+      return c
+    }
+
+    function sanitizeUrl( url ) {
+      return decodeURIGreekOnly( url.replace(/\(/g,'%28').replace(/\)/g,'%29') )
+    }
+    function sanitizeUrlTitle( url ) {
+      return url.replace(/\[/g,'%5B').replace(/\]/g,'%5D')
+    }
 
     // Handle specific HTML tags
     switch (node.tagName) {
@@ -375,12 +490,21 @@ function _htmlTreeToMarkdown(tree) {
           return `\`\`\`\n${content}\n\`\`\`\n\n`;
         }
         let levels = getIndents(node)
-        return `${'>'.repeat(levels)}${isNodeBold ? `**${content}**` : content}\n\n`;
+        return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}\n\n`;
       }
-      case 'strong':
-        return `**${node.children.map(convertNodeToMarkdown).join('')}**`;
-      case 'em':
-        return `*${node.children.map(convertNodeToMarkdown).join('')}*`;
+      case 'strong': {
+        insideBold++
+        const content = applyDecoration( node.children.map(convertNodeToMarkdown).join(''), {isNodeBold: true} );
+        insideBold--
+        return content;
+      }
+      case 'i':
+      case 'em': {
+        insideItalics++
+        const content = applyDecoration( node.children.map(convertNodeToMarkdown).join(''), {isNodeItalic: true} );
+        insideItalics--
+        return content;
+      }
       case 'blockquote': {
         indentLevel++; // Increase indentation level for nested blockquotes
         list_stats.push( {items:-1} )
@@ -388,7 +512,7 @@ function _htmlTreeToMarkdown(tree) {
         const blockquotePrefix = `${'>'.repeat(indentLevel)} `;
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the blockquote
-        return `${blockquotePrefix}${content}\n`;
+        return `${blockquotePrefix} ${content}\n`;
       }
       case 'ul': {
         indentLevel++; // Increase indentation level for nested lists
@@ -397,7 +521,7 @@ function _htmlTreeToMarkdown(tree) {
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the list
         if (isBulletlessList(node)) {
-          return `${'>'.repeat(indentLevel)}${content}\n`;
+          return `${'}'.repeat(indentLevel)}${content}\n`;
         } else {
           return content;
         }
@@ -414,13 +538,18 @@ function _htmlTreeToMarkdown(tree) {
         let content = node.children.map(convertNodeToMarkdown).join('')
         let bullet = convertListIndexToMarkdown(node, ++list_stats[list_stats.length-1].items )
         return `${' '.repeat(1 + (indentLevel-1)*2)}${bullet} ${content.replace(/\n+$/g, '').replace(/\n/g, '<br>')}\n`;
-      case 'a':
+      case 'a': {
+        insideAHREF++
         const href = node.attributes.href || '';
-        return `[${node.children.map(convertNodeToMarkdown).join('')}](${href})`;
+        const title = node.children.map(convertNodeToMarkdown).join('');
+        const content = `[${sanitizeUrlTitle( applyDecoration( title ) )}](${sanitizeUrl(href)})`;
+        insideAHREF--
+        return content;
+      }
       case 'img':
         const src = node.attributes.src || '';
-        const alt = node.attributes.alt || '';
-        return `![${alt}](${src})`;
+        const alt = node.attributes.title || node.attributes.alt || '';
+        return `![${sanitizeUrlTitle(applyDecoration( alt ))}](${sanitizeUrl(src)})`;
       case 'code':
         return `\`${node.children.map(convertNodeToMarkdown).join('')}\``;
       case 'pre':
@@ -441,15 +570,16 @@ function _htmlTreeToMarkdown(tree) {
       }
       case 'td': {
         const content = node.children.map(convertNodeToMarkdown).join('').trim();
-        return isNodeBold ? `**${content}**` : content; // Bold text if applicable
+        return applyDecoration( content );
       }
       case 'th': {
         const content = node.children.map(convertNodeToMarkdown).join('').trim();
-        return isNodeBold ? `**${content}**` : content; // Bold text if applicable
+        return applyDecoration( content );
       }
       case 'span': {
         let content = node.children.map(convertNodeToMarkdown).join('');
-        content = isNodeColored ? `<span style="color:${isNodeColored}">` + content + `</span>` : content
+        // google docs has links colored as #1155cc, so ignore link coloring when = to the default color of blue here.
+        content = (isNodeColored && (insideAHREF == 0 || isNodeColored != "#1155cc")) ? `<span style="color:${isNodeColored}">` + content + `</span>` : content
         if (isNodeMonospace) {
           // Convert to inline code
           // console.log( `before [${content.replace(/\n/g,"\\n")}]` );
@@ -458,13 +588,13 @@ function _htmlTreeToMarkdown(tree) {
           return content;
         }
         let levels = getIndents(node)
-        return `${'>'.repeat(levels)}${isNodeBold ? `**${content}**` : content}`;
+        return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}`;
       }
       default: {
         // Default fallback: Render children only
         let levels = getIndents(node)
         const content = node.children.map(convertNodeToMarkdown).join('');
-        return `${'>'.repeat(levels)}${isNodeBold ? `**${content}**` : content}`;
+        return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}`;
       }
     }
   }
@@ -474,14 +604,16 @@ function _htmlTreeToMarkdown(tree) {
 }
 
 function htmlToMarkdown( str ) {
+  if (str == "<p><br></p>") str = ""; // quill does this... filter out empty document produced by quill editor...
   const htmlTree = _parseHTMLToTree(str);
   let markdown_str = _htmlTreeToMarkdown( htmlTree );
   return markdown_str;
 }
 
 // HTML testing
-// let txt = `<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Believed. &nbsp; Proposed.&nbsp; Lazy language scholars.</span></p><br /><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">&ldquo;Israelian Hebrew (or IH) is a northern dialect of biblical Hebrew (BH) proposed as an explanation for various irregular linguistic features of the Masoretic Text (MT) of the Hebrew Bible. It competes with the alternative explanation that such features are Aramaisms, indicative either of late dates of composition or of editorial emendations. Although IH is not a new proposal, it only started gaining ground as a&rdquo;</span></p>`
+// let txt = ``
 // console.log( "htmlToMarkdown ===============" )
+// console.log( txt )
 // console.log( htmlToMarkdown( txt ) );
 // console.log( "htmlToMarkdown done===========" )
 // console.log( "htmlToMarkdown ===============" )
@@ -489,9 +621,7 @@ function htmlToMarkdown( str ) {
 // console.log( "htmlToMarkdown done===========" )
 
 // markdown testing
-// let txt = `# heading1
-// ## heading 2
-// body text
+// let txt = `
 // `
 // console.log( txt )
 // console.log( "htmlToMarkdown ===============" )

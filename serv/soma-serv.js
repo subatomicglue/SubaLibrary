@@ -4,10 +4,13 @@ const http = require('http');
 const https = require('https');
 const path = require('path');
 const fs = require('fs');
+const tls = require('tls');
 const pm2 = require('pm2');
 const os = require('os');
 const mime = require('mime-types');
 const rateLimit = require('express-rate-limit');
+//const sanitizer = require('./sanitizer');
+//const sanitize = sanitizer.sanitize;
 const winston = require('winston');
 require('winston-daily-rotate-file');
 const {
@@ -16,10 +19,14 @@ const {
   LOGS_DIR,
   isPM2,
   USE_HTTPS,
-  HTTPS_CERT_KEY,
-  HTTPS_CERT_CRT,
-  PORT,
-  TITLE
+  HTTP_PORT,
+  HTTPS_PORT,
+  TITLE,
+  ASSETS_DIR,
+  ASSETS_MAGIC,
+  WIKI_ENDPOINT,
+  FILE_ENDPOINT,
+  RSS_ENDPOINT,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -226,24 +233,58 @@ app.set('etag', false); // be more stealthy, plus, we want the latest sent when 
 // auth endpoints
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// populate some variables we'll use.
+app.use( (req, res, next) => {
+  req.canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  req.canonicalUrlRoot = `${req.protocol}://${req.get('host')}`;
+  req.canonicalUrlDomain = `${req.get('host')}`;
+
+  // also, these exist already, part of express:
+  // req.url         // "/hello/world?foo=bar"
+  // req.originalUrl // "/api/test"     (even when /path inside a sub router, mounted to /full, gives /full/path)
+  // req.baseUrl     // "/api"          (just the base folder in the path, no rest of path)
+  // req.path        // "/hello/world"  (no query string)
+  // req.hostname    // "example.com"
+  // req.get('host') // "example.com:3000"
+  // req.protocol    // http or https
+  next()
+})
+
 // AUTH
+const public_rootpath_file_whitelist = [ "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png" ]
+const public_rootpath_folder_whitelist = [ `/${WIKI_ENDPOINT}/view`, `/${WIKI_ENDPOINT}/preview`, `/${RSS_ENDPOINT}`, `/${WIKI_ENDPOINT}/uploads`, `/${ASSETS_MAGIC}` ]
+const public_routes = [ ...public_rootpath_file_whitelist.map( r => `^${r}` ), ...public_rootpath_folder_whitelist.map( r => `^${r}` ) ]
 const authMiddleware = require("./router-auth");
-authMiddleware.init( logger );
+authMiddleware.init( logger, public_routes );
 app.use("/", authMiddleware.router);
+
+// ROOT /favicon.ico (and friends) : expose certain assets onto root /
+const rootassetsMiddleware = require("./router-fileserv")( { logger, browser_dir: ASSETS_DIR, cache: true, allowed_exts: [ "ico", "png" ], filelist: public_rootpath_file_whitelist });
+app.use(`/`, rootassetsMiddleware.router);
+
+// FILESERV the ASSETS_DIR
+const staticassetsMiddleware = require("./router-fileserv")( {logger, browser_dir: ASSETS_DIR, cache: true, allowed_exts: [ "ico", "png", "svg", "jpg" ], filelist: "*" });
+app.use(`/${ASSETS_MAGIC}`, staticassetsMiddleware.router);
 
 // WIKI
 const wikiMiddleware = require("./router-wiki");
 wikiMiddleware.init( logger );
-app.use("/wiki", wikiMiddleware.router);
+app.use(`/${WIKI_ENDPOINT}`, wikiMiddleware.router);
 
 // BROWSER
 const browserMiddleware = require("./router-browser");
 browserMiddleware.init( logger );
-app.use("/file", browserMiddleware.router);
+app.use(`/${FILE_ENDPOINT}`, browserMiddleware.router);
+
+// torrent RSS
+const rssTorrentMiddleware = require("./router-rss-torrent");
+rssTorrentMiddleware.init( logger );
+app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
 // DEFAULT
 app.use('/', (req, res, next) => {
-  res.redirect('/wiki');
+  console.log( "default path!!!!!")
+  res.redirect(`/${WIKI_ENDPOINT}/view`);
 });
 
 // custom 404 for anything we forgot to cover in our routes.
@@ -257,31 +298,76 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!')
 })
 
-// Start server
-const server = USE_HTTPS ?
-  https.createServer({ key: fs.readFileSync(`${HTTPS_CERT_KEY}`), cert: fs.readFileSync(`${HTTPS_CERT_CRT}`)}, app) :
-  http.createServer(app);
 
-// track some connection stats
-server.on('connection', (socket) => {
-  //logger.info( `[connection open] ${socket.remoteAddress}` )
-  if (activeConnections[socket.remoteAddress] == undefined) activeConnections[socket.remoteAddress] = 0;
-  activeConnections[socket.remoteAddress]++;
-  socket.on('close', () => {
-    //logger.info( `[connection close] ${socket.remoteAddress}` )
-    setTimeout( () => {
-      activeConnections[socket.remoteAddress]--;
-      if (activeConnections[socket.remoteAddress] == 0) delete activeConnections[socket.remoteAddress];
-      //logger.info( `[connection count] ${socket.remoteAddress} has ${activeConnections[socket.remoteAddress]} connections open` )
-    }, activeConnectionsTimeout )
+// quick reload certs if they change...
+const CERT_DIR = path.join(__dirname, 'certs');
+const CERT_PATH = {
+  privkey: path.join(CERT_DIR, 'privkey.pem'),
+  cert: path.join(CERT_DIR, 'cert.pem')
+};
+
+// Function to load the cert files
+function loadCerts() {
+  return {
+    key: fs.readFileSync(CERT_PATH.privkey),
+    cert: fs.readFileSync(CERT_PATH.cert)
+  };
+}
+
+// Watch the certs directory for changes
+let currentCerts = loadCerts();
+fs.watch(CERT_DIR, { encoding: 'utf8' }, (eventType, filename) => {
+  if (filename === 'cert.pem' || filename === 'privkey.pem') {
+    console.log(`[SERVER] Certificate file changed: ${filename}. Reloading...`);
+    currentCerts = loadCerts();  // Update the certs on change
+  }
+});
+
+// Create HTTPS server with dynamic cert loading using SNICallback
+const options = {
+  SNICallback: (servername, cb) => {
+    // Dynamically load the certs when requested
+    const certs = currentCerts;
+    cb(null, tls.createSecureContext({
+      key: certs.key,
+      cert: certs.cert
+    }));
+  }
+};
+
+
+
+// Start server (pick https or http, https shouldn't have http because cert mgr runs on port 80)
+let servers = USE_HTTPS ? {} : { [HTTP_PORT]: http.createServer(app) };
+if (USE_HTTPS)
+  servers[HTTPS_PORT] = https.createServer(options, app)
+
+logger.info(`🚀 ==========================================================================================`);
+logger.info(`🚀 Starting ${TITLE}...`)
+logger.info(`🚀 ------------------------------------------------------------------------------------------`);
+for (let PORT of Object.keys( servers )) {
+  const server = servers[PORT]
+
+  // track some connection stats
+  server.on('connection', (socket) => {
+    //logger.info( `[connection open] ${socket.remoteAddress}` )
+    if (activeConnections[socket.remoteAddress] == undefined) activeConnections[socket.remoteAddress] = 0;
+    activeConnections[socket.remoteAddress]++;
+    socket.on('close', () => {
+      //logger.info( `[connection close] ${socket.remoteAddress}` )
+      setTimeout( () => {
+        activeConnections[socket.remoteAddress]--;
+        if (activeConnections[socket.remoteAddress] == 0) delete activeConnections[socket.remoteAddress];
+        //logger.info( `[connection count] ${socket.remoteAddress} has ${activeConnections[socket.remoteAddress]} connections open` )
+      }, activeConnectionsTimeout )
+    });
   });
-});
 
-server.listen(PORT, () => {
-  logger.info(`🚀 ==========================================================================================`);
-  logger.info(`🚀 Starting ${TITLE}...`)
-  logger.info(`🚀 Server running at http${USE_HTTPS ? "s" : ""}://localhost:${PORT}`)
-  reportPM2()
-  reportMemory()
-  logger.info(`🚀 ------------------------------------------------------------------------------------------`);
-});
+  server.listen(PORT, () => {
+    //logger.info(`🚀 ------------------------------------------------------------------------------------------`);
+    logger.info(`🚀 Server running at http${PORT != HTTP_PORT ? "s" : ""}://localhost:${PORT}`)
+    reportPM2()
+    reportMemory()
+    logger.info(`🚀 ------------------------------------------------------------------------------------------`);
+  });
+}

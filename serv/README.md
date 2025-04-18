@@ -12,47 +12,94 @@ there's a simple passcode system, you can give to your friends
 - keep 0 vulnerabilities with npm audit
 
 # HOWTO setup
-look at `soma-serv.json`, and edit settings there...
+create your config file
+```
+> cp .soma-serv.json soma-serv.json 
+```
+Later, once you have the app working, you can customize...
+
+Set up your app icon (you can use this if you have your own as well)
+```
+> cd assets && ./change_favicon_links.sh medea-close-transparent2.favicons
+```
 
 generate development certs for https, and make sure those certs appear in `soma-serv.json`
 ```
 > npm run certs
 ```
+outputs `certs/cert.pem` and `certs/privkey.pem`
+These are "self-signed" and you'll have to "accept" them in your browser.
+Read later about generating real signed certs with `lets-encrypt`
 
 # HOWTO setup auth
 `passcode.json` (simple global passcode auth)
 ```
-"my passcode"
+"someBetterPasscodeThanThis!!!1"
 ```
 
 `users.json` (simple user/pass auth)
 ```
 {
-    "username1": "someBetterPasswordThanThis!!!1"
+    "username1": "someBetterPasswordThanThis!!!1",
+    "username2": "someBetterPasswordThanThis!!!2",
+    "username3": "someBetterPasswordThanThis!!!3",
 }
 ```
 
+# HOWTO generate and maintain real signed certs - soma-certbot.js
+You can do this yourself, for example using `AWS certificate manager`
+
+For you do-it-yourselfers, there's `soma-certbot.js` which uses `LetsEncrypt` and the `acme-client`
+```
+> npm run start-certbot-dev
+```
+This starts the certbot under `pm2` (delete it with `pm2 delete soma-certbot-staging`)
+
+Use this until you get it working.
+Once working, then switch to `start-certbot`
+
+NOTE: This will read your `soma-serv.json` file's `HOSTEDZONES` and `DOMAINS`
+So make sure that any hostnames also appear in your DNS (AWS Route53, godaddy, etc.)
+
+## AWS Route53 - dynamic dns 
+For hosting on a computer with dynamic IP address,
+You can use the script `update_dns_aws.js` to update your IP address periodically.  It'll update your AWS Route53 HostedZone's A record to the new IP address.
+
+## AWS Route53 - create new hostnames
+Tired of `www.example.com` and rather have `fireworx.example.com`?
+
+You can use the script `update_host_aws.js` to add new hosts to your AWS Route53 HostedZone, like `www`, `fireworx` etc...  It'll update your AWS Route53 HostedZone's CNAME record to the new IP address.
+
+Purely a convenience, you can also do this in your DNS console by hand.
 
 # HOWTO get help
 ```
 > npm run help
 
 npm run ...
-  certs
+  certs (self-signed)
+  start-certbot-dev (letsencrypt staging)
+  start-certbot (letsencrypt prod - be careful!)
   expose-wifi
   systemd-install | systemd-uninstall | systemd-reinstall
   systemd-status | systemd-logs
   systemd-start | systemd-stop | systemd-restart
-  start | logs | stop | restart
+  start | logs | stop | restart | delete
 ```
 
-# HOWTO run
-run soma-serv on port 3002:
+# HOWTO run (development)
+**dev:** run soma-serv on port 3002:
 ```
 NODE_PORT=3002 ./soma-serv.js
 ```
+TIP: set `USE_HTTPS` to `false` in `soma-serv.json`
 
-# HOWTO serve
+**prod:** run soma-serv with HTTP on port 80 and HTTPS on port 443:
+```
+NODE_HTTP_PORT=80 NODE_HTTPS_PORT=443 ./soma-serv.js
+```
+
+# HOWTO serve (production)
 1. look up port forwarding for your WiFi router, learn how to expose an ip/port
 2. get stats about the machine you'll be running soma-serv on
 ```
@@ -73,6 +120,8 @@ show logs
 npm run logs
 ```
 
+See section on running `soma-certbot.js` above, for certificate signing for https.
+
 # HOWTO serve - systemd
 setup/start systemd soma-serv service
 ```
@@ -89,3 +138,6 @@ restart systemd soma-serv service
 > npm run systemd-restart
 ```
 
+# Customizing
+After you get it running, you can
+Look at `soma-serv.json`, and edit settings there...

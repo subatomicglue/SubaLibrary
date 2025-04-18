@@ -4,7 +4,6 @@ const router = express.Router();
 
 const {
   TITLE,
-  PORT_DEFAULT,
   PUBLIC_DIR,
   LOGS_DIR,
   ASSETS_DIR,
@@ -13,27 +12,134 @@ const {
   RATE_LIMIT_WINDOW_MAX_REQUESTS,
   MAX_PATH_LENGTH,
   USE_HTTPS,
-  HTTPS_CERT_CRT,
-  HTTPS_CERT_CSR,
-  HTTPS_CERT_KEY,
   ALLOW_DOTFILES,
   VERBOSE,
   USERS_WHITELIST,
   SECRET_PASSCODE,
-  PORT,
   ASSETS_MAGIC,
   isPM2,
+  USER_ANON_DISPLAY,
 } = require('./settings');
 
-const public_routes = [ "^/wiki/view", "^/wiki/preview" ]
+let public_routes = []
 const sec_to_ms = 1000;
 const sec_to_wait = 30;
 const wait_sec_max = 120;
+
+
+const https = require('https');
+const SPAMHAUS_DROP_URL = 'https://www.spamhaus.org/drop/drop.txt';
+let dropList = new Set();
+
+const SOURCES = [
+  {
+    name: 'Spamhaus DROP',
+    url: 'https://www.spamhaus.org/drop/drop.txt',
+    filter: line => line && !line.startsWith(';'),
+    parse: line => line.split(';')[0].trim(),
+  },
+  {
+    name: 'Spamhaus EDROP',
+    url: 'https://www.spamhaus.org/drop/edrop.txt',
+    filter: line => line && !line.startsWith(';'),
+    parse: line => line.split(';')[0].trim(),
+  },
+  {
+    name: 'FireHOL Level 1',
+    url: 'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset',
+    filter: line => line && !line.startsWith('#'),
+    parse: line => line.trim(),
+  },
+  {
+    name: 'Blocklist.de All',
+    url: 'https://lists.blocklist.de/lists/all.txt',
+    filter: line => line && !line.startsWith('#'),
+    parse: line => line.trim(),
+  },
+  {
+    name: 'CINS Active Threat List',
+    url: 'https://cinsscore.com/list/ci-badguys.txt',
+    filter: line => line && !line.startsWith('#'),
+    parse: line => line.trim(),
+  }
+];
+
+function fetchList({ name, url, filter, parse }) {
+  return new Promise((resolve) => {
+    https.get(url, res => {
+      let raw = '';
+      res.on('data', chunk => raw += chunk);
+      res.on('end', () => {
+        const lines = raw.split('\n').filter(filter);
+        const entries = lines.map(parse).filter(Boolean);
+        logger.info(`[Blacklist] Fetched ${entries.length} entries from ${name}`);
+        resolve(entries);
+      });
+    }).on('error', err => {
+      logger.error(`[Blacklist] Failed to fetch ${name}: ${err.message}`);
+      resolve([]);
+    });
+  });
+}
+
+async function fetchDropList() {
+  logger.info('[Blacklist] Fetching IP blocklists...');
+  dropList = new Set(); // Clear current set
+
+  const results = await Promise.all(SOURCES.map(fetchList));
+
+  results.flat().forEach(ip => dropList.add(ip));
+
+  logger.info(`[Blacklist] Combined blocklist has ${dropList.size} total unique entries.`);
+}
+
+// Check if an IP matches any CIDR in the drop list
+const ipRangeCheck = require('ip-range-check');
+
+function isWhitelisted(req) {
+  const ua = req.get('User-Agent') || '';
+  return ua.includes('facebookexternalhit') || ua.includes('Facebot');
+}
+
+function isBlacklisted(ip) {
+  return ipRangeCheck(ip, [...dropList]);
+}
+
+
+function logHelper(prefix, req) {
+  let st = (obj) => JSON.stringify(obj, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  console.log( `[${prefix}]     - Headers:`, st( req.headers ));
+  console.log( `[${prefix}]     - Query params:`, st( req.query ));
+  console.log( `[${prefix}]     - Body:`, st( req.body ));
+  console.log( `[${prefix}]     - Route params:`, st( req.params ));
+  console.log( `[${prefix}]     - Original URL:`, st( req.originalUrl ) );
+  console.log( `[${prefix}]     - IP:`, st( req.ip ));
+  console.log( `[${prefix}]     - Cookies:`, st( req.cookies ));
+}
+
 
 // Middleware to parse cookies and URL-encoded form data
 router.use(cookieParser());
 router.use(express.urlencoded({ extended: true })); // Needed to parse form submissions
 const loginAttempts = {}; // Store failed attempts per IP
+
+
+// blacklist guard
+router.use((req, res, next) => {
+  const ip = req.ip;
+  if (!isWhitelisted(req) && isBlacklisted(ip)) {
+    logger.info(`Blocked request from blacklisted IP: ${ip}`);
+    logHelper("blacklist", req);
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head></head>
+      <body>This is just a test!  Hello World!</body>
+      </html>
+    `);
+  }
+  next();
+});
 
 // 🔒 Increasing timeout on repeated login fail attempts.
 function failedLoginGuard(req, res, next) {
@@ -47,7 +153,7 @@ function failedLoginGuard(req, res, next) {
 
     // If user is locked out, check if the lockout time has expired
     let waitTime = Math.ceil((attempt.nextTry - Date.now()) / sec_to_ms);
-    console.log( `[failedLoginGuard] now:${Date.now()} < nextTry:${attempt.nextTry} waittime:${waitTime}` )
+    //console.log( `[failedLoginGuard] now:${Date.now()} < nextTry:${attempt.nextTry} waittime:${waitTime}` )
     if (Date.now() < attempt.nextTry) {
       loginAttempts[ip].count++;
       loginAttempts[ip].nextTry = Date.now() + Math.min(wait_sec_max * sec_to_ms, sec_to_wait * sec_to_ms * loginAttempts[ip].count); // Increase timeout (max 60 sec)
@@ -63,61 +169,74 @@ function failedLoginGuard(req, res, next) {
 
 // 🔒 Authentication Middleware
 function authGuard(req, res, next) {
-  if (req.cookies.passcode && req.cookies.passcode.length <= 4096) {
-    const passcode = req.cookies.passcode; // Get passcode from cookie
-    if (passcode === SECRET_PASSCODE) {
-      req.user = ""
-      return next(); // Passcode matches - Proceed to the next middleware
-    }
-  }
-
-  if (req.cookies.userpass) {
-    const userpass = req.cookies.userpass; // Get userpass from cookie
-    const userpass_data = JSON.parse( req.cookies.userpass );
-    const username = userpass_data && userpass_data.username; // Get username from cookie
-    const password = userpass_data && userpass_data.password; // Get password from cookie
-    if (username && password && username.length <= 256 && password.length <= 4096) {
-      if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
-        req.user = username;
+  try {
+    if (req.cookies.passcode && req.cookies.passcode.length <= 4096) {
+      const passcode = req.cookies.passcode; // Get passcode from cookie
+      if (passcode === SECRET_PASSCODE) {
+        req.user = ""
         return next(); // Passcode matches - Proceed to the next middleware
       }
     }
+
+    if (req.cookies.userpass) {
+      const userpass = req.cookies.userpass; // Get userpass from cookie
+      const userpass_data = JSON.parse( req.cookies.userpass );
+      const username = userpass_data && userpass_data.username; // Get username from cookie
+      const password = userpass_data && userpass_data.password; // Get password from cookie
+      if (username && password && username.length <= 256 && password.length <= 4096) {
+        if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
+          req.user = username;
+          return next(); // Passcode matches - Proceed to the next middleware
+        }
+      }
+    }
+
+    // is it public?  allow it immediately, no password needed.
+    const req_path = decodeURIComponent( req.path )
+    const is_public = public_routes.filter( r => req_path.match( new RegExp( r ) ) != undefined ).length > 0;
+    if (is_public) {
+      // console.log( "[authGuard] allowing PUBLIC viewonly: ", req_path )
+      req.user = USER_ANON_DISPLAY
+      return next(); // Passcode matches - Proceed to the next middleware
+    }
+
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}`);
+
+    // block abusers
+    if (loginAttempts[req.ip] && Date.now() < loginAttempts[req.ip].nextTry) {
+      logHelper("auth guard", req);
+    }
+
+    // If passcode is incorrect/missing, show the login page
+    return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Authentication Required</title>
+        </head>
+        <body>
+            <h2>Enter Passcode</h2>
+            <form method="POST" action="/login">
+                passcode: <input type="password" name="passcode" required>
+                <button type="submit">Submit</button>
+            </form>
+
+            <form method="POST" action="/login">
+                username: <input type="username" name="username" required>
+                password: <input type="password" name="password" required>
+                <button type="submit">Submit</button>
+            </form>
+        </body>
+        </html>
+    `);
+  } catch (error) {
+    logger.info(`[auth guard] ${req.ip} -> req.path:${req.path}, CRASH: ${error}`);
+    return res.status(403).send(`no, go away`);
   }
-
-  // is it public?
-  const req_path = decodeURIComponent( req.path )
-  const is_public = public_routes.filter( r => req_path.match( new RegExp( r ) ) != undefined ).length > 0;
-  if (is_public) {
-    console.log( "[authGuard] serving public path: ", req_path )
-    return next(); // Passcode matches - Proceed to the next middleware
-  }
-
-  logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}`);
-
-  // If passcode is incorrect/missing, show the login page
-  res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Authentication Required ${TITLE}</title>
-      </head>
-      <body>
-          <h2>Enter Passcode</h2>
-          <form method="POST" action="/login">
-              passcode: <input type="password" name="passcode" required>
-              <button type="submit">Submit</button>
-          </form>
-
-          <form method="POST" action="/login">
-              username: <input type="username" name="username" required>
-              password: <input type="password" name="password" required>
-              <button type="submit">Submit</button>
-          </form>
-      </body>
-      </html>
-  `);
 }
 
 // 🔒 Login Route (Handles Form Submission)
@@ -127,7 +246,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
   // passcode auth
   if (req.body.passcode && req.body.passcode.length <= 4096) {
     const passcode = req.body.passcode;
-    VERBOSE && logger.warn(`[login] debug: ${req.ip} passcode:'${passcode}'`);
+    //VERBOSE && logger.warn(`[login] debug: ${req.ip} passcode:'${passcode}'`);
     if (passcode === SECRET_PASSCODE) {
       logger.info(`[login] authorized: ${req.ip} -> Accepted Secret Passcode`);
       res.cookie('passcode', passcode, { httpOnly: true });
@@ -141,7 +260,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
   if (req.body.username && req.body.password && req.body.username.length <= 32 && req.body.password.length <= 4096) {
     const username = req.body.username;
     const password = req.body.password;
-    VERBOSE && logger.warn(`[login] debug: ${req.ip} -> user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
+    //VERBOSE && logger.warn(`[login] debug: ${req.ip} -> user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
     if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
       logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}'`);
       res.cookie('userpass', JSON.stringify( { username, password } ), { httpOnly: true });
@@ -180,11 +299,28 @@ router.use(authGuard);
 //////////////////////////////////////////////////////////////////////////////
 
 
-function init(l) {
+function init(l, publicroutes) {
   logger = l
+
+  public_routes = [...publicroutes]
+
+  // Call fetch on startup
+  fetchDropList();
 }
 
 // Plug into Express
 module.exports.router = router;
 module.exports.init = init;
 
+function guardOnlyAllowHost(allowed_hostname) {
+  return (req, res, next) => {
+    const hostname = req.hostname.toLowerCase();
+    logger.info( `[auth] guardOnlyAllowHost: ${allowed_hostname}  ${hostname}` ); 
+    if (hostname !== allowed_hostname && !hostname.startsWith(`${allowed_hostname}.`)) {
+      return res.status(403).send(`Forbidden`);
+    }
+
+    next();
+  }
+}
+module.exports.guardOnlyAllowHost = guardOnlyAllowHost;
