@@ -44,7 +44,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     return markdown.replace(
       /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)\n([\s\S]*?\n)\1$/gm,
       (_, fence, content) => {
-        console.log( `transformCustomBlocks "${content}"` )
+        //console.log( `transformCustomBlocks "${content}"` )
         function recurse(content) {
           //return markdownToHtml(fence === '```' ? escapeHtml( content ) : content, baseUrl, options);
           return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
