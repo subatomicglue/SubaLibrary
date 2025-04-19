@@ -53,7 +53,7 @@ function wrapWithFrame(content, topic, req) {
   return template.file( "page.template.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
-    SOCIAL_TITLE: `${TITLE} - ${topic}`,
+    SOCIAL_TITLE: `${TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
     ASSETS_MAGIC,
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
