@@ -315,8 +315,8 @@ module.exports.init = init;
 function guardOnlyAllowHost(allowed_hostname) {
   return (req, res, next) => {
     const hostname = req.hostname.toLowerCase();
-    logger.info( `[auth] guardOnlyAllowHost: ${allowed_hostname}  ${hostname}` ); 
     if (hostname !== allowed_hostname && !hostname.startsWith(`${allowed_hostname}.`)) {
+      logger.info( `[auth] guardOnlyAllowHost: host:${hostname} allowed:${allowed_hostname}  ` ); 
       return res.status(403).send(`Forbidden`);
     }
 

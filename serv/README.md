@@ -1,5 +1,5 @@
 # soma serv
-a library fileserver for your home network.
+a library [wiki + fileserver + rss feed] for your home network.
 recommended for a small appliance like raspberry pi
 there's a simple passcode system, you can give to your friends
 
