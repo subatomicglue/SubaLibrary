@@ -276,8 +276,12 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 
           const dropzone = document.getElementById("markdown");
           const uploadBtn = document.getElementById("uploadBtn");
-          const textarea = document.getElementById("markdown");
+          const textarea = document.getElementById("markdown"); // rename to editor
           const uploadInput = document.getElementById("uploadInput");
+          const dragHandle = document.querySelector('.drag-handle');
+          const markdown = document.getElementById('markdown'); // rename to editor
+          const preview = document.getElementById('preview');
+
 
           uploadBtn.addEventListener("click", () => {
             uploadInput.click();
@@ -344,6 +348,52 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
             });
           }
 
+          //////////////////////////   resize handle  //////////////////////////
+          let isDragging = false;
+          function beginResize( event ) {
+            isDragging = true;
+            document.body.style.cursor = 'ew-resize';
+          }
+          dragHandle.addEventListener('mousedown', beginResize );
+          dragHandle.addEventListener('touchstart', (event) => { beginResize( event ); event.preventDefault(); });
+          function whileResize( event ) {
+            if (isDragging) {
+              const container = document.querySelector('.container');
+              const containerWidth = container.clientWidth;
+              const containerHeight = container.clientHeight;
+              const isWideLayout = (window.innerWidth / window.innerHeight) >= (3/2);
+              if (!isWideLayout) { // Portrait mode
+                const newY = event.clientY;
+                const markdownHeight = (newY / containerHeight) * 100; // in percentage
+                if (markdownHeight > 10 && markdownHeight < 90) {
+                  markdown.style.flexBasis = markdownHeight + '%'; // Adjust height in portrait
+                  preview.style.flexBasis = (100 - markdownHeight) + '%'; // Adjust height for preview
+                }
+              } else {                // Landscape mode
+                const newX = event.clientX;
+                const markdownWidth = (newX / containerWidth) * 100; // in percentage
+                if (markdownWidth > 10 && markdownWidth < 90) {
+                  markdown.style.flexBasis = markdownWidth + '%'; // Set flex-basis for markdown
+                  preview.style.flexBasis = (100 - markdownWidth) + '%'; // Set flex-basis for preview
+                }
+              }
+            }
+          }
+          document.addEventListener('mousemove', whileResize );
+          document.addEventListener('touchmove', (event) => {
+            const touch = event.touches[0];
+            whileResize(touch);
+          });
+          function endResize() {
+            isDragging = false;
+            document.body.style.cursor = 'default';
+          }
+          document.addEventListener('mouseup', endResize );
+          document.addEventListener('touchend', endResize );
+          //////////////////////////   resize handle  //////////////////////////
+
+
+
           let module = { exports: {} }
           <%include "markdown.js"%>
 
@@ -404,107 +454,140 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
         body {
           background-color: #0D1116;
           color: #aaaaaa;
-        }
-        .fake-body {
-          background-color: #ffffff;
-          color: #111111;
-        }
-        .markdown, .buttons-tray {
-          width: 90vw; 
-          max-width: 800px; 
-          margin: 20px auto; 
-          padding: 12px;
-        }
-        .buttons-tray {
-          padding-top:0;
-          margin-top:0;
-          text-align:right;
-        }
-        .markdown {
-          height: 66vh; /* Cover top 2/3 of the viewport */
-          max-height: 500px; /* Prevent it from becoming too tall */
-          display: block;
-          font-size: 16px;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
-          resize: vertical; /* Allow resizing, but only vertically */
-          padding-bottom:0;
-          margin-bottom:0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          height: 100dvh;
+          font-size: 1rem;
         }
 
-        @media (max-width: 600px) {
-          .markdown {
-            width: 95vw; /* Slightly more width on small screens */
-            height: 60vh; /* Slightly shorter on mobile */
-            font-size: 14px; /* Make text more mobile-friendly */
+        .container {
+          display: flex;
+          flex: 1;
+          overflow: hidden;
+          height: calc(100dvh - 0.625rem); /* Adjust for buttons-tray height */
+        }
+
+        /* Set initial flex-basis for resizing */
+        #markdown, #preview {
+          padding: 0.75rem;
+          font-size: 1rem;
+          border: 0.0625rem solid #ccc;
+          border-radius: 0.375rem;
+          box-shadow: 0.125rem 0.125rem .5rem rgba(0, 0, 0, 0.1);
+          resize: none; /* Disable textarea resizing */
+          overflow-y: auto;
+          height: 100%; /* Ensure it takes full height of the container */
+        }
+
+        /* Default to horizontal layout */
+        #markdown {
+          flex-basis: 50%; /* Start with 50% width */
+        }
+                
+        #preview {
+          flex-basis: 50%; /* Start with 50% width */
+          background-color: #ffffff;
+        }
+
+        /* Drag handle */
+        .drag-handle {
+          background-color: #ccc; /* Color of the handle */
+          cursor: ew-resize; /* Cursor style */
+          user-select: none; /* Prevent text selection */
+          width: 0.625rem; /* Fixed width for handle */
+        }
+
+        /* Media Queries */
+        @media (max-aspect-ratio: 3/2) {
+          .container {
+            flex-direction: column; /* Stack vertically in portrait mode */
+          }
+
+          .drag-handle {
+            width: 100%; /* Full width in portrait mode */
+            height: 0.625rem; /* Height of the handle */
+            cursor: ns-resize; /* Change cursor to indicate vertical resizing */
+          }
+
+          #markdown, #preview {
+            flex-basis: 50%; /* Each panel takes 50% height */
+            height: auto; /* Allow height to adjust */
           }
         }
 
+        @media (min-aspect-ratio: 3/2) {
+          .drag-handle {
+            width: 0.625rem; /* Width of the handle */
+            height: 100%; /* Full height in widescreen mode */
+            cursor: ew-resize; /* Cursor style */
+          }
+        }
+
+        .buttons-tray {
+          text-align: right;
+          padding: 0.75rem;
+          background-color: #22282F;
+        }
+
         .button1, .button2 {
-          padding: 0.40em 0.80em;
-          font-size: 1.4em;
+          padding: 0.40rem 0.80rem;
+          font-size: 1.4rem;
           font-weight: 600;
-          border-radius: 0.50em;
+          border-radius: 0.50rem;
+        }
+        @media (orientation: portrait)  {
+          #markdown, #preview {
+            font-size: 2rem;
+          }
+          .buttons-tray {
+            font-size: 2rem;
+            padding-top: 1px;
+            padding-bottom: 1px;
+          }
+          .button1, .button2 {
+            font-size: 2.5rem;
+          }
+          .drag-handle {
+            height: 1.25rem; /* Height of the handle */
+          }
         }
 
         .button1 {
-          border: 1px solid #3f944b;
+          border: 0.0625em solid #3f944b;
           background-color: #228736;
           color: #ffffff;
-          //color: #9A61F8;
         }
 
         .button1:hover {
-          border: 1px solid #4fa45b;
           background-color: #228736;
           color: #F3F8F3;
-        }
-
-        .button1:disabled,
-        .button1[disabled]{
-          border: 1px solid #3f944b;
-          background-color: #228736;
-          //color: #F3F8F3;
-          color: #8E96a0;
-          //color: #9A61F8;
         }
 
         .button2 {
-          border: 1px solid #7E8690;
+          border: 0.0625em solid #7E8690;
           background-color: #22282F;
           color: #F3F8F3;
-          //color: #9A61F8;
         }
 
         .button2:hover {
-          border: 1px solid #8E96a0;
-          background-color: #22282F;
           color: #FFFFFF;
         }
-
-        .button2:disabled,
-        .button2[disabled]{
-          border: 1px solid #8E96a0;
-          background-color: #22282F;
-          color: #8E96a0;
-          //color: #9A61F8;
-        }        
       </style>
     </head>
     <body>
-      <h1>Markdown Editor: ${topic}</h1>
-      ${markdown.length == 0 ? `For Precise Editing &amp; HTML Paste.   (Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> for simple/wysiwyg editing)` : ''}
-      <textarea id="markdown" class="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown.replace(/&/g, "&amp;")}</textarea>
+      <!-- <h1>Markdown Editor: ${topic}</h1> -->
+      <!-- ${markdown.length == 0 ? `For Precise Editing &amp; HTML Paste.   (Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> for simple/wysiwyg editing)` : ''} -->
       <div class="buttons-tray">
-      <!-- Upload button -->
         <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
-        <button id="uploadBtn" class="button2" type="file" accept="image/*" >Upload</button>
+        <button id="uploadBtn" class="button2">Upload</button>
         <button class="button2" onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
-        <button class="button1" onclick="saveWiki()">Save</button><BR>
+        <button class="button1" onclick="saveWiki()">Save</button>
       </div>
-      <h2>Preview:</h2>
-      <div class="fake-body">
+
+      <div class="container">
+        <textarea id="markdown" class="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown.replace(/&/g, "&amp;")}</textarea>
+        <div class="drag-handle"></div>
         <div id="preview"></div>
       </div>
     </body>

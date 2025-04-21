@@ -1,7 +1,7 @@
 body { font-family: Arial, sans-serif; padding: 0;}
 ul { list-style-type: disc; }
-ol li { margin: 0px 0; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0em; padding-right: 1em;}
-ul li { margin: 5px 0; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 1em; padding-right: 1em;}
+ol li { margin: 0rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0rem; padding-right: 1rem;}
+ul li { margin: 0.31rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 1rem; padding-right: 1rem;}
 a { text-decoration: none; color: grey; }
 .scroll-parent {
   overflow: hidden;
@@ -16,13 +16,13 @@ a { text-decoration: none; color: grey; }
   overflow-x: hidden; /* Disable horizontal scrolling */
 }
 table, td {
-  padding:0;
-  margin:0;
+  padding:0rem;
+  margin:0rem;
   vertical-align: top;
 }
 .heading-container {
   display: flex;
-  padding: 1em;
+  padding: 1rem;
 }
 .heading-backbutton {
   text-align: center;
@@ -30,7 +30,7 @@ table, td {
 }
 .heading-left {
   flex: 1;
-  min-width: 0;
+  min-width: 0rem;
   text-align: left;
 }
 .left-ellipsis {
@@ -52,7 +52,7 @@ table, td {
 }
 .heading-left-child {
   height: 100%;
-  line-height: 2em;
+  line-height: 2rem;
 }
 .heading-right {
   text-align: right;
@@ -67,13 +67,13 @@ table, td {
   border-collapse: collapse; width: 100%;
 }
 .markdown-table tbody td, .markdown-table thead th {
-  border: 1px solid lightgrey;
+  border: 0.0625rem solid lightgrey;
   padding: 0;
 }
 blockquote {
-  border-left: 4px solid #ccc;  /* Adds a left border */
-  padding-left: 1em;  /* Indents text */
-  margin: 0.5em 0;  /* Adds spacing */
+  border-left: 0.25rem solid #ccc;  /* Adds a left border */
+  padding-left: 1rem;  /* Indents text */
+  margin: 0.5rem 0;  /* Adds spacing */
   color: #555;  /* Soft gray text color */
 }
 
@@ -84,37 +84,37 @@ tt, pre {
 }
 
 h1 {
-  margin: 0;
-  padding: 0;
+  margin: 0rem;
+  padding: 0rem;
   display: block;
-  font-size: 2em;
-  margin-block-start: 0.67em;
-  margin-block-end: 0.67em;
-  margin-inline-start: 0px;
-  margin-inline-end: 0px;
+  font-size: 2rem;
+  margin-block-start: 0.67rem;
+  margin-block-end: 0.67rem;
+  margin-inline-start: 0rem;
+  margin-inline-end: 0rem;
   font-weight: bold;
 }
 h2 {
-  margin: 0;
-  padding: 0;
+  margin: 0rem;
+  padding: 0rem;
   display: block;
-  font-size: 1.5em;
-  margin-block-start: 0.83em;
-  margin-block-end: 0.83em;
-  margin-inline-start: 0px;
-  margin-inline-end: 0px;
+  font-size: 1.5rem;
+  margin-block-start: 0.83rem;
+  margin-block-end: 0.83rem;
+  margin-inline-start: 0rem;
+  margin-inline-end: 0rem;
   font-weight: bold;
 }
 
 h3, h4, h5, h6 {
-  margin: 0;
-  padding: 0;
+  margin: 0rem;
+  padding: 0rem;
   display: block;
-  font-size: 1em;
-  margin-block-start: 0.83em;
-  margin-block-end: 0.83em;
-  margin-inline-start: 0px;
-  margin-inline-end: 0px;
+  font-size: 1rem;
+  margin-block-start: 0.83rem;
+  margin-block-end: 0.83rem;
+  margin-inline-start: 0rem;
+  margin-inline-end: 0rem;
   font-weight: bold;
 }
 
@@ -125,8 +125,8 @@ img {
 
 p {
   display: block;
-  margin-block-start: 1em;
-  margin-block-end: 1em;
-  margin-inline-start: 0px;
-  margin-inline-end: 0px;
+  margin-block-start: 1rem;
+  margin-block-end: 1rem;
+  margin-inline-start: 0rem;
+  margin-inline-end: 0rem;
 }
