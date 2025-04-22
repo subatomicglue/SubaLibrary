@@ -211,7 +211,8 @@ router.get('*', (req, res) => {
             `).join('')}
             &nbsp;<BR>
             &nbsp;<BR>
-      `
+      `,
+      SEARCH: '',
     })
   );
   } catch (error) {

@@ -50,6 +50,23 @@ function userLogDisplay(req_user, req_ip) {
 }
 
 function wrapWithFrame(content, topic, req) {
+  let autoscroll = `<script>
+    function scrollToFirstMark() {
+      const firstMark = document.querySelector('mark');
+      if (firstMark)
+        firstMark.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function searchTerm() {
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(url.search);
+      if (params.has('searchterm'))
+        return params.get('searchterm'); // Get the value of the searchterm
+      return false;
+    }
+    if (searchTerm())
+      document.addEventListener('DOMContentLoaded', scrollToFirstMark);
+    </script>
+  `
   return template.file( "page.template.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
@@ -62,8 +79,9 @@ function wrapWithFrame(content, topic, req) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
-    BODY: `<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    BODY: `${autoscroll}<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: (!isLoggedIn( req )) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+    SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`
   })
 }
 
@@ -146,9 +164,10 @@ router.get(`/`, (req, res) => {
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, (req, res) => {
   //logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
-  const { topic, version } = {
+  const { topic, version, searchterm } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
-    version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : "" // Default to empty string if no version provided
+    version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : "", // Default to empty string if no version provided
+    searchterm: req.query.searchterm ? req.query.searchterm : ""
   };
   logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/${topic}${version != "" ?`/${version}`:''}`);
 
@@ -167,7 +186,11 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
     `);
   }
 
-  const markdown = fs.readFileSync(filePath, "utf8");
+  let markdown = fs.readFileSync(filePath, "utf8");
+  if (searchterm != "") {
+    console.log( searchterm)
+    markdown = markdown.replace( new RegExp( `(${searchterm})`, 'gim' ), "<mark>$1</mark>" )
+  }
   const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
     link_relative_callback: (baseUrl, link_topic) => {
@@ -243,36 +266,136 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
   res.send(template.data( `
     <html>
     <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
       <title>${TITLE} - Editing ${topic} (markdown editor)</title>
       <script>
+        let module = { exports: {} }
+        <%include "markdown.js"%>
+
+        let isChanging = false; // Flag to indicate if the preview is currently changing
+        let needsAnotherPreview = false; // Flag to indicate if another update is needed
+        let lastMarkdownValue = ""; // Variable to track the last value
+        let previewDebounceTimer;
         function updatePreview() {
+          try {
+          if (isChanging) {
+            needsAnotherPreview = true;
+            return;
+          }
+          isChanging = true;
+
+          function onFinishedChanging() {
+            isChanging = false;
+            if (needsAnotherPreview) {
+              needsAnotherPreview = false;
+              updatePreview(); // Trigger another preview update
+            }
+          }
+
           let markdown = document.getElementById("markdown").value;
-          fetch("${req.baseUrl}/preview", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ content: markdown }) })
-          .then(res => res.text())
-          .then(html => document.getElementById("preview").innerHTML = html);
+          if (lastMarkdownValue === markdown) {
+            onFinishedChanging()
+            return
+          }
+          lastMarkdownValue = markdown
+          let html = markdownToHtml( markdown, "${req.baseUrl}${view_route}", { skipYouTubeEmbed: true } )
+          // fetch("${req.baseUrl}/preview", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ content: markdown,  }) })
+          // .then(res => {
+          //   // Check if the response is ok (status in the range 200-299)
+          //   if (!res.ok) {
+          //     throw new Error(\`HTTP error! Status: \${res.status}\`);
+          //   }
+          //   return res.text();
+          // })
+          // .then(html => {
+            //requestIdleCallback(() => { // doesn't exist in safari!!!!!  defeats the purpose of trying to do this in a safe thread
+            requestAnimationFrame(() => {
+              document.getElementById("preview").innerHTML = html;
+              requestAnimationFrame(() => {
+                onFinishedChanging(); // DOM updated AND painted
+              });
+            });
+
+          // })
+          // .catch(error => {
+          //   isChanging = false;
+          //   needsAnotherPreview = false;
+          // });
+          } catch (error) {
+            console.log( error );
+          }
         }
+        function debounce(func, delay) {
+          let timeoutId;
+          return function(...args) {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+            timeoutId = setTimeout(() => {
+              func.apply(this, args); // Call the function with the provided arguments
+            }, delay);
+          };
+        }
+        // Example of how to use debounce with updatePreview
+        const debouncedUpdatePreview = debounce(updatePreview, 800);
+
+        ////////////////////////// autosave into localStorage ////////////////
+        const LS_KEY = 'editor-autosave';
+        function autosaveMarkdownRestored() {
+          const saved = localStorage.getItem(LS_KEY);
+          if (saved !== null) {
+            document.getElementById('markdown').value = saved;
+            document.getElementById('status').textContent = 'Restored';
+            setTimeout( () => {
+              document.getElementById('status').textContent = '';
+            }, 5000)
+            return true
+          }
+          return false;
+        }
+        function autosaveMarkdown() {
+          const content = document.getElementById('markdown').value;
+          localStorage.setItem(LS_KEY, content);
+          console.log('✅ Autosaved markdown to localStorage.');
+        }
+        function autosaveMarkdownClear() {
+          localStorage.removeItem(LS_KEY);
+          document.getElementById('status').textContent = '';
+        }
+        const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 300);
+        ////////////////////////// autosave into localStorage ////////////////
+
 
         function saveWiki() {
           let markdown = document.getElementById("markdown").value;
-          fetch("${req.baseUrl}/save", { 
+          fetch("${req.baseUrl}/save", {
             method: "PUT", 
             headers: {"Content-Type": "application/json"}, 
             body: JSON.stringify({ topic: "${topic}", content: markdown }) 
           })
           .then(res => res.json())
           .then(data => {
-            //alert(\`Msg:'\${data.message}' Ver:'\${data.version}'\`);
             document.getElementById("preview").innerHTML = \`<p>Msg:'\${data.message}' Ver:'\${data.version}'\`
             setTimeout( ()=> {
+              autosaveMarkdownClear();
+
               // Redirect to the view page for the updated topic
               window.location.href = "${req.baseUrl}${view_route}/${topic}";
-            }, 1500 );
+            }, 700 );
           });
+        }
+
+        function cancelWiki() {
+          autosaveMarkdownClear();
+          window.location.href = '${req.baseUrl}/view/${topic}'
         }
 
         // Ensure updatePreview() runs once when the page loads
         document.addEventListener("DOMContentLoaded", async () => {
-          updatePreview();
+          autosaveMarkdownRestored();
+
+          debouncedUpdatePreview();
 
           const dropzone = document.getElementById("markdown");
           const uploadBtn = document.getElementById("uploadBtn");
@@ -333,16 +456,12 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 
           // Original function, now using handleImageUpload
           function handleFileSelect(event) {
-            console.log("handleFileSelect");
             const file = event.target.files[0];
-
             handleImageUpload(file).then((imageUrl) => {
               if (imageUrl) {
                 setTimeout(() => {
                   textarea.value += \`![an image](\${imageUrl})\`;
-                  setTimeout(() => {
-                    updatePreview();
-                  }, 400);
+                  debouncedUpdatePreview();
                 }, 400);
               }
             });
@@ -350,27 +469,33 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 
           //////////////////////////   resize handle  //////////////////////////
           let isDragging = false;
+          let initialXY = [0,0]
           function beginResize( event ) {
             isDragging = true;
             document.body.style.cursor = 'ew-resize';
+            initialXY = [event.clientX, event.clientY]
           }
           dragHandle.addEventListener('mousedown', beginResize );
-          dragHandle.addEventListener('touchstart', (event) => { beginResize( event ); event.preventDefault(); });
+          dragHandle.addEventListener('touchstart', (event) => { const touch = event.touches[0]; beginResize( touch ); event.preventDefault(); });
           function whileResize( event ) {
             if (isDragging) {
+              const buttonsTray = document.querySelector('.buttons-tray');
+              const dragHandle = document.querySelector('.drag-handle');
+              const buttonsTrayHeight = buttonsTray.clientHeight;
               const container = document.querySelector('.container');
-              const containerWidth = container.clientWidth;
-              const containerHeight = container.clientHeight;
               const isWideLayout = (window.innerWidth / window.innerHeight) >= (3/2);
               if (!isWideLayout) { // Portrait mode
-                const newY = event.clientY;
-                const markdownHeight = (newY / containerHeight) * 100; // in percentage
+                const dragHandleHeight = dragHandle.clientHeight;
+                const containerHeight = container.clientHeight;
+                const newY = event.clientY - buttonsTrayHeight;
+                const markdownHeight = (newY / containerHeight) * (100 + 100 * (2 * 16) / containerHeight); // in percentage
                 if (markdownHeight > 10 && markdownHeight < 90) {
                   markdown.style.flexBasis = markdownHeight + '%'; // Adjust height in portrait
                   preview.style.flexBasis = (100 - markdownHeight) + '%'; // Adjust height for preview
                 }
               } else {                // Landscape mode
                 const newX = event.clientX;
+                const containerWidth = container.clientWidth;
                 const markdownWidth = (newX / containerWidth) * 100; // in percentage
                 if (markdownWidth > 10 && markdownWidth < 90) {
                   markdown.style.flexBasis = markdownWidth + '%'; // Set flex-basis for markdown
@@ -392,15 +517,11 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           document.addEventListener('touchend', endResize );
           //////////////////////////   resize handle  //////////////////////////
 
-
-
-          let module = { exports: {} }
-          <%include "markdown.js"%>
-
+          ////////////////////////// paste handler /////////////////////////////
           textarea.addEventListener("paste", async (event) => {
             event.preventDefault();
 
-            console.log( "paste" )
+            //console.log( "paste" )
 
             // Get clipboard data
             const clipboardData = event.clipboardData || window.clipboardData;
@@ -409,7 +530,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
             if (clipboardData.files && clipboardData.files.length > 0) {
               for (const file of clipboardData.files) {
                 if (file.type.startsWith("image/")) {
-                  console.log("Pasted image file:", file);
+                  //console.log("Pasted image file:", file);
 
                   // TODO: Replace this with your actual image upload logic
                   const imageUrl = await handleImageUpload(file); // Returns a URL after upload
@@ -427,7 +548,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
             const html = clipboardData.getData("text/html");
             const plainText = clipboardData.getData("text/plain");
             if (clipboardData.types.includes("text/html")) {
-              console.log( html ) // debug DEBUG!
+              //console.log( html ) // debug DEBUG!
               const markdown = htmlToMarkdown(html);
               insertMarkdown(markdown);
             } else if (clipboardData.types.includes("text/plain")) {
@@ -447,6 +568,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
               textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
             }
           });
+          ////////////////////////// paste handler /////////////////////////////
         });
       </script>
       <style>
@@ -536,22 +658,22 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           font-weight: 600;
           border-radius: 0.50rem;
         }
-        @media (orientation: portrait)  {
-          #markdown, #preview {
-            font-size: 2rem;
-          }
-          .buttons-tray {
-            font-size: 2rem;
-            padding-top: 1px;
-            padding-bottom: 1px;
-          }
-          .button1, .button2 {
-            font-size: 2.5rem;
-          }
-          .drag-handle {
-            height: 1.25rem; /* Height of the handle */
-          }
-        }
+        // @media (orientation: portrait)  {
+        //   #markdown, #preview {
+        //     font-size: 2rem;
+        //   }
+        //   .buttons-tray {
+        //     font-size: 2rem;
+        //     padding-top: 1px;
+        //     padding-bottom: 1px;
+        //   }
+        //   .button1, .button2 {
+        //     font-size: 2.5rem;
+        //   }
+        //   .drag-handle {
+        //     height: 1.25rem; /* Height of the handle */
+        //   }
+        // }
 
         .button1 {
           border: 0.0625em solid #3f944b;
@@ -579,14 +701,194 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
       <!-- <h1>Markdown Editor: ${topic}</h1> -->
       <!-- ${markdown.length == 0 ? `For Precise Editing &amp; HTML Paste.   (Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> for simple/wysiwyg editing)` : ''} -->
       <div class="buttons-tray">
+        <script>
+          function createSvgPopup(id, title, content) {
+            // Append CSS styles dynamically
+            const style = document.createElement('style');
+            style.textContent = \`
+              .svg-popup-container {
+                position: relative;
+                display: inline-block;
+              }
+              .svg-popup {
+                display: none; /* Hidden by default */
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+              }
+              .svg-popup-content {
+                text-align: left;
+                max-width: 95%;
+                max-height: 80%;
+                background-color: white;
+                padding: 20px;
+                border-radius: 10px;
+                position: relative;
+                overflow: auto; /* Allow scrolling if content overflows */
+              }
+              .svg-back-button {
+                cursor: pointer;
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                width: 40px; /* Adjust size as needed */
+                height: 40px;
+              }
+            \`;
+            document.head.appendChild(style);
+
+            // Create the SVG Popup structure
+            const container = document.createElement('div');
+            container.classList.add('svg-popup-container');
+
+            const svgImage = document.createElement('img');
+            svgImage.src = '/${ASSETS_MAGIC}/help_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your SVG path
+            svgImage.alt = 'Tap me';
+            svgImage.classList.add('popup-trigger');
+            svgImage.style.cursor = 'pointer';
+            //svgImage.style.width = '200px';
+            //svgImage.style.height = 'auto';
+
+            const svgPopup = document.createElement('div');
+            svgPopup.classList.add('svg-popup');
+            svgPopup.id = \`\${id}-popup\`;
+
+            const popupContent = document.createElement('div');
+            popupContent.classList.add('svg-popup-content');
+
+            const backButton = document.createElement('img');
+            backButton.src = '/${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your back button SVG path
+            backButton.alt = 'Back';
+            backButton.classList.add('svg-back-button');
+            backButton.id = \`\${id}-backButton\`;
+
+            const heading = document.createElement('h2');
+            heading.style="text-align: right;";
+            heading.innerHTML = \`<img src="\${svgImage.src}"/>\${title}\`;
+
+            const paragraph = document.createElement('p');
+            paragraph.innerHTML = \`
+            \${content}
+            \`;
+
+            // Append elements
+            popupContent.appendChild(backButton);
+            popupContent.appendChild(heading);
+            popupContent.appendChild(paragraph);
+            svgPopup.appendChild(popupContent);
+            container.appendChild(svgImage);
+            container.appendChild(svgPopup);
+            document.getElementById(id).appendChild(container);
+
+            // JavaScript functionality
+            svgImage.addEventListener('click', () => {
+              svgPopup.style.display = 'flex'; // Show the popup
+            });
+
+            backButton.addEventListener('click', () => {
+              svgPopup.style.display = 'none'; // Hide the popup
+            });
+
+            // Optional: Close the popup when clicking outside the content area
+            svgPopup.addEventListener('click', (event) => {
+              if (event.target === svgPopup) {
+                  svgPopup.style.display = 'none'; // Hide the popup
+              }
+            });
+          }
+        </script>
+        <div style="display: inline; font-size: 1.4rem;color: ${markdown.length == 0 ? "white; text-align: left; width: 100%;" : "yellow;"}" id="status">${markdown.length == 0 ? `Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> &nbsp; &nbsp; &nbsp;` : ''}</div>
+        <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
         <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
         <button id="uploadBtn" class="button2">Upload</button>
-        <button class="button2" onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
+        <button class="button2" onclick="cancelWiki()">Cancel</button>
         <button class="button1" onclick="saveWiki()">Save</button>
+        <script>
+          createSvgPopup("infopopup", "Markdown", \`<pre style="font-size: 1rem">
+Paste Works!
+ - from HTML (google docs, browser)
+ - single Images
+
+# heading1
+## heading2
+### heading3
+
+**bold**
+*italic*
+__underscore__
+
+ - bullet  (or + or *)
+    - indented bullet
+
+ 1. numbered bullet
+    a. indented alpha bullet
+      i. indented roman bullet
+
+&gt; blockquote
+&gt;&gt; indented blockquote
+
+&gt;&gt;&gt;<BR>block quote<BR>&gt;&gt;&gt;
+
+} blockquote (borderless)
+}} indented blockquote (borderless)
+
+}}}<BR>block quote (borderless)<BR>}}}
+
+
+\\\`code\\\`
+
+\\\`\\\`\\\`<BR>code block<BR>\\\`\\\`\\\`
+
+
+---<BR>a box<BR>---
+
+-+-<BR>a centered box<BR>-+-
+
+--+<BR>a right justified box<BR>--+
+
+
+===<BR>borderless box<BR>===
+
+=+=<BR>centered borderless box<BR>=+=
+
+==+<BR>a right justified borderless box<BR>==+
+
+
+| tablecell1 | tablecell2 |
+
+| tablehead1 | tablehead2 |
+|:-----------|:----------:|
+| tablecell1 | tablecell2 |
+
+links:
+ [title](/localpath)
+ [title](wikitopic)
+ [title](#headingonpage)
+ [title](https://url)
+
+images:
+ paste an image, it's magical!
+ ![title](url)
+
+escapes (url):
+- space %20
+
+escapes (content):
+- &gt;  &amp;gt;
+- &lt;  &amp;lt;
+- &amp; &amp;amp;
+          </pre>\`)
+        </script>
       </div>
 
       <div class="container">
-        <textarea id="markdown" class="markdown" onkeyup="updatePreview()" rows="10" cols="50">${markdown.replace(/&/g, "&amp;")}</textarea>
+        <textarea id="markdown" class="markdown" onkeyup="debouncedUpdatePreview(); debouncedAutosaveMarkdown();" rows="10" cols="50">${markdown.replace(/&/g, "&amp;")}</textarea>
         <div class="drag-handle"></div>
         <div id="preview"></div>
       </div>
@@ -619,7 +921,7 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
   logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
   const html = markdownToHtml( markdown );
-  console.log( html )
+  //console.log( html )
   res.send(template.data( `
 <!DOCTYPE html>
 <html lang="en">
@@ -839,7 +1141,7 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
 
   <script>
     function initFromMarkdown( markdown ) {
-      const html = markdownToHtml( markdown );
+      const html = markdownToHtml( markdown, { skipYouTubeEmbed: true } );
       quill.root.innerHTML = html;
     }
     function initFromHTML( html ) {
@@ -1039,6 +1341,140 @@ router.post("/upload", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), upload.single("im
       res.json({ success: true, imageUrl: imageUrl });
   } else {
       res.status(400).json({ success: false, message: "No image uploaded." });
+  }
+});
+
+
+///////////////////// SEARCH ///////////////////////////////////////////////////
+
+// GET /search: Serve the search page
+router.get('/search', (req, res) => {
+    const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Search</title>
+            <style>
+              /* Basic styling for the search button and input */
+              #searchButton {
+                cursor: pointer;
+                border: none;
+                background: none;
+                outline: none;
+                display: inline-flex;
+                align-items: center;
+              }
+
+              #searchInput {
+                display: none; /* Hidden by default */
+                padding: 0.5rem;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                margin-left: 0.5rem;
+              }
+
+              .expanded {
+                display: inline-block; /* Show when expanded */
+              }
+            </style>
+        </head>
+        <body>
+            <h1>Search</h1>
+            <form id="searchForm">
+                <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
+                <button type="submit">Search</button>
+            </form>
+            <ul id="results"></ul>
+
+            <script>
+              function searchTerm() {
+                const url = new URL(window.location.href);
+                const params = new URLSearchParams(url.search);
+                if (params.has('searchterm'))
+                  return params.get('searchterm'); // Get the value of the searchterm
+                return false;
+              }
+              const st = searchTerm();
+              if (st) document.getElementById('searchTerm').value = st
+              document.getElementById('searchForm').onsubmit = async function(event) {
+                event.preventDefault();
+                const searchTerm = document.getElementById('searchTerm').value;
+                console.log( "PUT ${req.baseUrl}/search", {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ searchTerm })
+                })
+                const response = await fetch('${req.baseUrl}/search', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ searchTerm })
+                });
+                const results = await response.json();
+                console.log("results:", results)
+                const resultsList = document.getElementById('results');
+                resultsList.innerHTML = '';
+                results.forEach(result => {
+                  const li = document.createElement('li');
+                  li.innerHTML = \`<a href="\${result.link}">\${result.title}</a>\${result.body}\`;
+                  resultsList.appendChild(li);
+                });
+              };
+            </script>
+        </body>
+        </html>
+    `);
+});
+
+// PUT /search: Handle the search request
+router.put('/search', express.json(), (req, res) => {
+  try {
+    const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+    if (searchTerm == "") return res.json([]);
+
+    // Read all markdown files in the directory
+    let results = []
+    fs.readdirSync(WIKI_DIR).filter( file => /^[^.]+\.md$/.test(file) ).forEach(file => {
+      const filePath = path.join(WIKI_DIR, file);
+      const topic = path.basename(file, '.md');
+      const content = fs.readFileSync(filePath, 'utf8').toLowerCase();
+      let context = "";
+      
+      let score = 0;
+      let content_matches = topic.match(new RegExp(`.{0,10}${searchTerm}.{0,10}`, 'gi')) || [];
+      if (0 < content_matches.length) {
+        score += 10 * content_matches.length;
+        context += `<ul><li>Title "${topic.replace(new RegExp(`(${searchTerm})`, 'gi'),'<b>$1</b>')}</b>" includes the name</li></ul>`
+      }
+      content_matches = content.match(new RegExp(`^#{1,6} .*${searchTerm}.*$`, 'gm')) || [];
+      if (0 < content_matches.length) {
+        score += 4 * content_matches.length;
+        context += `<ul>`+content_matches.map( r=>`<li>Heading: ${r.replace(new RegExp(`(${searchTerm})`),'<b>$1</b>')}`).join( "<BR>" )+`</ul>`
+      }
+      content_matches = content.match(new RegExp(`.{0,10}${searchTerm}.{0,10}`, 'gi')) || [];
+      if (0 < content_matches.length) {
+        score += 1 * content_matches.length;
+        context += `<ul>`+content_matches.filter(r => undefined == r.match( /^#{1,6} .*?$/ )).map( r=>`<li>Body: ...${r.replace(new RegExp(`(${searchTerm})`),'<b>$1</b>')}...`).join( "<BR>" )+`</ul>`
+      }
+
+      // Only add to results if there's a score
+      if (score > 0) {
+        results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}/${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
+      }
+    });
+
+    // Sort results by score in descending order
+    results.sort((a, b) => b.score - a.score);
+
+    console.log( results )
+    // Return the results
+    res.json(results);
+  } catch (error) {
+    console.log( "ERROR", error )
+    return res.json([]);
   }
 });
 

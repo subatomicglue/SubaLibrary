@@ -10,6 +10,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   const options_defaults = {
     link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
     link_absolute_callback: (baseUrl, url) => url,
+    skipYouTubeEmbed: false,
   }
   options = { ...options_defaults, ...options };
 
@@ -126,11 +127,9 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
 
   // big structure comes first (theyll recurse inside)
   markdown = transformCustomBlocks( processBulletLists( markdown ) )
-    .replace(/^# ([^\n]*)$/gm, "<h1>$1</h1><intentional newline>") // # Header
-    .replace(/^## ([^\n]*)$/gm, "<h2>$1</h2><intentional newline>") // ## Sub-header
-    .replace(/^### ([^\n]*)$/gm, "<h3>$1</h3><intentional newline>") // ## Sub-header
-    .replace(/^#### ([^\n]*)$/gm, "<h4>$1</h4><intentional newline>") // ## Sub-header
-    .replace(/^##### ([^\n]*)$/gm, "<h5>$1</h5><intentional newline>") // ## Sub-header
+    .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
+      return `<h${hashes.length} id=\"${title}\">${title}<a href="#${encodeURIComponent(title)}">_</a></h1><intentional newline>`
+    })
     .replace(/\*\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*/gm, "<b>$1</b>") // **bold**
     .replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*/gm, "<i>$1</i>") // *italic*
     // .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```
@@ -145,9 +144,9 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     })
     .replace(/\[([^\[\]\n]+)\]\(([^\)\n]*)\)/g, (match, title, url) => { // [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : options.link_relative_callback( baseUrl, url );
+      const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : options.link_relative_callback( baseUrl, url );
       VERBOSE && console.log( "[markdown] link", THEURL )
-      if (isYouTubeURL(url))
+      if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url)
       else
         return THEURL == "" ? `${title}` : `<a href="${THEURL}">${title}</a>`
@@ -155,7 +154,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     .replace(/(?<=^|\s)https?:\/\/[^\s<]+[^\s<\.,;](?=\s|\n|$)/g, (url) => { // naked URLs:      https://www.google.com
       const VERBOSE = false;
       VERBOSE && console.log("[markdown] naked URL", url);
-      if (isYouTubeURL(url))
+      if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url)
       else
         return `<a href="${url}">${url}</a>`;
@@ -536,8 +535,8 @@ function _htmlTreeToMarkdown(tree) {
       }
       case 'li':
         let content = node.children.map(convertNodeToMarkdown).join('')
-        let bullet = convertListIndexToMarkdown(node, ++list_stats[list_stats.length-1].items )
-        return `${' '.repeat(1 + (indentLevel-1)*2)}${bullet} ${content.replace(/\n+$/g, '').replace(/\n/g, '<br>')}\n`;
+        let bullet = convertListIndexToMarkdown(node, list_stats.length == 0 ? 0 : (++list_stats[list_stats.length-1].items) )
+        return `${' '.repeat(indentLevel == 0 ? 0 : (1 + (indentLevel-1)*2))}${bullet} ${content.replace(/\n+$/g, '').replace(/\n/g, '<br>')}\n`;
       case 'a': {
         insideAHREF++
         const href = node.attributes.href || '';

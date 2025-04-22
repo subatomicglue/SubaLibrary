@@ -1,4 +1,7 @@
 body { font-family: Arial, sans-serif; padding: 0;}
+html {
+  scroll-behavior: smooth;
+}
 ul { list-style-type: disc; }
 ol li { margin: 0rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0rem; padding-right: 1rem;}
 ul li { margin: 0.31rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 1rem; padding-right: 1rem;}
