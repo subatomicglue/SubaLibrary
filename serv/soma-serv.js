@@ -252,8 +252,8 @@ app.use( (req, res, next) => {
 
 // AUTH
 const public_rootpath_file_whitelist = [ "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png" ]
-const public_rootpath_folder_whitelist = [ `/${WIKI_ENDPOINT}/view`, `/${WIKI_ENDPOINT}/preview`, `/${WIKI_ENDPOINT}/search`, `/${RSS_ENDPOINT}`, `/${WIKI_ENDPOINT}/uploads`, `/${ASSETS_MAGIC}` ]
-const public_routes = [ ...public_rootpath_file_whitelist.map( r => `^${r}` ), ...public_rootpath_folder_whitelist.map( r => `^${r}` ) ]
+const public_rootpath_folder_whitelist = [ `^/?$`, `^/${WIKI_ENDPOINT}/view/?.*`, `^/${WIKI_ENDPOINT}/?$`, `^/${WIKI_ENDPOINT}/preview/?.*`, `^/${WIKI_ENDPOINT}/search`, `/${RSS_ENDPOINT}`, `^/${WIKI_ENDPOINT}/uploads/?.*`, `/${ASSETS_MAGIC}/*` ]
+const public_routes = [ ...public_rootpath_file_whitelist.map( r => `^${r}` ), ...public_rootpath_folder_whitelist ]
 const authMiddleware = require("./router-auth");
 authMiddleware.init( logger, public_routes );
 app.use("/", authMiddleware.router);
@@ -283,7 +283,6 @@ app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
 // DEFAULT
 app.use('/', (req, res, next) => {
-  console.log( "default path!!!!!")
   res.redirect(`/${WIKI_ENDPOINT}/view`);
 });
 

@@ -121,6 +121,45 @@ h3, h4, h5, h6 {
   font-weight: bold;
 }
 
+h1 .copy-icon,
+h2 .copy-icon,
+h3 .copy-icon,
+h4 .copy-icon,
+h5 .copy-icon,
+h6 .copy-icon {
+  cursor: pointer;
+  margin-left: 0.5em;
+  font-size: 0.8em;
+  vertical-align: middle;
+  color: #555;
+  mix-blend-mode: multiply;
+  /* filter: drop-shadow(0 0 4px #033) brightness(1.1) contrast(1.2); */
+  filter: brightness(0.95);
+}
+
+h1 .copy-icon::before,
+h2 .copy-icon::before,
+h3 .copy-icon::before,
+h4 .copy-icon::before,
+h5 .copy-icon::before,
+h6 .copy-icon::before {
+  /* content: "🔗"; */
+  /* content: url("/<%=ASSETS_MAGIC%>/content_copy_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"); */
+  content: url("/<%=ASSETS_MAGIC%>/link_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg");
+}
+
+h1 .copy-icon:hover,
+h2 .copy-icon:hover,
+h3 .copy-icon:hover,
+h4 .copy-icon:hover,
+h5 .copy-icon:hover,
+h6 .copy-icon:hover {
+  color: #111;
+  mix-blend-mode: multiply;
+  /* filter: drop-shadow(0 0 4px #088) brightness(1.1) contrast(1.2); */
+  filter: brightness(0.4);
+}
+
 img {
   max-width: 90%;
   max-height: 40vh;

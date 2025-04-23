@@ -197,7 +197,7 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
       const topic = sanitizeTopic( decodeURIComponent( link_topic ) )
       const filePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
       return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${topic}` : (!fs.existsSync(filePath) && !isLoggedIn( req )) ? '' : `${req.baseUrl}${edit_route}/${topic}`
-    }
+    },
   }), topic, req);
   res.send(html);
 });
@@ -341,12 +341,12 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
         const debouncedUpdatePreview = debounce(updatePreview, 800);
 
         ////////////////////////// autosave into localStorage ////////////////
-        const LS_KEY = 'editor-autosave';
+        const LS_KEY = \`editor-autosave_${topic}\`;
         function autosaveMarkdownRestored() {
           const saved = localStorage.getItem(LS_KEY);
           if (saved !== null) {
             document.getElementById('markdown').value = saved;
-            document.getElementById('status').textContent = 'Restored';
+            document.getElementById('status').innerHTML = '<span style="color: #ffaa00">restored...</span>';
             setTimeout( () => {
               document.getElementById('status').textContent = '';
             }, 5000)
@@ -354,16 +354,25 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           }
           return false;
         }
+        let autosaveLastSaved = ""
         function autosaveMarkdown() {
           const content = document.getElementById('markdown').value;
+
+          // avoid setting if it didn't change.
+          if (content === autosaveLastSaved) return
+          autosaveLastSaved = content
+
           localStorage.setItem(LS_KEY, content);
-          console.log('✅ Autosaved markdown to localStorage.');
+          document.getElementById('status').innerHTML = '<span style="color: #aaff00">autosaved...</span>';
+          setTimeout( () => {
+            document.getElementById('status').textContent = '';
+          }, 1000)
         }
         function autosaveMarkdownClear() {
           localStorage.removeItem(LS_KEY);
           document.getElementById('status').textContent = '';
         }
-        const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 300);
+        const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 700);
         ////////////////////////// autosave into localStorage ////////////////
 
 
@@ -519,53 +528,56 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 
           ////////////////////////// paste handler /////////////////////////////
           textarea.addEventListener("paste", async (event) => {
-            event.preventDefault();
+            try {
+              event.preventDefault();
 
-            //console.log( "paste" )
+              // Get clipboard data
+              const clipboardData = event.clipboardData || window.clipboardData;
+              //console.log( "PASTE", clipboardData.types )
 
-            // Get clipboard data
-            const clipboardData = event.clipboardData || window.clipboardData;
+              // files / images.
+              if (clipboardData.files && clipboardData.files.length > 0) {
+                for (const file of clipboardData.files) {
+                  if (file.type.startsWith("image/")) {
+                    //console.log("Pasted image file:", file);
 
-            // files / images.
-            if (clipboardData.files && clipboardData.files.length > 0) {
-              for (const file of clipboardData.files) {
-                if (file.type.startsWith("image/")) {
-                  //console.log("Pasted image file:", file);
+                    // TODO: Replace this with your actual image upload logic
+                    const imageUrl = await handleImageUpload(file); // Returns a URL after upload
 
-                  // TODO: Replace this with your actual image upload logic
-                  const imageUrl = await handleImageUpload(file); // Returns a URL after upload
-
-                  if (imageUrl) {
-                    const markdown = \`![pasted image](\${imageUrl})\`;
-                    insertMarkdown(markdown)
+                    if (imageUrl) {
+                      const markdown = \`![pasted image](\${imageUrl})\`;
+                      insertMarkdown(markdown)
+                    }
                   }
                 }
+                return;
               }
-              return;
-            }
 
-            // HTML
-            const html = clipboardData.getData("text/html");
-            const plainText = clipboardData.getData("text/plain");
-            if (clipboardData.types.includes("text/html")) {
-              //console.log( html ) // debug DEBUG!
-              const markdown = htmlToMarkdown(html);
-              insertMarkdown(markdown);
-            } else if (clipboardData.types.includes("text/plain")) {
-              const markdown = plainText;
-              insertMarkdown(markdown);
-            } else {
-              console.log("Unsupported Clipboard type(s) pasted:", clipboardData.types);
-            }
+              // HTML
+              const html = clipboardData.getData("text/html");
+              const plainText = clipboardData.getData("text/plain");
+              if (clipboardData.types.includes("text/html")) {
+                //console.log( html ) // debug DEBUG!
+                const markdown = html != "" ? htmlToMarkdown(html) : plainText; // fallback if htmlToMarkdown fails
+                insertMarkdown(markdown);
+              } else if (clipboardData.types.includes("text/plain")) {
+                const markdown = plainText;
+                insertMarkdown(markdown);
+              } else {
+                console.log("Unsupported Clipboard type(s) pasted:", clipboardData.types);
+              }
 
-            function insertMarkdown(markdown) {
-              const selectionStart = textarea.selectionStart;
-              const selectionEnd = textarea.selectionEnd;
-              const textBefore = textarea.value.substring(0, selectionStart);
-              const textAfter = textarea.value.substring(selectionEnd);
+              function insertMarkdown(markdown) {
+                const selectionStart = textarea.selectionStart;
+                const selectionEnd = textarea.selectionEnd;
+                const textBefore = textarea.value.substring(0, selectionStart);
+                const textAfter = textarea.value.substring(selectionEnd);
 
-              textarea.value = textBefore + markdown + textAfter;
-              textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+                textarea.value = textBefore + markdown + textAfter;
+                textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+              }
+            } catch (error) {
+              console.log( "PASTE ERROR: ", error )
             }
           });
           ////////////////////////// paste handler /////////////////////////////
@@ -581,6 +593,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           flex-direction: column;
           height: 100dvh;
           font-size: 1rem;
+          position: relative;
         }
 
         .container {
@@ -803,7 +816,8 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
             });
           }
         </script>
-        <div style="display: inline; font-size: 1.4rem;color: ${markdown.length == 0 ? "white; text-align: left; width: 100%;" : "yellow;"}" id="status">${markdown.length == 0 ? `Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> &nbsp; &nbsp; &nbsp;` : ''}</div>
+        <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
+        <div style="display: inline; font-size: 1.4rem; color: white;" id="status">${markdown.length == 0 ? `Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> &nbsp; &nbsp; &nbsp;` : ''}</div>
         <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
         <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
         <button id="uploadBtn" class="button2">Upload</button>
@@ -1141,7 +1155,9 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
 
   <script>
     function initFromMarkdown( markdown ) {
-      const html = markdownToHtml( markdown, { skipYouTubeEmbed: true } );
+      const html = markdownToHtml( markdown, {
+        skipYouTubeEmbed: true,
+      });
       quill.root.innerHTML = html;
     }
     function initFromHTML( html ) {

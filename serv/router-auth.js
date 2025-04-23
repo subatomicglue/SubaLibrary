@@ -249,7 +249,12 @@ router.post('/login', failedLoginGuard, (req, res) => {
     //VERBOSE && logger.warn(`[login] debug: ${req.ip} passcode:'${passcode}'`);
     if (passcode === SECRET_PASSCODE) {
       logger.info(`[login] authorized: ${req.ip} -> Accepted Secret Passcode`);
-      res.cookie('passcode', passcode, { httpOnly: true });
+      res.cookie('passcode', passcode, {
+        httpOnly: true,         // Prevents JS access (secure against XSS)
+        secure: true,           // Ensures cookie is sent only over HTTPS
+        sameSite: 'lax',        // Prevents CSRF, while allowing normal usage (lax, strict, none)
+        maxAge: 52 * 7 * 24 * 60 * 60 * 1000, // 52 weeks in milliseconds
+      });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }
@@ -263,7 +268,12 @@ router.post('/login', failedLoginGuard, (req, res) => {
     //VERBOSE && logger.warn(`[login] debug: ${req.ip} -> user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
     if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
       logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}'`);
-      res.cookie('userpass', JSON.stringify( { username, password } ), { httpOnly: true });
+      res.cookie('userpass', JSON.stringify( { username, password } ), {
+        httpOnly: true,         // Prevents JS access (secure against XSS)
+        secure: true,           // Ensures cookie is sent only over HTTPS
+        sameSite: 'lax',        // Prevents CSRF, while allowing normal usage (lax, strict, none)
+        maxAge: 52 * 7 * 24 * 60 * 60 * 1000, // 52 weeks in milliseconds
+      });
       delete loginAttempts[ip]; // Reset failure count on success
       return res.redirect('/');
     }

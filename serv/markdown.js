@@ -11,6 +11,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
     link_absolute_callback: (baseUrl, url) => url,
     skipYouTubeEmbed: false,
+    inlineFormattingOnly: false,
   }
   options = { ...options_defaults, ...options };
 
@@ -101,11 +102,11 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
         let indent = " ".repeat(depth * 2) + "?"; // Match increasing indentation levels
   
         // unordered lists (-, +, *)
-        markdown = markdown.replace( new RegExp( `(?:^|\\n)(( ${indent})([-+*]) .*(?:\\n\\2\\3 .*)*)`, "gim" ), (match, match2, indents, bullet) => {
-          return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, `<li>$1</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]+${indent})([-+*])[  ]+.*(?:\\n\\2\\3[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
+          return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, (match, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
         })
         // numbered lists (1., 2., 3., etc.)
-        markdown = markdown.replace( new RegExp( `(?:^|\\n)(( ${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\. .*)*)`, "gim" ), (match, match2, indents, bullet) => {
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
           // type="1"	The list items will be numbered with numbers (default)
           // type="A"	The list items will be numbered with uppercase letters
           // type="a"	The list items will be numbered with lowercase letters
@@ -117,7 +118,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
                     bullet.match(/^[a-z]{1,2}$/) ? "a" :
                     bullet.match(/^[A-Z]{1,2}$/) ? "A" :
                     "1"
-          return `<ol type="${type}" start="${bullet}">` + match.replace( /^\s*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.\s+(.*?)$/gim, `<li>$2</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
+          return `<ol type="${type}" start="${bullet}">` + match.replace( /^[  ]*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.[  ]+(.*?)$/gim, (match, type, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
         })
       }
       //console.log( ` - processBulletLists returning "${markdown}"` )
@@ -125,11 +126,108 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     })
   }
 
-  // big structure comes first (theyll recurse inside)
-  markdown = transformCustomBlocks( processBulletLists( markdown ) )
-    .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-      return `<h${hashes.length} id=\"${title}\">${title}<a href="#${encodeURIComponent(title)}">_</a></h1><intentional newline>`
+
+  // tables:
+  // | Header 1 | Header 2 | Header 3 |
+  // |:---------|:--------:|---------:|                    <-- optional, creates heading columns if present
+  // | Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 |
+  // | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 |
+  function processTables( markdown ) {
+    return markdown.replace( /^(\|.+\|\n)((\|:?-+:?)+\|\n)?((\|.+\|\n)*)/gm, (match, firstline, nextline, nextline_col, lastlines, lastline ) => {
+      const VERBOSE=false
+      firstline = firstline.replace(/\n$/, '');
+      lastlines = lastlines ? lastlines.replace(/\n$/,'').split( "\n" ) : []
+      let justification = "left";
+      if (nextline) {
+        nextline =  nextline.replace(/\n$/, '');
+        justification = nextline ? nextline.replace( /(:?)([-_=]+)(:?)/g, (m, left, dashes, right) => left && right ? "center" : right ? "right" : "left").replace(/(^\||\|$)/g,'').split('|') : undefined
+      }
+      let lines = [ firstline, ...lastlines ]
+
+      VERBOSE && console.log( "[markdown] table: firstline: ", firstline )
+      VERBOSE && console.log( "[markdown] table: nextline:  ", nextline )
+      VERBOSE && lastlines.forEach( r => console.log( "[markdown] table: lastlines: ", r ) )
+      VERBOSE && nextline && console.log( "[markdown] table: justify:   ", justification )
+      VERBOSE && console.log( "[markdown] table: lines", lines )
+
+      let result = "<table class='markdown-table'>"
+      let whichline = 0
+      lines.forEach( line => {
+        let is_heading = nextline && whichline == 0
+        VERBOSE && console.log( `[markdown] table:  o line[${whichline.toString().padStart(lines.length.toString().length, "0")}]:'${line}'${is_heading ? " <-- heading" : ""}` )
+        result += `<${is_heading ? "thead" : "tbody"}><tr>`
+        let whichcol = -1
+        result += line.replace( /\|\s*([^\|\n]+?)\s*(?=\||\|$)/g, (match, content) => {
+          ++whichcol
+          let just = justification[Math.min( justification.length, whichcol )];
+          VERBOSE && console.log( `[markdown] table:    - ${is_heading ? "heading" : "content"}:'${content}' col:'${whichcol}' just:'${just}'` )
+          return `<${is_heading?'th':'td'} style='text-align:${just};'>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</${is_heading?'th':'td'}>`
+        }).replace( /\s*\|$/, '' ) // eat the last trailing |
+        result += `</tr></${is_heading ? "thead" : "tbody"}>`
+        ++whichline
+      })
+      result += "</table>"
+      VERBOSE && console.log( `[markdown] table: html:${result}` )
+      return result
     })
+  }
+
+  // blockquote >, >>, >>> (or }, }}, }}} for invisible)
+  // multiline
+  function processBlockQuotes( markdown ) {
+    return markdown.replace(/(^([>}]+)[^\S\r\n]?.*?(?:\n[>}]+[^\S\r\n]?.*)*)(?=\n(?![^>}])|$)/gm, (match, fullBlock, marker) => {
+      const markerChar = marker[0]; // either '>' or '}'
+
+      // Map lines to { level, content }
+      const lines = match.trim().split('\n').map(line => {
+        const level = line.match(new RegExp(`^[>}]+`))[0].length;
+        const content = line.replace(new RegExp(`^[>}]+\\s+`), '');
+        return { level, content };
+      });
+
+      // Combine consecutive lines of the same "level"
+      const reducedLines = lines.reduce((acc, curr) => {
+          const prev = acc[acc.length - 1];
+          if (prev && prev.level === curr.level) {
+              prev.content += '<BR>' + curr.content; // Merge lines with same level
+          } else {
+              acc.push(curr);
+          }
+          return acc;
+      }, []);
+
+      // Convert to nested blockquotes using a stack
+      let result = '';
+      let stack = [];
+      for (const { level, content } of reducedLines) {
+          while (stack.length > level) {
+              result += '</blockquote>';
+              stack.pop();
+          }
+          while (stack.length < level) {
+              result += `<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`;
+              stack.push(`<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`);
+          }
+          result += markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true }) + '\n';
+      }
+      while (stack.length) {
+          result += '</blockquote>';
+          stack.pop();
+      }
+      return result.trim();
+    });
+  }
+
+  // big structure comes first (theyll recurse inside)
+  if (!options.inlineFormattingOnly) {
+    markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
+      .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
+        return `<h${hashes.length} id=\"${title}\">${title}<a href="#${encodeURIComponent(title)}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1><intentional newline>`
+      })
+  }
+
+  // formatting of inline elements (only, goes here)
+  markdown = markdown
     .replace(/\*\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*/gm, "<b>$1</b>") // **bold**
     .replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*/gm, "<i>$1</i>") // *italic*
     // .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```
@@ -161,101 +259,19 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     })
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
 
-  // tables:
-  // | Header 1 | Header 2 | Header 3 |
-  // |:---------|:--------:|---------:|                    <-- optional, creates heading columns if present
-  // | Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 |
-  // | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 |
-  markdown = markdown.replace( /^(\|.+\|\n)((\|:?-+:?)+\|\n)?((\|.+\|\n)*)/gm, (match, firstline, nextline, nextline_col, lastlines, lastline ) => {
-    const VERBOSE=false
-    firstline = firstline.replace(/\n$/, '');
-    lastlines = lastlines ? lastlines.replace(/\n$/,'').split( "\n" ) : []
-    let justification = "left";
-    if (nextline) {
-      nextline =  nextline.replace(/\n$/, '');
-      justification = nextline ? nextline.replace( /(:?)([-_=]+)(:?)/g, (m, left, dashes, right) => left && right ? "center" : right ? "right" : "left").replace(/(^\||\|$)/g,'').split('|') : undefined
-    }
-    let lines = [ firstline, ...lastlines ]
+    // Convert line breaks (two spaces at the end of a line)
+    //markdown = markdown.replace(/\n\s*\n/g, '<br>');
 
-    VERBOSE && console.log( "[markdown] table: firstline: ", firstline )
-    VERBOSE && console.log( "[markdown] table: nextline:  ", nextline )
-    VERBOSE && lastlines.forEach( r => console.log( "[markdown] table: lastlines: ", r ) )
-    VERBOSE && nextline && console.log( "[markdown] table: justify:   ", justification )
-    VERBOSE && console.log( "[markdown] table: lines", lines )
-
-    let result = "<table class='markdown-table'>"
-    let whichline = 0
-    lines.forEach( line => {
-      let is_heading = nextline && whichline == 0
-      VERBOSE && console.log( `[markdown] table:  o line[${whichline.toString().padStart(lines.length.toString().length, "0")}]:'${line}'${is_heading ? " <-- heading" : ""}` )
-      result += `<${is_heading ? "thead" : "tbody"}><tr>`
-      let whichcol = -1
-      result += line.replace( /\|\s*([^\|\n]+?)\s*(?=\||\|$)/g, (match, content) => {
-        ++whichcol
-        let just = justification[Math.min( justification.length, whichcol )];
-        VERBOSE && console.log( `[markdown] table:    - ${is_heading ? "heading" : "content"}:'${content}' col:'${whichcol}' just:'${just}'` )
-        return `<${is_heading?'th':'td'} style='text-align:${just};'>${content}</${is_heading?'th':'td'}>`
-      }).replace( /\s*\|$/, '' ) // eat the last trailing |
-      result += `</tr></${is_heading ? "thead" : "tbody"}>`
-      ++whichline
-    })
-    result += "</table>"
-    VERBOSE && console.log( `[markdown] table: html:${result}` )
-    return result
-  })
-
-  // blockquote >, >>, >>> (or }, }}, }}} for invisible)
-  markdown = markdown.replace(/(^([>}]+)[^\S\r\n]?.*?(?:\n[>}]+[^\S\r\n]?.*)*)(?=\n(?![^>}])|$)/gm, (match, fullBlock, marker) => {
-    const markerChar = marker[0]; // either '>' or '}'
-
-    // Map lines to { level, content }
-    const lines = match.trim().split('\n').map(line => {
-      const level = line.match(new RegExp(`^[>}]+`))[0].length;
-      const content = line.replace(new RegExp(`^[>}]+\\s+`), '');
-      return { level, content };
-    });
-
-    // Combine consecutive lines of the same "level"
-    const reducedLines = lines.reduce((acc, curr) => {
-        const prev = acc[acc.length - 1];
-        if (prev && prev.level === curr.level) {
-            prev.content += '<BR>' + curr.content; // Merge lines with same level
-        } else {
-            acc.push(curr);
-        }
-        return acc;
-    }, []);
-
-    // Convert to nested blockquotes using a stack
-    let result = '';
-    let stack = [];
-    for (const { level, content } of reducedLines) {
-        while (stack.length > level) {
-            result += '</blockquote>';
-            stack.pop();
-        }
-        while (stack.length < level) {
-            result += `<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`;
-            stack.push(`<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`);
-        }
-        result += content + '\n';
-    }
-    while (stack.length) {
-        result += '</blockquote>';
-        stack.pop();
-    }
-    return result.trim();
-  });
-
-  // Convert line breaks (two spaces at the end of a line)
-  //markdown = markdown.replace(/\n\s*\n/g, '<br>');
+  // close it out
+  if (!options.inlineFormattingOnly) {
+    markdown = markdown.replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
+      .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <BR>
+      .replace(/\n/gm, "<br>\n") // New lines to <br>
+      .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
+      .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
+  }
 
   return markdown
-  .replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
-  .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <BR>
-  .replace(/\n/gm, "<br>\n") // New lines to <br>
-  .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
-  .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
 }
 
 
@@ -317,6 +333,8 @@ function _parseHTMLToTree(htmlString) {
   for (const child of document.body.childNodes) {
     if (child.nodeType === Node.ELEMENT_NODE) {
       tree.push(elementToObject(child));
+    } else {
+      tree.push({ type: 'text', content: child }); // Text node
     }
   }
 
@@ -331,6 +349,7 @@ function _htmlTreeToMarkdown(tree) {
   let insideBold = 0;
   let insideItalics = 0;
   let insideUnderscore = 0;
+  let insideHeading = 0;
 
   // Helper function to check for `font-weight > 400` in the `style` attribute
   function isBold(node) {
@@ -443,8 +462,15 @@ function _htmlTreeToMarkdown(tree) {
 
   function convertNodeToMarkdown(node) {
     if (node.type === 'text') {
-      //console.log( `TEXT:  "${node.content}"`)
-      return node.content;//.trim(); // Handle plain text nodes
+      let retval = typeof node.content == "string" ? node.content :   // comes up in nodejs side
+                  node.content ? (                                    // comes up running in browser side
+                    typeof node.content.textContent == "string" ? node.content.textContent : 
+                    typeof node.content.nodeValue == "string" ? node.content.nodeValue : 
+                    typeof node.content.data == "string" ? node.content.data : 
+                    typeof node.content.wholeText == "string" ? node.content.wholeText : ""
+                  ) : "";
+      //console.log( `TEXT:  "${retval}"` )
+      return retval;//.trim(); // Handle plain text nodes
     }
 
     // Check whether the node has `font-weight > 400` and wrap its content in `**`
@@ -455,7 +481,7 @@ function _htmlTreeToMarkdown(tree) {
     const isNodeUnderscore = isUnderscore(node) // if the style info makes this node italic.
 
     function applyDecoration( content, options = {} ) {
-      const delimiters = (isNodeBold || options.isNodeBold) ? "**" : (isNodeItalic || options.isNodeItalic) ? "*" : (insideAHREF == 0 && (isNodeUnderscore || options.isNodeUnderscore)) ? "__" : ""
+      const delimiters = (!insideHeading && (isNodeBold || options.isNodeBold)) ? "**" : (isNodeItalic || options.isNodeItalic) ? "*" : (insideAHREF == 0 && (isNodeUnderscore || options.isNodeUnderscore)) ? "__" : ""
       const applied_delimiters = (insideBold == 0 && insideItalics == 0 && insideUnderscore == 0) ? delimiters : ""
       const c = content.replace(/^(\s*)/,`$1${applied_delimiters}`).replace(/(\s*)$/,`${applied_delimiters}$1`) // move the whitespace, delimiter must be butted up against the non-ws characters
       //console.log( `c:'${c}'` )
@@ -469,20 +495,22 @@ function _htmlTreeToMarkdown(tree) {
       return url.replace(/\[/g,'%5B').replace(/\]/g,'%5D')
     }
 
+    //console.log( "node.tagName:", node.tagName )
+
     // Handle specific HTML tags
     switch (node.tagName) {
       case 'h1':
-        return `# ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
       case 'h2':
-        return `## ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
       case 'h3':
-        return `### ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
       case 'h4':
-        return `#### ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
       case 'h5':
-        return `##### ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
-      case 'h6':
-        return `###### ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
+      case 'h6': {
+        const level = parseInt( node.tagName[1] );
+        insideHeading++
+        const content = `${"#".repeat(level)} ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
+        insideHeading--
+        return content
+      }
       case 'p': {
         const content = node.children.map(convertNodeToMarkdown).join('');
         if (isNodeMonospace) {
@@ -593,16 +621,19 @@ function _htmlTreeToMarkdown(tree) {
         // Default fallback: Render children only
         let levels = getIndents(node)
         const content = node.children.map(convertNodeToMarkdown).join('');
+        //console.log( "default:", content )
         return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}`;
       }
     }
   }
 
+  //console.log("tree.map(convertNodeToMarkdown).join('');")
   // Iterate through the tree and convert each node to Markdown
   return tree.map(convertNodeToMarkdown).join('');
 }
 
 function htmlToMarkdown( str ) {
+  //console.log("htmlToMarkdown", str)
   if (str == "<p><br></p>") str = ""; // quill does this... filter out empty document produced by quill editor...
   const htmlTree = _parseHTMLToTree(str);
   let markdown_str = _htmlTreeToMarkdown( htmlTree );

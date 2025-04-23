@@ -132,7 +132,8 @@ async function issueOrRenewCert() {
     console.log("[soma-certbot] cert domains", domains);  
     console.log("[soma-certbot] desired domains", DOMAINS);
     const missing_domains = getMissingDomains( CERT_PATH.cert, DOMAINS )
-    console.log("[soma-certbot] is missing", missing_domains);
+    if (missing_domains.length > 0)
+      console.log("[soma-certbot] is missing", missing_domains);
   
     const daysLeft = (expiresAt - new Date()) / (1000 * 60 * 60 * 24);
     if (daysLeft > 30 && missing_domains.length == 0) {
