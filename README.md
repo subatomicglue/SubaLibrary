@@ -3,8 +3,8 @@
 
 
 ## Features
-- [soma-serv](soma-serv):  fileserver which you can run inside your home network to serve up your own library.
-- [soma-wiki](soma-wiki):  serverless wiki & content system built on AWS - *** work in progress ***
+- [soma-serv](serv):  wiki & fileserver which you can run inside your home network to serve up your own library.
+- [soma-serv-aws](serv-aws):  serverless wiki & content system built on AWS - *** work in progress ***
 
 
 # aws info & notes:
