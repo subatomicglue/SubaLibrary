@@ -35,7 +35,7 @@ function isFile( path ) {
 }
 
 function userLogDisplay(req_user, req_ip) {
-  return `[${req_user!=""?`${req_user}@`:""}${req_ip.replace(/^::ffff:/, '')}]`
+  return `[${req_user!=""?`${req_user}@`:""}${req_ip ? req_ip.replace(/^::ffff:/, '') : ""}]`
 }
 
 class FileServ {

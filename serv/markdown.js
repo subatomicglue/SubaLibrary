@@ -40,6 +40,13 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
   }
+
+  function htmlToText(str) {
+    return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ).replace(/<[^>]+?>/g,'')
+  }
+  function sanitizeForHTMLParam(str) {
+    return htmlToText( markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ) ).replace(/"/g, '').trim()
+  }
   
   
   function transformCustomBlocks(markdown) {
@@ -222,7 +229,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   if (!options.inlineFormattingOnly) {
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-        return `<h${hashes.length} id=\"${title}\">${title}<a href="#${encodeURIComponent(title)}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1><intentional newline>`
+        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h${hashes.length}><intentional newline>`
       })
   }
 
@@ -240,7 +247,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
       return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>`
     })
-    .replace(/\[([^\[\]\n]+)\]\(([^\)\n]*)\)/g, (match, title, url) => { // [title text](url)
+    .replace(/\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g, (match, title, url) => { // [title text](url)
       const VERBOSE=false
       const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : options.link_relative_callback( baseUrl, url );
       VERBOSE && console.log( "[markdown] link", THEURL )
@@ -658,6 +665,46 @@ function htmlToMarkdown( str ) {
 // console.log( markdownToHtml(txt, "/wiki") );
 // console.log( "htmlToMarkdown done===========" )
 
+function isBrowser() {
+  return typeof window !== "undefined";
+}
+function markdownToHtmlTest(markdown, expectedHTML) {
+  const html = markdownToHtml( markdown )
+  if (html != expectedHTML) {
+    console.log( "[markdown.js] test failed" )
+    console.log( "-------markdown-------" )
+    console.log( markdown )
+    console.log( "-------Generated HTML-------" )
+    console.log( html )
+    console.log( "-------Expected HTML-------" )
+    console.log( expectedHTML )
+    return false;
+  }
+  return true;
+}
+if (!isBrowser()) {
+markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
+` )
+markdownToHtmlTest( `**word**`, `<b>word</b>` )
+markdownToHtmlTest( `*word*`,   `<i>word</i>` )
+markdownToHtmlTest( `__word__`, `<u>word</u>` )
+markdownToHtmlTest( `---
+word
+---`, `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+word<br>
+
+</div>` )
+markdownToHtmlTest( `===
+word
+===`, `<div style="padding: 1em; margin: 1em 0;">
+word<br>
+
+</div>` )
+markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2) ]`,
+`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
+` )
+markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="undefined/LoremIpsum">< back</a>` )
+} // if (isBrowser())
 
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;

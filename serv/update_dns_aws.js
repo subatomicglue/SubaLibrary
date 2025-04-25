@@ -21,11 +21,12 @@ const showHelp = args.includes('--help');
 const listZones = args.includes('--list');
 const nonDestructive = args.includes('--non-destructive');
 const forceUpdate = args.includes('--force');
+const cloudFrontDistributionDomain = args.length > 0 && args[args.length-1].match( /cloudfront.net$/ ) ? args[args.length-1] : undefined
 
 // === HELP TEXT ===
 if (showHelp) {
   console.log(`
-Usage: node update-a-record.js [--help] [--list] [--non-destructive]
+Usage: node update-a-record.js [--help] [--list] [--non-destructive] [optional: cloudFrontDistributionDomain e.g. dxxxxxxxxx.cloudfront.net]
 
 Options:
   --help              Show this help message.
@@ -87,7 +88,7 @@ async function getCurrentARecord(route53, HOSTED_ZONE_ID, RECORD_NAME) {
       r.Name === RECORD_NAME && r.Type === 'A'
     );
 
-    return record ? record.ResourceRecords[0].Value : null;
+    return record && record.ResourceRecords.length > 0 ? record.ResourceRecords[0].Value : null;
   } catch (err) {
     console.error('❌ Error fetching current A record:', err.message);
     throw err;
@@ -95,7 +96,7 @@ async function getCurrentARecord(route53, HOSTED_ZONE_ID, RECORD_NAME) {
 }
 
 // === UPDATE RECORD ===
-async function updateARecord(ip) {
+async function updateARecord(ip, cloudFrontDistributionDomain = undefined) {
   for (const zone of HOSTED_ZONES) {
     const { HOSTED_ZONE_ID, RECORD_NAME } = zone;
     const route53 = new AWS.Route53();
@@ -108,7 +109,7 @@ async function updateARecord(ip) {
     }
 
 
-    const params = {
+    const params = cloudFrontDistributionDomain == undefined ? {
       HostedZoneId: HOSTED_ZONE_ID,
       ChangeBatch: {
         Comment: 'Auto-updated by dynamic DNS script',
@@ -126,7 +127,26 @@ async function updateARecord(ip) {
           }
         ]
       }
-    };
+    } : {
+      HostedZoneId: HOSTED_ZONE_ID,
+      ChangeBatch: {
+        Comment: 'Auto-updated by dynamic DNS script',
+        Changes: [
+          {
+            Action: 'UPSERT',
+            ResourceRecordSet: {
+              Name: RECORD_NAME, // Replace with your domain
+              Type: 'A',
+              AliasTarget: {
+                HostedZoneId: 'Z2FDTNDATAQYW2', // CloudFront Hosted Zone ID
+                DNSName: cloudFrontDistributionDomain,
+                EvaluateTargetHealth: false,
+              },
+            },
+          },
+        ],
+      },
+    }
 
     if (nonDestructive) {
       console.log('🧪 Non-destructive mode enabled. Would send the following update:');
@@ -150,7 +170,7 @@ async function main() {
     const ip = await getPublicIP();
     console.log(`🌍 Public IP: ${ip}`);
 
-    await updateARecord(ip);
+    await updateARecord(ip, cloudFrontDistributionDomain);
   } catch (err) {
     console.error('❌ Error:', err);
     process.exit(1);

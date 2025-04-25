@@ -45,6 +45,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "aws-sdk": "^2.1692.0",
     "pm2": "^6.0.5"
   }
 }

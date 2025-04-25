@@ -15,4 +15,5 @@ assets/apple-touch-icon.png
 assets/favicons
 assets/favicon.ico
 build
+backup.sh
 

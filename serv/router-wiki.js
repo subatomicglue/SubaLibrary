@@ -346,7 +346,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           const saved = localStorage.getItem(LS_KEY);
           if (saved !== null) {
             document.getElementById('markdown').value = saved;
-            document.getElementById('status').innerHTML = '<span style="color: #ffaa00">restored...</span>';
+            document.getElementById('status').innerHTML = '<span style="color: #ffaa00"><b>restored...</b></span>';
             setTimeout( () => {
               document.getElementById('status').textContent = '';
             }, 5000)
@@ -363,7 +363,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           autosaveLastSaved = content
 
           localStorage.setItem(LS_KEY, content);
-          document.getElementById('status').innerHTML = '<span style="color: #aaff00">autosaved...</span>';
+          document.getElementById('status').innerHTML = '<span style="color: #aaff00"><b>autosaved...</b></span>';
           setTimeout( () => {
             document.getElementById('status').textContent = '';
           }, 1000)
@@ -581,7 +581,156 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
             }
           });
           ////////////////////////// paste handler /////////////////////////////
+
+          // formatting toggle (e.g. bold toggle (cmd-b) to add/remove '**')
+          function createFormattingToggle( key='b', fmt='**' ) {
+            document.getElementById('markdown').addEventListener('keydown', function (event) {
+              const isMac = navigator.platform.toUpperCase().includes('MAC');
+              const boldKey = isMac ? event.metaKey : event.ctrlKey;
+              const fmt_len = fmt.length;
+
+              if (boldKey && event.key.toLowerCase() === key) {
+                event.preventDefault();
+
+                const textarea = event.target;
+                let start = textarea.selectionStart;
+                let end = textarea.selectionEnd;
+                let value = textarea.value;
+
+                const before = value.slice(0, start);
+                const selected = value.slice(start, end);
+                const after = value.slice(end);
+
+                // Case 3: selected text is "word" and there is outside **'s:  **word** — remove the **'s
+                if (before.slice(-fmt_len) === fmt && after.slice(0, fmt_len) === fmt) {
+                  textarea.value = before.slice(0, -fmt_len) + selected + after.slice(fmt_len);
+                  textarea.selectionStart = start - fmt_len;
+                  textarea.selectionEnd = end - fmt_len;
+                  return;
+                }
+
+                // Case 2: selected text is "**word**": — remove the **'s
+                if (selected.slice(0, fmt_len) === fmt && selected.slice(-fmt_len) === fmt) {
+                  textarea.value = before + selected.slice(fmt_len, selected.length - fmt_len) + after;
+                  textarea.selectionStart = start;
+                  textarea.selectionEnd = end - (fmt_len*2);
+                  return;
+                }
+
+                // Case 1: add **
+                textarea.value = before + fmt + selected + fmt + after;
+                textarea.selectionStart = start + fmt_len;
+                textarea.selectionEnd = end + fmt_len;
+              }
+            });
+          }
+          createFormattingToggle( 'b', '**' )
+          createFormattingToggle( 'i', '*' )
+          createFormattingToggle( 'u', '__' )
+
         });
+      </script>
+      <script>
+        function createSvgPopup(id, title, content) {
+          // Append CSS styles dynamically
+          const style = document.createElement('style');
+          style.textContent = \`
+            .svg-popup-container {
+              position: relative;
+              display: inline-block;
+            }
+            .svg-popup {
+              display: none; /* Hidden by default */
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background-color: rgba(0, 0, 0, 0.8);
+              justify-content: center;
+              align-items: center;
+              z-index: 1000;
+            }
+            .svg-popup-content {
+              text-align: left;
+              max-width: 95%;
+              max-height: 80%;
+              background-color: white;
+              padding: 20px;
+              border-radius: 10px;
+              position: relative;
+              overflow: auto; /* Allow scrolling if content overflows */
+            }
+            .svg-back-button {
+              cursor: pointer;
+              position: absolute;
+              top: 10px;
+              left: 10px;
+              width: 40px; /* Adjust size as needed */
+              height: 40px;
+            }
+          \`;
+          document.head.appendChild(style);
+
+          // Create the SVG Popup structure
+          const container = document.createElement('div');
+          container.classList.add('svg-popup-container');
+
+          const svgImage = document.createElement('img');
+          svgImage.src = '/${ASSETS_MAGIC}/help_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your SVG path
+          svgImage.alt = 'Tap me';
+          svgImage.classList.add('popup-trigger');
+          svgImage.style.cursor = 'pointer';
+          //svgImage.style.width = '200px';
+          //svgImage.style.height = 'auto';
+
+          const svgPopup = document.createElement('div');
+          svgPopup.classList.add('svg-popup');
+          svgPopup.id = \`\${id}-popup\`;
+
+          const popupContent = document.createElement('div');
+          popupContent.classList.add('svg-popup-content');
+
+          const backButton = document.createElement('img');
+          backButton.src = '/${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your back button SVG path
+          backButton.alt = 'Back';
+          backButton.classList.add('svg-back-button');
+          backButton.id = \`\${id}-backButton\`;
+
+          const heading = document.createElement('h2');
+          heading.style="text-align: right;";
+          heading.innerHTML = \`<img src="\${svgImage.src}"/>\${title}\`;
+
+          const paragraph = document.createElement('p');
+          paragraph.innerHTML = \`
+          \${content}
+          \`;
+
+          // Append elements
+          popupContent.appendChild(backButton);
+          popupContent.appendChild(heading);
+          popupContent.appendChild(paragraph);
+          svgPopup.appendChild(popupContent);
+          container.appendChild(svgImage);
+          container.appendChild(svgPopup);
+          document.getElementById(id).appendChild(container);
+
+          // JavaScript functionality
+          svgImage.addEventListener('click', () => {
+            svgPopup.style.display = 'flex'; // Show the popup
+          });
+
+          backButton.addEventListener('click', () => {
+            svgPopup.style.display = 'none'; // Hide the popup
+          });
+
+          // Optional: Close the popup when clicking outside the content area
+          svgPopup.addEventListener('click', (event) => {
+            if (event.target === svgPopup) {
+                svgPopup.style.display = 'none'; // Hide the popup
+            }
+          });
+        }
       </script>
       <style>
         <%include "style.css"%>
@@ -663,30 +812,35 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
           text-align: right;
           padding: 0.75rem;
           background-color: #22282F;
+          display: flex;
+          align-items: center
         }
 
         .button1, .button2 {
           padding: 0.40rem 0.80rem;
-          font-size: 1.4rem;
           font-weight: 600;
           border-radius: 0.50rem;
+          margin-left: .3em;
         }
-        // @media (orientation: portrait)  {
-        //   #markdown, #preview {
-        //     font-size: 2rem;
-        //   }
-        //   .buttons-tray {
-        //     font-size: 2rem;
-        //     padding-top: 1px;
-        //     padding-bottom: 1px;
-        //   }
-        //   .button1, .button2 {
-        //     font-size: 2.5rem;
-        //   }
-        //   .drag-handle {
-        //     height: 1.25rem; /* Height of the handle */
-        //   }
-        // }
+
+        .button1, .button2, #status {
+          font-size: 1.4rem;
+        }
+
+        @media (orientation: portrait)  {
+          .buttons-tray {
+            padding-top: 1px;
+            padding-bottom: 1px;
+            padding-right: 1px;
+          }
+          .button1, .button2, #status {
+            font-size: 1rem;
+            margin-left: .15em;
+          }
+          .drag-handle {
+            height: 1.25rem; /* Height of the handle */
+          }
+        }
 
         .button1 {
           border: 0.0625em solid #3f944b;
@@ -714,191 +868,16 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
       <!-- <h1>Markdown Editor: ${topic}</h1> -->
       <!-- ${markdown.length == 0 ? `For Precise Editing &amp; HTML Paste.   (Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> for simple/wysiwyg editing)` : ''} -->
       <div class="buttons-tray">
-        <script>
-          function createSvgPopup(id, title, content) {
-            // Append CSS styles dynamically
-            const style = document.createElement('style');
-            style.textContent = \`
-              .svg-popup-container {
-                position: relative;
-                display: inline-block;
-              }
-              .svg-popup {
-                display: none; /* Hidden by default */
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.8);
-                justify-content: center;
-                align-items: center;
-                z-index: 1000;
-              }
-              .svg-popup-content {
-                text-align: left;
-                max-width: 95%;
-                max-height: 80%;
-                background-color: white;
-                padding: 20px;
-                border-radius: 10px;
-                position: relative;
-                overflow: auto; /* Allow scrolling if content overflows */
-              }
-              .svg-back-button {
-                cursor: pointer;
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: 40px; /* Adjust size as needed */
-                height: 40px;
-              }
-            \`;
-            document.head.appendChild(style);
-
-            // Create the SVG Popup structure
-            const container = document.createElement('div');
-            container.classList.add('svg-popup-container');
-
-            const svgImage = document.createElement('img');
-            svgImage.src = '/${ASSETS_MAGIC}/help_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your SVG path
-            svgImage.alt = 'Tap me';
-            svgImage.classList.add('popup-trigger');
-            svgImage.style.cursor = 'pointer';
-            //svgImage.style.width = '200px';
-            //svgImage.style.height = 'auto';
-
-            const svgPopup = document.createElement('div');
-            svgPopup.classList.add('svg-popup');
-            svgPopup.id = \`\${id}-popup\`;
-
-            const popupContent = document.createElement('div');
-            popupContent.classList.add('svg-popup-content');
-
-            const backButton = document.createElement('img');
-            backButton.src = '/${ASSETS_MAGIC}/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your back button SVG path
-            backButton.alt = 'Back';
-            backButton.classList.add('svg-back-button');
-            backButton.id = \`\${id}-backButton\`;
-
-            const heading = document.createElement('h2');
-            heading.style="text-align: right;";
-            heading.innerHTML = \`<img src="\${svgImage.src}"/>\${title}\`;
-
-            const paragraph = document.createElement('p');
-            paragraph.innerHTML = \`
-            \${content}
-            \`;
-
-            // Append elements
-            popupContent.appendChild(backButton);
-            popupContent.appendChild(heading);
-            popupContent.appendChild(paragraph);
-            svgPopup.appendChild(popupContent);
-            container.appendChild(svgImage);
-            container.appendChild(svgPopup);
-            document.getElementById(id).appendChild(container);
-
-            // JavaScript functionality
-            svgImage.addEventListener('click', () => {
-              svgPopup.style.display = 'flex'; // Show the popup
-            });
-
-            backButton.addEventListener('click', () => {
-              svgPopup.style.display = 'none'; // Hide the popup
-            });
-
-            // Optional: Close the popup when clicking outside the content area
-            svgPopup.addEventListener('click', (event) => {
-              if (event.target === svgPopup) {
-                  svgPopup.style.display = 'none'; // Hide the popup
-              }
-            });
-          }
-        </script>
         <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
-        <div style="display: inline; font-size: 1.4rem; color: white;" id="status">${markdown.length == 0 ? `Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> &nbsp; &nbsp; &nbsp;` : ''}</div>
+        <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status">${markdown.length == 0 ? `Reload as <a href="${req.baseUrl}${edit_route}2/${topic}">natural</a> &nbsp; &nbsp; &nbsp;` : ''}</div>
         <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
+        <script>
+          createSvgPopup("infopopup", "Markdown", \`<%include "markdown-help.html"%>\`)
+        </script>
         <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
         <button id="uploadBtn" class="button2">Upload</button>
         <button class="button2" onclick="cancelWiki()">Cancel</button>
         <button class="button1" onclick="saveWiki()">Save</button>
-        <script>
-          createSvgPopup("infopopup", "Markdown", \`<pre style="font-size: 1rem">
-Paste Works!
- - from HTML (google docs, browser)
- - single Images
-
-# heading1
-## heading2
-### heading3
-
-**bold**
-*italic*
-__underscore__
-
- - bullet  (or + or *)
-    - indented bullet
-
- 1. numbered bullet
-    a. indented alpha bullet
-      i. indented roman bullet
-
-&gt; blockquote
-&gt;&gt; indented blockquote
-
-&gt;&gt;&gt;<BR>block quote<BR>&gt;&gt;&gt;
-
-} blockquote (borderless)
-}} indented blockquote (borderless)
-
-}}}<BR>block quote (borderless)<BR>}}}
-
-
-\\\`code\\\`
-
-\\\`\\\`\\\`<BR>code block<BR>\\\`\\\`\\\`
-
-
----<BR>a box<BR>---
-
--+-<BR>a centered box<BR>-+-
-
---+<BR>a right justified box<BR>--+
-
-
-===<BR>borderless box<BR>===
-
-=+=<BR>centered borderless box<BR>=+=
-
-==+<BR>a right justified borderless box<BR>==+
-
-
-| tablecell1 | tablecell2 |
-
-| tablehead1 | tablehead2 |
-|:-----------|:----------:|
-| tablecell1 | tablecell2 |
-
-links:
- [title](/localpath)
- [title](wikitopic)
- [title](#headingonpage)
- [title](https://url)
-
-images:
- paste an image, it's magical!
- ![title](url)
-
-escapes (url):
-- space %20
-
-escapes (content):
-- &gt;  &amp;gt;
-- &lt;  &amp;lt;
-- &amp; &amp;amp;
-          </pre>\`)
-        </script>
       </div>
 
       <div class="container">

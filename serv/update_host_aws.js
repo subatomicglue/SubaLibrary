@@ -4,13 +4,15 @@ const AWS = require('aws-sdk');
 const process = require('process');
 
 const route53 = new AWS.Route53();
+let nondestructive = false;
+
 
 // Helper function to display help text
 async function showHelp() {
   console.log(`
 Usage: node update-cname.js --zone <HOSTED_ZONE_NAME> --records <RECORD_NAME1> <RECORD_NAME2> ...
 
-Description: 
+Description:
 This script adds or updates CNAME records in an AWS Route 53 hosted zone.
 
 Arguments:
@@ -19,7 +21,11 @@ Arguments:
   --records         One or more CNAME records to create/update
 
 Example:
-  node update-cname.js --zone "example.com." --records "www" "api" "private"
+  node update-host_aws.js --zone "example.com." --records "www" "api" "private"
+  node update-host_aws.js --zone "example.com." --value "dxxxxxxxxxxxxx.cloudfront.net" --records "private" "private2"
+  node update-host_aws.js --zone "example.com." --value "192.0.2.1" --records "private"
+
+  NOTE: --records must always be the last arg
   `);
 
   await listHostedZones();
@@ -56,20 +62,104 @@ async function getHostedZoneIdByName(zoneName) {
   }
 }
 
-async function wouldChangeRecord(hostedZoneId, recordName, targetValue) {
+
+// Function to get the existing CNAME record
+async function recordGet(recordType = "CNAME", hostedZoneId, recordName) {
+  try {
+    const results = await route53.listResourceRecordSets({
+      HostedZoneId: hostedZoneId,
+      StartRecordName: recordName,
+      StartRecordType: recordType,
+      MaxItems: '1'
+    }).promise()
+    //console.log( `recordGet: for ${hostedZoneId} ${recordName}`, results );
+    const result = results.ResourceRecordSets.filter( r => r.Name == `${recordName}.` && r.Type == recordType );
+
+    //console.log( `recordGet: for ${recordType} ${hostedZoneId} ${recordName}`, result );
+
+    return result.length > 0 ? result[0] : null;
+  } catch (err) {
+    console.error(`❌ Error fetching existing ${recordType} record:`, err);
+    return null;
+  }
+}
+
+async function recordCreate(recordType = "CNAME", hostedZoneId, targetName, targetValue) {
+  console.log(` - Updating ${recordType} record for ${targetName} -> ${targetValue}:`);
+  const params = {
+    HostedZoneId: hostedZoneId,
+    ChangeBatch: {
+      Comment: `Add or update A record for ${targetName}`,
+      Changes: [
+        {
+          Action: 'UPSERT',
+          ResourceRecordSet: {
+            Name: targetName,
+            Type: recordType,
+            TTL: 300,
+            ResourceRecords: [{ Value: targetValue }]
+          }
+        }
+      ]
+    }
+  };
+
+  try {
+    const result = nondestructive ? await wouldChangeRecord(recordType, hostedZoneId, recordName, targetName).willChange : await route53.changeResourceRecordSets(params).promise();
+    console.log(`✅ ${recordType} record created or updated: ${targetName} -> ${targetValue}`);
+  } catch (err) {
+    console.error(`❌ Error creating/updating ${recordType} record:`, err);
+  }
+}
+
+async function recordDelete(recordType = "CNAME", hostedZoneId, targetName) {
+  let existingRecord = await recordGet(recordType, hostedZoneId, targetName);
+  if (existingRecord) {
+    //console.log( existingRecord );
+    console.log(` - Deleting ${recordType} record for ${targetName} -> ${existingRecord.ResourceRecords.length > 0 ? existingRecord.ResourceRecords[0].Value : ""}:`);
+    const params = {
+      HostedZoneId: hostedZoneId,
+      ChangeBatch: {
+        Changes: [
+          {
+            Action: 'DELETE',
+            ResourceRecordSet: {
+              Name: targetName,
+              Type: recordType,
+              TTL: existingRecord.TTL,
+              ResourceRecords: existingRecord.ResourceRecords
+            }
+          }
+        ]
+      }
+    };
+    try {
+      const result = nondestructive ? await wouldChangeRecord(recordType, hostedZoneId, recordName, targetName, true).willChange : await route53.changeResourceRecordSets(params).promise();
+      console.log(`✅ ${recordType} record deleted: ${targetName} -> ${existingRecord.ResourceRecords.length > 0 ? existingRecord.ResourceRecords[0].Value : ""}`);
+    } catch (err) {
+      console.error(`❌ Error deleting ${recordType} record:`, err);
+    }
+  }
+}
+
+
+async function wouldChangeRecord(recordType="CNAME", hostedZoneId, recordName, targetValue, toDelete=false) {
   try {
     const result = await route53.listResourceRecordSets({
       HostedZoneId: hostedZoneId,
       StartRecordName: recordName,
-      StartRecordType: 'CNAME',
+      StartRecordType: recordType,
       MaxItems: '1'
     }).promise();
 
     const existing = result.ResourceRecordSets[0];
+    if (existing && toDelete) {
+      return { willChange: true, reason: 'Would delete.' };
+    }
     if (
       existing &&
       existing.Name === (recordName.endsWith('.') ? recordName : recordName + '.') &&
-      existing.Type === 'CNAME'
+      existing.Type === recordType
     ) {
       const currentValue = existing.ResourceRecords[0]?.Value;
       if (currentValue === targetValue) {
@@ -85,38 +175,29 @@ async function wouldChangeRecord(hostedZoneId, recordName, targetValue) {
   }
 }
 
+// Function to check if the value is an IP address
+function isIPAddress(value) {
+  const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){2}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  return ipRegex.test(value);
+}
+
 // Function to create or update CNAME records
-async function updateCNAMERecord(hostedZoneName, recordNames, nondestructive=true) {
+async function updateHostRecord(hostedZoneName, recordNames, hostedZoneValue=undefined) {
   const hostedZoneId = await getHostedZoneIdByName(hostedZoneName);
 
   for (const recordName of recordNames) {
-    const targetValue = `${hostedZoneName.replace(/\.$/,'')}`;
+    const targetValue = hostedZoneValue ? hostedZoneValue : `${hostedZoneName.replace(/\.$/,'')}`;
     const targetName = `${recordName}.${hostedZoneName.replace(/\.$/,'')}`;
-    const params = {
-      HostedZoneId: hostedZoneId,
-      ChangeBatch: {
-        Comment: `Add or update CNAME record for ${recordName}`,
-        Changes: [
-          {
-            Action: 'UPSERT', // 'UPSERT' will create or update the record if it already exists
-            ResourceRecordSet: {
-              Name: targetName,
-              Type: 'CNAME',
-              TTL: 300,
-              ResourceRecords: [{ Value: targetValue }]
-            }
-          }
-        ]
-      }
-    };
-    //console.log( `[${recordName}] hostedZoneId:${hostedZoneId} hostedZoneName:${hostedZoneName} targetName:${targetName} targetValue:${targetValue}` )
-    //continue
 
-    try {
-      const result = nondestructive ? await wouldChangeRecord(hostedZoneId, recordName, targetName).willChange : await route53.changeResourceRecordSets(params).promise();
-      console.log(`✅ CNAME record created or updated: ${recordName}.${hostedZoneName} -> ${targetValue}`);
-    } catch (err) {
-      console.error('❌ Error creating/updating CNAME record:', err.message);
+    // If the value is an IP address, upsert an A record
+    if (isIPAddress(targetValue)) {
+      console.log(`Creating/updating A record for ${targetName} -> ${targetValue}:`);
+      await recordDelete("CNAME", hostedZoneId, targetName);
+      await recordCreate("A", hostedZoneId, targetName, targetValue)
+    } else {
+      console.log(`Creating/updating CNAME record for ${targetName} -> ${targetValue}`);
+      await recordDelete("A", hostedZoneId, targetName, targetValue)
+      await recordCreate("CNAME", hostedZoneId, targetName, targetValue)
     }
   }
 }
@@ -127,19 +208,21 @@ async function run() {
   // Parse command line arguments
   let hostedZoneName = '';
   let recordNames = [];
-  let nondestructive = false;
+  let hostedZoneValue = undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--non-destructive') {
+      console.log( "RUNNING IN NON DESTRUCTIVE MODE" );
       nondestructive = true;
     } else if (args[i] === '--zone') {
       hostedZoneName = args[++i];
+    } else if (args[i] === '--value') {
+      hostedZoneValue = args[++i];
     } else if (args[i] === '--records') {
       recordNames = args.slice(i + 1)
       break;
     }
   }
-  //console.log( hostedZoneName, recordNames, nondestructive )
 
   // Show help if arguments are missing
   if (!hostedZoneName || recordNames.length === 0) {
@@ -150,8 +233,8 @@ async function run() {
   console.log('Fetching hosted zones...');
   await listHostedZones();
 
-  console.log(`\nAdding/updating CNAME records in Hosted Zone: ${hostedZoneName}`);
-  await updateCNAMERecord(hostedZoneName, recordNames, nondestructive);
+  console.log(`\nUpdating records in Hosted Zone: ${hostedZoneName}:`);
+  await updateHostRecord(hostedZoneName, recordNames, hostedZoneValue);
 }
 
 // Run the script
