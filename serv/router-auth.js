@@ -219,15 +219,16 @@ function authGuard(req, res, next) {
             <title>Authentication Required</title>
         </head>
         <body>
-            <h2>Enter Passcode</h2>
-            <form method="POST" action="/login">
-                passcode: <input type="password" name="passcode" required>
-                <button type="submit">Submit</button>
-            </form>
-
+            <h2>Enter User/Pass</h2>
             <form method="POST" action="/login">
                 username: <input type="username" name="username" required>
                 password: <input type="password" name="password" required>
+                <button type="submit">Submit</button>
+            </form>
+
+            <h2>Enter Passcode</h2>
+            <form method="POST" action="/login">
+                passcode: <input type="password" name="passcode" required>
                 <button type="submit">Submit</button>
             </form>
         </body>

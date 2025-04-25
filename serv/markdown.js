@@ -683,6 +683,7 @@ function markdownToHtmlTest(markdown, expectedHTML) {
   return true;
 }
 if (!isBrowser()) {
+
 markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
 ` )
 markdownToHtmlTest( `**word**`, `<b>word</b>` )
@@ -704,6 +705,7 @@ markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.b
 `<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
 ` )
 markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="undefined/LoremIpsum">< back</a>` )
+
 } // if (isBrowser())
 
 module.exports.markdownToHtml = markdownToHtml;

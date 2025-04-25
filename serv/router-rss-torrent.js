@@ -12,6 +12,36 @@ const {
   TORRENT_DIR,
 } = require('./settings');
 
+function makeRSS(base_url, torrent_dir) {
+  const files = fs.readdirSync(torrent_dir)
+      .filter(f => f.endsWith('.torrent'))
+      .map(f => {
+        const stats = fs.statSync(path.join(torrent_dir, f));
+        return { name: f, mtime: stats.mtime };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+
+  const items = files.map(({ name, mtime }) => `
+    <item>
+      <title>${name}</title>
+      <link>${base_url}/${encodeURIComponent(name)}</link>
+      <guid isPermaLink="true">${base_url}/${encodeURIComponent(name)}</guid>
+      <pubDate>${mtime.toUTCString()}</pubDate>
+    </item>
+  `).join('\n');
+
+  const rss = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+    <title>${TITLE} Torrent Feed</title>
+    <link>${base_url}</link>
+    <description>All torrents for ${base_url}</description>
+    ${items}
+  </channel>
+</rss>`;
+  return rss
+}
+
 router.get('/', (req, res) => {
   // return res.send('Server Error');
   //const BASE_URL = req.headers['host'] + "/rss";//`http${req.connection.localPort == HTTPS_PORT ? 's' : ''}://hypatiagnostikoi.com${HTTPS_PORT != 443 ? `:${HTTPS_PORT}` : ``}/rss`;
@@ -23,32 +53,7 @@ router.get('/', (req, res) => {
     // Dynamically generate the base URL
     const BASE_URL = `${protocol}://${host}/rss`;
 
-    const files = fs.readdirSync(TORRENT_DIR)
-      .filter(f => f.endsWith('.torrent'))
-      .map(f => {
-        const stats = fs.statSync(path.join(TORRENT_DIR, f));
-        return { name: f, mtime: stats.mtime };
-      })
-      .sort((a, b) => b.mtime - a.mtime);
-
-    const items = files.map(({ name, mtime }) => `
-      <item>
-        <title>${name}</title>
-        <link>${BASE_URL}/${encodeURIComponent(name)}</link>
-        <guid isPermaLink="true">${BASE_URL}/${encodeURIComponent(name)}</guid>
-        <pubDate>${mtime.toUTCString()}</pubDate>
-      </item>
-    `).join('\n');
-
-    const rss = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
-  <channel>
-    <title>${TITLE} Torrent Feed</title>
-    <link>${BASE_URL}</link>
-    <description>All torrents for ${BASE_URL}</description>
-    ${items}
-  </channel>
-</rss>`;
+    makeRSS(BASE_URL, TORRENT_DIR);
 
     res.set('Cache-Control', 'no-store');
     res.set('Content-Type', 'application/rss+xml');
@@ -87,3 +92,4 @@ function init( l ) {
 
 module.exports.router = router;
 module.exports.init = init;
+module.exports.makeRSS = makeRSS;

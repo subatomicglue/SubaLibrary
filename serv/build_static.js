@@ -7,6 +7,7 @@ const sanitizer = require('./sanitizer');
 const sanitize = sanitizer.sanitize;
 const template = require('./template');
 const { markdownToHtml } = require('./markdown');
+const { makeRSS } = require('./router-rss-torrent');
 
 const SETTINGS = require('./settings');
 
@@ -16,23 +17,23 @@ const nonDestructive = args.includes('--non-destructive');
 const inputDir = SETTINGS.WIKI_DIR;
 const outputDir = path.join(__dirname, 'build');
 
+class Req {
+  constructor( topic ) {
+    this.originalUrl = "/"+topic//+".html"
+    this.canonicalUrl = `${this.protocol}://${this.get('host')}${this.originalUrl}`;
+    this.canonicalUrlRoot = `${this.protocol}://${this.get('host')}`;
+    this.canonicalUrlDomain = `${this.get('host')}`;
+    this.user = "---"
+  }
+  get(str) { return { host: SETTINGS.DOMAINS[0] }[str] } // assume the first DOMAIN[] is the one
+  protocol = "https"
+  originalUrl = "/"
+  baseUrl = "wiki/view"
+}
+req = new Req("index");
+
 // generate .html file.
 function wrapWithFrame(content, topic, req) {
-  class Req {
-    constructor( topic ) {
-      this.originalUrl = "/"+topic+".html"
-      this.canonicalUrl = `${this.protocol}://${this.get('host')}${this.originalUrl}`;
-      this.canonicalUrlRoot = `${this.protocol}://${this.get('host')}`;
-      this.canonicalUrlDomain = `${this.get('host')}`;
-      this.user = "---"
-    }
-    get(str) { return { host: SETTINGS.DOMAINS[0] }[str] } // assume the first DOMAIN[] is the one
-    protocol = "https"
-    originalUrl = "/"
-    baseUrl = ""
-  }
-  req = new Req(topic);
-
   return template.file( "page.template.html", {
     ...SETTINGS, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
     SOCIAL_TITLE: `${SETTINGS.TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
@@ -50,7 +51,7 @@ function wrapWithFrame(content, topic, req) {
   })
 }
 
-function copyFolder(dir) {
+function copyFolder(dir, recurse = true) {
   const relative_dir = path.basename(dir)
   const dirSrc = path.join(__dirname, relative_dir);
   const assetsDest = path.join(outputDir, relative_dir);
@@ -75,7 +76,8 @@ function copyFolder(dir) {
       const stat = fs.lstatSync(srcPath); // use lstat to detect symlinks
 
       if (stat.isDirectory()) {
-        copyRecursiveSync(srcPath, destPath);
+        if (recurse)
+          copyRecursiveSync(srcPath, destPath);
         //console.log(`📁 Copied dir:'${relative_dir}': ${srcPath} → ${destPath}`);
       } else {
         const isSymlink = stat.isSymbolicLink();
@@ -83,7 +85,8 @@ function copyFolder(dir) {
         const realStat = fs.statSync(realSrcPath);
         if (realStat.isDirectory()) {
           // Handle symlinked directory: recurse instead of copying like a file
-          copyRecursiveSync(realSrcPath, destPath);
+          if (recurse)
+            copyRecursiveSync(realSrcPath, destPath);
           //console.log(`📁 Copied ${isSymlink ? "symlink " : ""}dir:'${relative_dir}': ${srcPath} → ${destPath}`);
         } else {
           if (!nonDestructive)
@@ -115,24 +118,30 @@ function makeDir( outputDir ) {
 
 // create the output dirs
 makeDir( outputDir )
-makeDir( path.join( outputDir, `${SETTINGS.WIKI_ENDPOINT}/uploads`) )
+const uploadsDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/uploads` );
+makeDir( uploadsDir )
+const viewDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/view` );
+makeDir( viewDir )
 
 // Convert .md files to .html, copy image files
 fs.readdirSync(inputDir).forEach(file => {
+  const topic = path.basename(file, '.md');
   const fullPath = path.join(inputDir, file);
   const ext = path.extname(file).toLowerCase();
 
   // Skip versioned .md files
   if (ext === '.md' && /^[^.]+\.md$/.test(file)) {
-    const outputFileName = path.basename(file, '.md') + '.html';
-    const outputPath = path.join(outputDir, outputFileName);
+    const outputFileName = topic;
+    const outputPath = path.join(viewDir, outputFileName);
     const markdown = fs.readFileSync(fullPath, 'utf-8');
-    const html = wrapWithFrame( markdownToHtml(markdown, "", {
-      link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}.html`,
+    req.originalUrl = "/"+topic//+".html"
+    const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
+      link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
       link_absolute_callback: (baseUrl, url) => url,
-    }), path.basename(file, '.md'), {});
+    }), topic, req);
     if (!nonDestructive) {
       fs.writeFileSync(outputPath, html, 'utf-8');
+      fs.writeFileSync(outputPath + '.html', html, 'utf-8');
     }
     console.log(`✅ Converted: ${file} → ${outputPath}`);
   }
@@ -140,7 +149,7 @@ fs.readdirSync(inputDir).forEach(file => {
   // Copy images
   const image_types = [ '.jpg', '.png', '.jpeg', '.gif', '.svg' ]
   if (image_types.includes( ext )) {
-    const outputPath = path.join(path.join( outputDir, `${SETTINGS.WIKI_ENDPOINT}/uploads`), file);
+    const outputPath = path.join(uploadsDir, file);
     if (!nonDestructive) {
       fs.copyFileSync(fullPath, outputPath);
     }
@@ -151,7 +160,14 @@ fs.readdirSync(inputDir).forEach(file => {
 // Copy assets
 copyFolder( SETTINGS.ASSETS_DIR )
 
+// Copy torrents
+copyFolder( SETTINGS.TORRENT_DIR, false )
+
 // write out build/serve.sh
 const serveScriptPath = path.join(outputDir, "serve.sh");
 fs.writeFileSync( serveScriptPath, "#!/bin/bash\npython -m http.server", "utf8" )
 fs.chmodSync(serveScriptPath, 0o755);
+
+// write out the rss
+const rssPath = path.join(outputDir, "rss");
+fs.writeFileSync( rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
