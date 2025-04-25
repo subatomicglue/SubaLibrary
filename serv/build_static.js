@@ -19,18 +19,17 @@ const outputDir = path.join(__dirname, 'build');
 
 class Req {
   constructor( topic ) {
-    this.originalUrl = "/"+topic//+".html"
+    this.originalUrl = `/${this.baseUrl}/`+topic//+".html"
     this.canonicalUrl = `${this.protocol}://${this.get('host')}${this.originalUrl}`;
     this.canonicalUrlRoot = `${this.protocol}://${this.get('host')}`;
     this.canonicalUrlDomain = `${this.get('host')}`;
     this.user = "---"
   }
-  get(str) { return { host: SETTINGS.DOMAINS[0] }[str] } // assume the first DOMAIN[] is the one
+  get(str) { return { host: SETTINGS.DOMAINS[1] }[str] } // assume the first DOMAIN[] is the one
   protocol = "https"
   originalUrl = "/"
   baseUrl = "wiki/view"
 }
-req = new Req("index");
 
 // generate .html file.
 function wrapWithFrame(content, topic, req) {
@@ -134,7 +133,7 @@ fs.readdirSync(inputDir).forEach(file => {
     const outputFileName = topic;
     const outputPath = path.join(viewDir, outputFileName);
     const markdown = fs.readFileSync(fullPath, 'utf-8');
-    req.originalUrl = "/"+topic//+".html"
+    const req = new Req(topic);
     const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
       link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
       link_absolute_callback: (baseUrl, url) => url,
@@ -169,5 +168,6 @@ fs.writeFileSync( serveScriptPath, "#!/bin/bash\npython -m http.server", "utf8" 
 fs.chmodSync(serveScriptPath, 0o755);
 
 // write out the rss
+const req = new Req("index");
 const rssPath = path.join(outputDir, "rss");
 fs.writeFileSync( rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
