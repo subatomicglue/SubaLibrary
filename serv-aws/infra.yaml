@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an S3 Bucket with Cloudfront for hosting static HTML files.
+
+Parameters:
+  S3BucketName:
+    Description: "S3 bucket name"
+    Type: String
+  DomainName:
+    Description: "domain name"
+    Type: String
+  DomainName2:
+    Description: "domain name"
+    Type: String
+  EditableHostname:
+    Description: "The Editable Hostname (could be www)"
+    Type: String
+  StaticHostnameForTesting:
+    Description: "Static Hostname For Testing (e.g. private)"
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref S3BucketName
+      AccessControl: Private
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: "origin access control(OAC) for allowing cloudfront to access S3 bucket"
+        Name: static-hosting-OAC
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - S3Bucket
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub "${S3BucketName}.s3.${AWS::Region}.amazonaws.com"
+            Id: static-hosting
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+        Enabled: "true"
+        DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        HttpVersion: http2
+        Aliases:
+          - !Sub "${DomainName}"
+          - !Sub "${DomainName2}"
+          - !Sub "${EditableHostname}.${DomainName}"
+          - !Sub "${EditableHostname}.${DomainName2}"
+          - !Sub "www.${DomainName}"
+          - !Sub "www.${DomainName2}"
+          - !Sub "${StaticHostnameForTesting}.${DomainName}"
+          - !Sub "${StaticHostnameForTesting}.${DomainName2}"
+        ViewerCertificate:
+          AcmCertificateArn: "arn:aws:acm:us-east-1:244726690758:certificate/8ada54ac-0797-4894-9e7a-5e4d356e005f"
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+          Compress: true
+          TargetOriginId: static-hosting
+          ForwardedValues:
+            QueryString: "false"
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub "${S3BucketName}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::244726690758:distribution/${CloudFrontDistribution}"
+
+Outputs:
+  S3BucketName:
+    Description: "The S3 bucket name"
+    Value:
+      Ref: S3Bucket
+  OriginAccessControl:
+    Value:
+      Ref: CloudFrontOriginAccessControl
+  CloudFrontDist:
+    Value:
+      Ref: CloudFrontDistribution
