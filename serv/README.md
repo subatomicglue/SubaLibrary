@@ -12,18 +12,21 @@ there's a simple passcode system, you can give to your friends
 - keep 0 vulnerabilities with npm audit
 
 # HOWTO setup
-create your config file
+
+## create your config file
 ```
 > cp .soma-serv.json soma-serv.json 
 ```
 Later, once you have the app working, you can customize...
 
-Set up your app icon (you can use this if you have your own as well)
+## Set up your app icon
 ```
-> cd assets && ./change_favicon_links.sh medea-close-transparent2.favicons
+> cd assets && ./change_favicon_links.sh default-favicons
 ```
+...you can also create your own, and switch to it using this script
 
-generate development certs for https, and make sure those certs appear in `soma-serv.json`
+## generate development certs
+...for https, and make sure those certs appear in `soma-serv.json`
 ```
 > npm run certs
 ```

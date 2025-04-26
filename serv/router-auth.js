@@ -19,6 +19,7 @@ const {
   ASSETS_MAGIC,
   isPM2,
   USER_ANON_DISPLAY,
+  DOMAINS,
 } = require('./settings');
 
 let public_routes = []
@@ -323,8 +324,16 @@ function init(l, publicroutes) {
 module.exports.router = router;
 module.exports.init = init;
 
+
+// guard certain routes
 function guardOnlyAllowHost(allowed_hostname) {
   return (req, res, next) => {
+    // detect production / dev mode
+    const currentDomain = `${req.get('host')}`;
+    logger.info( "[auth]", currentDomain )
+    const prod_mode = DOMAINS.includes( currentDomain )
+    if (!prod_mode) return next()
+
     const hostname = req.hostname.toLowerCase();
     if (hostname !== allowed_hostname && !hostname.startsWith(`${allowed_hostname}.`)) {
       logger.info( `[auth] guardOnlyAllowHost: host:${hostname} allowed:${allowed_hostname}  ` ); 

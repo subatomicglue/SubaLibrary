@@ -8,6 +8,7 @@ users.json
 *.csr
 *.key
 public/**
+wiki
 wiki/**
 soma-serv.json
 assets/apple-touch-icon-precomposed.png
