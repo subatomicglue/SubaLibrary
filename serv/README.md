@@ -50,19 +50,35 @@ Read later about generating real signed certs with `lets-encrypt`
 ```
 
 # HOWTO generate and maintain real signed certs - soma-certbot.js
-You can do this yourself, for example using `AWS certificate manager`
+To run the service on HTTPS, you need signed certificates.
+You can create certs yourself, for example using `AWS certificate manager`
 
-For you do-it-yourselfers, there's `soma-certbot.js` which uses `LetsEncrypt` and the `acme-client`
+For you do-it-yourselfers, there's `soma-certbot.js` which uses `LetsEncrypt` and the `acme-client` (see below NOTE to setup config)
+
+`soma-certbot.js` will read your `soma-serv.json` file's `HOSTEDZONES` and `DOMAINS`, 
+ - so now's the time to setup `soma-serv.json`.
+ - Also, make sure that any hostnames listed in `DOMAINS` also appear in your DNS (AWS Route53, godaddy, etc.)
+
+Now, run the `staging` certbot, with `start-certbot-dev`:
 ```
 > npm run start-certbot-dev
+> npm run logs
 ```
-This starts the certbot under `pm2` (delete it with `pm2 delete soma-certbot-staging`)
+This starts the certbot under `pm2` (can delete it with `pm2 delete soma-certbot-staging`, list processes with `pm2 list`)
 
-Use this until you get it working.
-Once working, then switch to `start-certbot`
+Use `staging` to get it working.
+ - verify certs work in the browser
+ - verify no errors in the logs
 
-NOTE: This will read your `soma-serv.json` file's `HOSTEDZONES` and `DOMAINS`
-So make sure that any hostnames also appear in your DNS (AWS Route53, godaddy, etc.)
+Once working, switch to `production` certbot, with `start-certbot`
+```
+> pm2 list
+... lists all running pm2 processes ...
+> pm2 delete soma-certbot-staging
+> npm run start-certbot
+```
+
+Letsencrypt puts penalties on you for retrying too many times in `production`, which is why we get it working under `staging` first.
 
 ## AWS Route53 - dynamic dns 
 For hosting on a computer with dynamic IP address,
