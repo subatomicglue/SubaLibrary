@@ -268,11 +268,11 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
 
     // Convert line breaks (two spaces at the end of a line)
     //markdown = markdown.replace(/\n\s*\n/g, '<br>');
-
   // close it out
   if (!options.inlineFormattingOnly) {
     markdown = markdown.replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
       .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <BR>
+      .replace(/\n(<intentional newline><\/div>)/gm, "$1") // clean up spurious newline after certain blocks
       .replace(/\n/gm, "<br>\n") // New lines to <br>
       .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
       .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
@@ -692,14 +692,12 @@ markdownToHtmlTest( `__word__`, `<u>word</u>` )
 markdownToHtmlTest( `---
 word
 ---`, `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
-word<br>
-
+word
 </div>` )
 markdownToHtmlTest( `===
 word
 ===`, `<div style="padding: 1em; margin: 1em 0;">
-word<br>
-
+word
 </div>` )
 markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2) ]`,
 `<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>

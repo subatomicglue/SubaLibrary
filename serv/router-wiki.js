@@ -79,7 +79,7 @@ function wrapWithFrame(content, topic, req) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
-    BODY: `${autoscroll}<div style="padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    BODY: `${autoscroll}<div style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: (!isLoggedIn( req )) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
     SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`
   })
@@ -1457,14 +1457,14 @@ router.put('/search', express.json(), (req, res) => {
 
       // Only add to results if there's a score
       if (score > 0) {
-        results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}/${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
+        results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
       }
     });
 
     // Sort results by score in descending order
     results.sort((a, b) => b.score - a.score);
 
-    console.log( results )
+    console.log( `[search] ${userLogDisplay(req.user, req.ip)} "${searchTerm}" ${results.length} results` )
     // Return the results
     res.json(results);
   } catch (error) {
