@@ -2,10 +2,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-<meta name="title" content="<%=TITLE%>" >
+<meta name="title" content="<%=SOCIAL_TITLE%>" >
 <meta name="description" content="<%=SOCIAL_DESCRIPTION%>" >
 <meta name="keywords" content="<%=SOCIAL_KEYWORDS%>" >
-<meta property="og:site_name"          content="<%=TITLE%>">
 <meta name="resource-type" content="document" >
 <meta name="author" content="<%=AUTHOR%>" >
 <meta name="copyright" content="<%=COPYRIGHT%>" >
@@ -13,10 +12,10 @@
 <meta name="generator" content="one human brain" >
 <meta name="rating" content="General" >
 <meta name="ROBOTS" content="INDEX,FOLLOW" >
-<meta itemprop="name" content="<%=TITLE%>">
+<meta itemprop="name" content="<%=SOCIAL_TITLE%>">
 <meta itemprop="description" content="<%=SOCIAL_DESCRIPTION%>">
 <!-- <link itemprop="url" href="<%=CANONICAL_URL%>">
-<link itemprop="name" content="<%=TITLE%>"> -->
+<link itemprop="name" content="<%=SOCIAL_TITLE%>"> -->
 
 <!-- 
   validate these at:
@@ -26,9 +25,16 @@
   facebook sharing for single page apps (hint: use the user agent string, and serve a different version of page):
   https://speakerdeck.com/sienatime/facebook-sharing-for-single-page-apps
 -->
+<!-- site name -->
+<meta property="og:site_name"          content="<%=TITLE%>">
+<meta name="twitter:site" content="@<%=TITLE%>">
+<meta name="twitter:app:name:ipad" content="<%=TITLE%>">
+<meta name="application-name" content="<%=TITLE%>"/>
 <meta name="theme-color" content="rgba(33, 33, 33, 0.98)">
-<meta property="og:type"               content="article" /> <!-- website, article -->
+
+<!-- page details -->
 <meta property="og:title"              content="<%=SOCIAL_TITLE%>" />
+<meta property="og:type"               content="website" /> <!-- website, article -->
 <meta property="og:description"        content="<%=SOCIAL_DESCRIPTION%>" />
 <meta property="og:image"              content="<%=CANONICAL_URL_ROOT%>/<%=ASSETS_MAGIC%>/<%=SOCIAL_IMAGE%>" />
 <meta property="og:image:width"        content="2400">
@@ -38,19 +44,16 @@
 
 <!-- Twitter Meta Tags -->
 <meta name="twitter:card" content="summary_large_image">
-<meta property="twitter:domain" content="<%=CANONICAL_URL_DOMAIN%>">
-<meta property="twitter:url" content="<%=CANONICAL_URL%>">
-<meta name="twitter:title" content="<%=TITLE%>">
+<meta name="twitter:title" content="<%=SOCIAL_TITLE%>">
 <meta name="twitter:description" content="<%=SOCIAL_DESCRIPTION%>">
 <meta name="twitter:image" content="<%=CANONICAL_URL_ROOT%>/<%=ASSETS_MAGIC%>/<%=SOCIAL_IMAGE%>">
-<meta name="twitter:site" content="@<%=TITLE%>">
-<meta name="twitter:app:name:ipad" content="<%=TITLE%>">
+<meta property="twitter:domain" content="<%=CANONICAL_URL_DOMAIN%>">
+<meta property="twitter:url" content="<%=CANONICAL_URL%>">
 
 <!-- FB Meta Tags -->
 <!-- <meta property="fb:admins"             content="650951833"/>
 <meta property="fb:app_id"             content="2420297704867664"/> -->
 
-<meta name="application-name" content="<%=TITLE%>"/>
 <link rel="apple-touch-icon" sizes="57x57" href="/<%=ASSETS_MAGIC%>/favicons/apple-touch-icon-57x57.png" />
 <link rel="apple-touch-icon" sizes="72x72" href="/<%=ASSETS_MAGIC%>/favicons/apple-touch-icon-72x72.png" />
 <link rel="apple-touch-icon" sizes="114x114" href="/<%=ASSETS_MAGIC%>/favicons/apple-touch-icon-114x114.png" />

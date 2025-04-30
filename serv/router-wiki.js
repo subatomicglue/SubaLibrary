@@ -49,7 +49,7 @@ function userLogDisplay(req_user, req_ip) {
   return `[${req_user!=""?`${req_user}@`:""}${req_ip.replace(/^::ffff:/, '')}]`
 }
 
-function wrapWithFrame(content, topic, req) {
+function wrapWithFrame(content, topic, req, t=new Date()) {
   let autoscroll = `<script>
     function scrollToFirstMark() {
       const firstMark = document.querySelector('mark');
@@ -68,7 +68,7 @@ function wrapWithFrame(content, topic, req) {
     </script>
   `
   return template.file( "page.template.html", {
-    ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
+    ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
     SOCIAL_TITLE: `${TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
     ASSETS_MAGIC,
