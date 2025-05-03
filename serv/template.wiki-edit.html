@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>${TITLE} - Editing <%=topic%> (markdown editor)</title>
+  <title><%=TITLE%> - Editing <%=topic%> (markdown editor)</title>
   <%include "template.meta.html"%>
   <script>
     let module = { exports: {} }
@@ -13,6 +13,63 @@
     let needsAnotherPreview = false; // Flag to indicate if another update is needed
     let lastMarkdownValue = ""; // Variable to track the last value
     let previewDebounceTimer;
+
+    // for autoscroll of the preview
+    function createMirrorDiv(textarea, id = "markdown-mirror") {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      div.id = id
+
+      const style = getComputedStyle(textarea);
+
+      Object.assign(div.style, {
+        position: 'absolute',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word',
+        visibility: 'hidden',
+        zIndex: -1,
+        overflow: 'auto',
+        width: style.width,
+        height: style.height,
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        padding: style.padding,
+        border: style.border,
+        boxSizing: style.boxSizing,
+      });
+
+      return div;
+    }
+
+    // for autoscroll of the preview
+    function updateMirrorContent(text, id = "markdown-mirror") {
+      let mirrorDiv = document.getElementById("markdown-mirror")
+      mirrorDiv.innerHTML = ''; // clear old content
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const span = document.createElement('span');
+        span.textContent = line + '\n'; // keep line spacing
+        mirrorDiv.appendChild(span);
+      }
+    }
+
+    // for autoscroll of the preview
+    function getFirstVisibleHeader(textarea, mirrorDiv) {
+      const scrollTop = textarea.scrollTop;
+      const spans = Array.from(mirrorDiv.childNodes);
+
+      for (let i = 0; i < spans.length; i++) {
+        const span = spans[i];
+        //console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
+        if (span.offsetTop >= scrollTop && /^#+\s+.*?\n?$/.test(span.textContent)) {
+          return span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" );
+        }
+      }
+
+      return null;
+    }
+
     function updatePreview() {
       try {
       if (isChanging) {
@@ -47,6 +104,7 @@
       // .then(html => {
         //requestIdleCallback(() => { // doesn't exist in safari!!!!!  defeats the purpose of trying to do this in a safe thread
         requestAnimationFrame(() => {
+          updateMirrorContent(markdown);
           document.getElementById("preview").innerHTML = html;
           requestAnimationFrame(() => {
             onFinishedChanging(); // DOM updated AND painted
@@ -62,6 +120,7 @@
         console.log( error );
       }
     }
+
     function debounce(func, delay) {
       let timeoutId;
       return function(...args) {
@@ -73,6 +132,7 @@
         }, delay);
       };
     }
+
     // Example of how to use debounce with updatePreview
     const debouncedUpdatePreview = debounce(updatePreview, 800);
 
@@ -329,6 +389,7 @@
       });
       ////////////////////////// paste handler /////////////////////////////
 
+      ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
       // formatting toggle (e.g. bold toggle (cmd-b) to add/remove '**')
       function createFormattingToggle( key='b', fmt='**' ) {
         document.getElementById('markdown').addEventListener('keydown', function (event) {
@@ -378,7 +439,24 @@
           return false;
         }
       })
-    });
+      ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
+
+      ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
+      // Hook up everything  (to update:  updateMirrorContent(textarea.value))
+      const textarea_mirror = createMirrorDiv(textarea);
+      let textarea_last_heading = ""
+      textarea.addEventListener('scroll', () => {
+        const header = getFirstVisibleHeader(textarea, textarea_mirror);
+        if (header != textarea_last_heading) {
+          last_heading = header
+          const anchor = document.getElementById(textarea_last_heading);
+          if (anchor) {
+            anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      });
+      ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
+    }); // DOMContentLoaded
   </script>
   <script>
     function createSvgPopup(id, title, content) {
