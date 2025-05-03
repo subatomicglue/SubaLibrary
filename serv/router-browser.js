@@ -187,7 +187,7 @@ router.get('*', (req, res) => {
     }
 
     // HTML response, render page DOM:
-    res.send(template.file( "page.template.html", {
+    res.send(template.file( "template.page.html", {
       ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
       TITLE,
       SOCIAL_TITLE: `${TITLE} - ${`/${relPath.replace( /\s/g, "&nbsp;" )}`}`,

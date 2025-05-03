@@ -20,7 +20,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     const match = url.match(youtubeRegex);
     return match != undefined
   }
-  function convertToYouTubeEmbed(url) {
+  function convertToYouTubeEmbed(url, title) {
     const VERBOSE = false;
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
     const match = url.match(youtubeRegex);
@@ -28,7 +28,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       const videoId = match[1];
       const startTime = match[2];
       VERBOSE && console.log( "videoID", url, videoId, startTime, match.length)
-      let embed = `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}${startTime?`?start=${startTime}`:``}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      let embed = `[<a href="${url}">${title?title:"link"}</a>]<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}${startTime?`?start=${startTime}`:``}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
       return embed
     }
     return url;
@@ -252,7 +252,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : options.link_relative_callback( baseUrl, url );
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
-        return convertToYouTubeEmbed(url)
+        return convertToYouTubeEmbed(url, title)
       else
         return THEURL == "" ? `${title}` : `<a href="${THEURL}">${title}</a>`
     })
@@ -357,6 +357,7 @@ function _htmlTreeToMarkdown(tree) {
   let insideItalics = 0;
   let insideUnderscore = 0;
   let insideHeading = 0;
+  let insideListType = "";
 
   // Helper function to check for `font-weight > 400` in the `style` attribute
   function isBold(node) {
@@ -449,7 +450,9 @@ function _htmlTreeToMarkdown(tree) {
       else if (/list-style-type:\s*upper-roman/.test(node.attributes.style))
         return toRoman(index + 1) + "."; // Convert to uppercase Roman numeral
     }
-    return "-";
+    return insideListType == "ol" ?
+            index + 1 + "." : // Return index + 1 for ordered lists (decimal style)
+            "-"               // Return unordered list (bullet style)
   }
 
   // we like the greek letters to show in our urls...
@@ -468,6 +471,7 @@ function _htmlTreeToMarkdown(tree) {
   
 
   function convertNodeToMarkdown(node) {
+    //let VERBOSE = false;
     if (node.type === 'text') {
       let retval = typeof node.content == "string" ? node.content :   // comes up in nodejs side
                   node.content ? (                                    // comes up running in browser side
@@ -476,8 +480,9 @@ function _htmlTreeToMarkdown(tree) {
                     typeof node.content.data == "string" ? node.content.data : 
                     typeof node.content.wholeText == "string" ? node.content.wholeText : ""
                   ) : "";
-      //console.log( `TEXT:  "${retval}"` )
-      return retval;//.trim(); // Handle plain text nodes
+      //VERBOSE && console.log( `TEXT:  "${retval}"` )
+      return retval.replace( /^[\n]+/, '' ).replace( /[\n]+$/, '' )  // Handle plain text nodes
+      // NOTE: dont use trim, too agressive for adjacent <> format nodes separated by space
     }
 
     // Check whether the node has `font-weight > 400` and wrap its content in `**`
@@ -549,6 +554,7 @@ function _htmlTreeToMarkdown(tree) {
         return `${blockquotePrefix} ${content}\n`;
       }
       case 'ul': {
+        insideListType="ul"
         indentLevel++; // Increase indentation level for nested lists
         list_stats.push( {items:-1} )
         const content = node.children.map(convertNodeToMarkdown).join('') + (indentLevel == (indentLevelStart+1)?'\n':'');
@@ -561,17 +567,18 @@ function _htmlTreeToMarkdown(tree) {
         }
       }
       case 'ol': {
+        insideListType="ol"
         indentLevel++; // Increase indentation level for nested lists
         list_stats.push( {items:-1} )
-        const content = node.children.map(convertNodeToMarkdown).join('') + (indentLevel == (indentLevelStart+1)?'\n':'');
+        const content = node.children.map(convertNodeToMarkdown).join('').replace(/^[\n]+/g, '').replace(/[\n]+$/g, '') + (indentLevel == (indentLevelStart+1)?'\n':'')
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the list
         return content;
       }
       case 'li':
-        let content = node.children.map(convertNodeToMarkdown).join('')
+        let content = node.children.map(convertNodeToMarkdown).join('').replace(/^[\s\n]+/g, '').replace(/[\s\n]+$/g, '').replace(/\n/g, '')
         let bullet = convertListIndexToMarkdown(node, list_stats.length == 0 ? 0 : (++list_stats[list_stats.length-1].items) )
-        return `${' '.repeat(indentLevel == 0 ? 0 : (1 + (indentLevel-1)*2))}${bullet} ${content.replace(/\n+$/g, '').replace(/\n/g, '<br>')}\n`;
+        return `${' '.repeat(indentLevel == 0 ? 0 : (1 + (indentLevel-1)*2))}${bullet} ${content}\n`;
       case 'a': {
         insideAHREF++
         const href = node.attributes.href || '';
@@ -616,9 +623,7 @@ function _htmlTreeToMarkdown(tree) {
         content = (isNodeColored && (insideAHREF == 0 || isNodeColored != "#1155cc")) ? `<span style="color:${isNodeColored}">` + content + `</span>` : content
         if (isNodeMonospace) {
           // Convert to inline code
-          // console.log( `before [${content.replace(/\n/g,"\\n")}]` );
           content = content.replace( /\n/g, '\n' ).replace(/^(.*)$/, '`$1`')
-          // console.log( `after [${content.replace(/\n/g, "\\n")}]` );
           return content;
         }
         let levels = getIndents(node)
@@ -682,6 +687,20 @@ function markdownToHtmlTest(markdown, expectedHTML) {
   }
   return true;
 }
+function htmlToMarkdownTest(html, expectedMarkdown) {
+  const markdown = htmlToMarkdown( html )
+  if (markdown != expectedMarkdown) {
+    console.log( "[markdown.js] test failed" )
+    console.log( "-------markdown-------" )
+    console.log( html )
+    console.log( "-------Generated markdown-------" )
+    console.log( markdown )
+    console.log( "-------Expected Markdown-------" )
+    console.log( expectedMarkdown )
+    return false;
+  }
+  return true;
+}
 if (!isBrowser()) {
 
 markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
@@ -703,6 +722,43 @@ markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.b
 `<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
 ` )
 markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="undefined/LoremIpsum">< back</a>` )
+
+// paste from ChatGPT (heading and numbered list)
+htmlToMarkdownTest( `<meta charset='utf-8'><h3 data-start="747" data-end="764" class="">What it does:</h3>
+<ol data-start="765" data-end="1025">
+<li data-start="765" data-end="821" class="">
+<p data-start="768" data-end="821" class=""><strong data-start="768" data-end="793">Sorts clipboard types</strong> so all <code data-start="801" data-end="809">text/*</code> come first.</p>
+</li>
+<li data-start="822" data-end="872" class="">
+<p data-start="825" data-end="872" class=""><strong data-start="825" data-end="840">Filters out</strong> any types that are image-based.</p>
+</li>
+<li data-start="873" data-end="943" class="">
+<p data-start="876" data-end="943" class=""><strong data-start="876" data-end="899">Gets clipboard data</strong>, filters to ensure it’s a non-empty string.</p>
+</li>
+<li data-start="944" data-end="1025" class="">
+<p data-start="947" data-end="1025" class=""><strong data-start="947" data-end="958">Returns</strong> the first matching string, or an empty string if nothing is found.</p>
+</li>
+</ol>
+<p data-start="1027" data-end="1142" class="">Let me know if you'd like it to also log the types for debugging, or preserve the original type name with the data.</p>`,
+`### What it does:
+
+ 1. Sorts clipboard types so all \`text/*\` come first.
+ 2. Filters out any types that are image-based.
+ 3. Gets clipboard data, filters to ensure it’s a non-empty string.
+ 4. Returns the first matching string, or an empty string if nothing is found.
+Let me know if you'd like it to also log the types for debugging, or preserve the original type name with the data.
+
+` )
+
+// paste from Google Doc (heading and bullets)
+htmlToMarkdownTest( `<meta charset='utf-8'><meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-8149a452-7fff-8a08-3ee4-bdad800da9b1"><h1 dir="ltr" style="line-height:1.38;margin-top:20pt;margin-bottom:6pt;"><span style="font-size:20pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Books</span></h1><ul style="margin-top:0;margin-bottom:0;padding-inline-start:48px;"><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 1</span></p></li><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 2</span></p></li><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 3</span></p></li></ul></b>`,
+`# Books
+
+ - My Book 1
+ - My Book 2
+ - My Book 3
+
+`);
 
 } // if (isBrowser())
 

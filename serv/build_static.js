@@ -52,7 +52,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
       document.addEventListener('DOMContentLoaded', scrollToFirstMark);
     </script>
   `
-  return template.file( "page.template.html", {
+  return template.file( "template.page.html", {
     ...SETTINGS, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     SOCIAL_TITLE: `${SETTINGS.TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
     BACKBUTTON_PATH: `/`,
@@ -220,6 +220,11 @@ function copyFolder(dir, recurse = true) {
         //console.log(`📁 Copied dir:'${relative_dir}': ${srcPath} → ${destPath}`);
       } else {
         const isSymlink = stat.isSymbolicLink();
+        try {
+          fs.realpathSync(srcPath)
+        } catch (error) {
+          console.log( `looks like perhaps ${srcPath} symlink no longer points at a file (maybe you need to relink that symlink?)`, error )
+        }
         const realSrcPath = isSymlink ? fs.realpathSync(srcPath) : srcPath;
         const realStat = fs.statSync(realSrcPath);
         if (realStat.isDirectory()) {

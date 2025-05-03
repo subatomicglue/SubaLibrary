@@ -1,0 +1,639 @@
+
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>${TITLE} - Editing <%=topic%> (markdown editor)</title>
+  <%include "template.meta.html"%>
+  <script>
+    let module = { exports: {} }
+    <%include "markdown.js"%>
+
+    let isChanging = false; // Flag to indicate if the preview is currently changing
+    let needsAnotherPreview = false; // Flag to indicate if another update is needed
+    let lastMarkdownValue = ""; // Variable to track the last value
+    let previewDebounceTimer;
+    function updatePreview() {
+      try {
+      if (isChanging) {
+        needsAnotherPreview = true;
+        return;
+      }
+      isChanging = true;
+
+      function onFinishedChanging() {
+        isChanging = false;
+        if (needsAnotherPreview) {
+          needsAnotherPreview = false;
+          updatePreview(); // Trigger another preview update
+        }
+      }
+
+      let markdown = document.getElementById("markdown").value;
+      if (lastMarkdownValue === markdown) {
+        onFinishedChanging()
+        return
+      }
+      lastMarkdownValue = markdown
+      let html = markdownToHtml( markdown, "<%=req_baseUrl%><%=view_route%>", { skipYouTubeEmbed: true } )
+      // fetch("<%=req_baseUrl%>/preview", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ content: markdown,  }) })
+      // .then(res => {
+      //   // Check if the response is ok (status in the range 200-299)
+      //   if (!res.ok) {
+      //     throw new Error(`HTTP error! Status: ${res.status}`);
+      //   }
+      //   return res.text();
+      // })
+      // .then(html => {
+        //requestIdleCallback(() => { // doesn't exist in safari!!!!!  defeats the purpose of trying to do this in a safe thread
+        requestAnimationFrame(() => {
+          document.getElementById("preview").innerHTML = html;
+          requestAnimationFrame(() => {
+            onFinishedChanging(); // DOM updated AND painted
+          });
+        });
+
+      // })
+      // .catch(error => {
+      //   isChanging = false;
+      //   needsAnotherPreview = false;
+      // });
+      } catch (error) {
+        console.log( error );
+      }
+    }
+    function debounce(func, delay) {
+      let timeoutId;
+      return function(...args) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+          func.apply(this, args); // Call the function with the provided arguments
+        }, delay);
+      };
+    }
+    // Example of how to use debounce with updatePreview
+    const debouncedUpdatePreview = debounce(updatePreview, 800);
+
+    ////////////////////////// autosave into localStorage ////////////////
+    const LS_KEY = `editor-autosave_<%=topic%>`;
+    function autosaveMarkdownRestored() {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved !== null) {
+        document.getElementById('markdown').value = saved;
+        document.getElementById('status').innerHTML = '<span style="color: #ffaa00"><b>restored...</b></span>';
+        setTimeout( () => {
+          document.getElementById('status').textContent = '';
+        }, 5000)
+        return true
+      }
+      return false;
+    }
+    let autosaveLastSaved = ""
+    function autosaveMarkdown() {
+      const content = document.getElementById('markdown').value;
+
+      // avoid setting if it didn't change.
+      if (content === autosaveLastSaved) return
+      autosaveLastSaved = content
+
+      localStorage.setItem(LS_KEY, content);
+      document.getElementById('status').innerHTML = '<span style="color: #aaff00"><b>autosaved...</b></span>';
+      setTimeout( () => {
+        document.getElementById('status').textContent = '';
+      }, 1000)
+    }
+    function autosaveMarkdownClear() {
+      localStorage.removeItem(LS_KEY);
+      document.getElementById('status').textContent = '';
+    }
+    const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 700);
+    ////////////////////////// autosave into localStorage ////////////////
+
+
+    function saveWiki() {
+      let markdown = document.getElementById("markdown").value;
+      fetch("<%=req_baseUrl%>/save", {
+        method: "PUT", 
+        headers: {"Content-Type": "application/json"}, 
+        body: JSON.stringify({ topic: "<%=topic%>", content: markdown }) 
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
+        setTimeout( ()=> {
+          autosaveMarkdownClear();
+
+          // Redirect to the view page for the updated topic
+          window.location.href = "<%=req_baseUrl%><%=view_route%>/<%=topic%>";
+        }, 700 );
+      });
+    }
+
+    function cancelWiki() {
+      autosaveMarkdownClear();
+      window.location.href = '<%=req_baseUrl%>/view/<%=topic%>'
+    }
+
+    // Ensure updatePreview() runs once when the page loads
+    document.addEventListener("DOMContentLoaded", async () => {
+      autosaveMarkdownRestored();
+
+      debouncedUpdatePreview();
+
+      const dropzone = document.getElementById("markdown");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const textarea = document.getElementById("markdown"); // rename to editor
+      const uploadInput = document.getElementById("uploadInput");
+      const dragHandle = document.querySelector('.drag-handle');
+      const markdown = document.getElementById('markdown'); // rename to editor
+      const preview = document.getElementById('preview');
+
+
+      uploadBtn.addEventListener("click", () => {
+        uploadInput.click();
+      });
+
+      // handle the file selection
+      uploadInput.addEventListener("change", handleFileSelect);
+
+      // Handle image file drop
+      dropzone.addEventListener("dragover", (event) => {
+          event.preventDefault(); // Prevent default behavior to allow drop
+      });
+
+      dropzone.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const file = event.dataTransfer.files[0]; // Get the first file
+          handleFileSelect({ target: { files: [file] } });
+      });
+
+      // Function to handle image uploads (used by paste and file input)
+      async function handleImageUpload(file) {
+        if (!file || !file.type.startsWith("image/")) {
+          alert("Please upload a valid image.");
+          return null;
+        }
+
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+          const response = await fetch("<%=req_baseUrl%>/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            return data.imageUrl; // Return URL for use by caller
+          } else {
+            alert("Failed to upload image.");
+            return null;
+          }
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          return null;
+        }
+      }
+
+      // Original function, now using handleImageUpload
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        handleImageUpload(file).then((imageUrl) => {
+          if (imageUrl) {
+            setTimeout(() => {
+              textarea.value += `![an image](${imageUrl})`;
+              debouncedUpdatePreview();
+            }, 400);
+          }
+        });
+      }
+
+      //////////////////////////   resize handle  //////////////////////////
+      let isDragging = false;
+      let initialXY = [0,0]
+      function beginResize( event ) {
+        isDragging = true;
+        document.body.style.cursor = 'ew-resize';
+        initialXY = [event.clientX, event.clientY]
+      }
+      dragHandle.addEventListener('mousedown', beginResize );
+      dragHandle.addEventListener('touchstart', (event) => { const touch = event.touches[0]; beginResize( touch ); event.preventDefault(); });
+      function whileResize( event ) {
+        if (isDragging) {
+          const buttonsTray = document.querySelector('.buttons-tray');
+          const dragHandle = document.querySelector('.drag-handle');
+          const buttonsTrayHeight = buttonsTray.clientHeight;
+          const container = document.querySelector('.container');
+          const isWideLayout = (window.innerWidth / window.innerHeight) >= (3/2);
+          if (!isWideLayout) { // Portrait mode
+            const dragHandleHeight = dragHandle.clientHeight;
+            const containerHeight = container.clientHeight;
+            const newY = event.clientY - buttonsTrayHeight;
+            const markdownHeight = (newY / containerHeight) * (100 + 100 * (2 * 16) / containerHeight); // in percentage
+            if (markdownHeight > 10 && markdownHeight < 90) {
+              markdown.style.flexBasis = markdownHeight + '%'; // Adjust height in portrait
+              preview.style.flexBasis = (100 - markdownHeight) + '%'; // Adjust height for preview
+            }
+          } else {                // Landscape mode
+            const newX = event.clientX;
+            const containerWidth = container.clientWidth;
+            const markdownWidth = (newX / containerWidth) * 100; // in percentage
+            if (markdownWidth > 10 && markdownWidth < 90) {
+              markdown.style.flexBasis = markdownWidth + '%'; // Set flex-basis for markdown
+              preview.style.flexBasis = (100 - markdownWidth) + '%'; // Set flex-basis for preview
+            }
+          }
+        }
+      }
+      document.addEventListener('mousemove', whileResize );
+      document.addEventListener('touchmove', (event) => {
+        const touch = event.touches[0];
+        whileResize(touch);
+      });
+      function endResize() {
+        isDragging = false;
+        document.body.style.cursor = 'default';
+      }
+      document.addEventListener('mouseup', endResize );
+      document.addEventListener('touchend', endResize );
+      //////////////////////////   resize handle  //////////////////////////
+
+      ////////////////////////// paste handler /////////////////////////////
+      textarea.addEventListener("paste", async (event) => {
+        try {
+          event.preventDefault();
+
+          // Get clipboard data
+          const clipboardData = event.clipboardData || window.clipboardData;
+          //console.log( "PASTE", clipboardData.types )
+
+          // files / images.
+          if (clipboardData.files && clipboardData.files.length > 0) {
+            for (const file of clipboardData.files) {
+              if (file.type.startsWith("image/")) {
+                //console.log("Pasted image file:", file);
+
+                // TODO: Replace this with your actual image upload logic
+                const imageUrl = await handleImageUpload(file); // Returns a URL after upload
+
+                if (imageUrl) {
+                  const markdown = `![pasted image](${imageUrl})`;
+                  insertMarkdown(markdown)
+                }
+              }
+            }
+            return;
+          }
+
+          // HTML
+          const html = clipboardData.getData("text/html");
+          const plainText = clipboardData.getData("text/plain");
+          if (clipboardData.types.includes("text/html")) {
+            console.log( html ) // debug DEBUG!
+            const markdown = html != "" ? htmlToMarkdown(html) : plainText; // fallback if nothing in text/html
+            insertMarkdown(markdown != "" ? markdown : plainText);          // fallback if htmlToMarkdown fails
+          } else if (clipboardData.types.includes("text/plain")) {
+            const markdown = plainText;
+            insertMarkdown(markdown);
+          } else if (clipboardData.types.includes("text/uri-list")) {
+            insertMarkdown( clipboardData.getData("text/uri-list") );
+          } else {
+            insertMarkdown( extractBestClipboardString( clipboardData ) )
+          }
+
+          function insertMarkdown(markdown) {
+            const selectionStart = textarea.selectionStart;
+            const selectionEnd = textarea.selectionEnd;
+            const textBefore = textarea.value.substring(0, selectionStart);
+            const textAfter = textarea.value.substring(selectionEnd);
+
+            textarea.value = textBefore + markdown + textAfter;
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+          }
+
+          function extractBestClipboardString(clipboardData) {
+            const data = Array.from(clipboardData.types)
+              .sort((a, b) => a.startsWith('text/') === b.startsWith('text/') ? 0 : a.startsWith('text/') ? -1 : 1 )
+              .filter(type => !type.startsWith('image/'))   // remove image types, they wont be strings.. :)
+              .map(type => clipboardData.getData(type))
+              .filter(data => typeof data === 'string' && data.trim() !== '');
+            return data[0] || '';
+          }
+        } catch (error) {
+          console.log( "PASTE ERROR: ", error )
+        }
+      });
+      ////////////////////////// paste handler /////////////////////////////
+
+      // formatting toggle (e.g. bold toggle (cmd-b) to add/remove '**')
+      function createFormattingToggle( key='b', fmt='**' ) {
+        document.getElementById('markdown').addEventListener('keydown', function (event) {
+          const fmt_len = fmt.length;
+
+          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === key) {
+            event.preventDefault();
+
+            const textarea = event.target;
+            let start = textarea.selectionStart;
+            let end = textarea.selectionEnd;
+            let value = textarea.value;
+
+            const before = value.slice(0, start);
+            const selected = value.slice(start, end);
+            const after = value.slice(end);
+
+            // Case 3: selected text is "word" and there is outside **'s:  **word** — remove the **'s
+            if (before.slice(-fmt_len) === fmt && after.slice(0, fmt_len) === fmt) {
+              textarea.value = before.slice(0, -fmt_len) + selected + after.slice(fmt_len);
+              textarea.selectionStart = start - fmt_len;
+              textarea.selectionEnd = end - fmt_len;
+              return;
+            }
+
+            // Case 2: selected text is "**word**": — remove the **'s
+            if (selected.slice(0, fmt_len) === fmt && selected.slice(-fmt_len) === fmt) {
+              textarea.value = before + selected.slice(fmt_len, selected.length - fmt_len) + after;
+              textarea.selectionStart = start;
+              textarea.selectionEnd = end - (fmt_len*2);
+              return;
+            }
+
+            // Case 1: add **
+            textarea.value = before + fmt + selected + fmt + after;
+            textarea.selectionStart = start + fmt_len;
+            textarea.selectionEnd = end + fmt_len;
+          }
+        });
+      }
+      createFormattingToggle( 'b', '**' )
+      createFormattingToggle( 'i', '*' )
+      createFormattingToggle( 'u', '__' )
+      document.getElementById('markdown').addEventListener('keydown', function (event) {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          return false;
+        }
+      })
+    });
+  </script>
+  <script>
+    function createSvgPopup(id, title, content) {
+      // Append CSS styles dynamically
+      const style = document.createElement('style');
+      style.textContent = `
+        .svg-popup-container {
+          position: relative;
+          display: inline-block;
+        }
+        .svg-popup {
+          display: none; /* Hidden by default */
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.8);
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        .svg-popup-content {
+          text-align: left;
+          max-width: 95%;
+          max-height: 80%;
+          background-color: white;
+          padding: 20px;
+          border-radius: 10px;
+          position: relative;
+          overflow: auto; /* Allow scrolling if content overflows */
+        }
+        .svg-back-button {
+          cursor: pointer;
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          width: 40px; /* Adjust size as needed */
+          height: 40px;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Create the SVG Popup structure
+      const container = document.createElement('div');
+      container.classList.add('svg-popup-container');
+
+      const svgImage = document.createElement('img');
+      svgImage.src = '/<%=ASSETS_MAGIC%>/help_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your SVG path
+      svgImage.alt = 'Tap me';
+      svgImage.classList.add('popup-trigger');
+      svgImage.style.cursor = 'pointer';
+      //svgImage.style.width = '200px';
+      //svgImage.style.height = 'auto';
+
+      const svgPopup = document.createElement('div');
+      svgPopup.classList.add('svg-popup');
+      svgPopup.id = `${id}-popup`;
+
+      const popupContent = document.createElement('div');
+      popupContent.classList.add('svg-popup-content');
+
+      const backButton = document.createElement('img');
+      backButton.src = '/<%=ASSETS_MAGIC%>/arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'; // Replace with your back button SVG path
+      backButton.alt = 'Back';
+      backButton.classList.add('svg-back-button');
+      backButton.id = `${id}-backButton`;
+
+      const heading = document.createElement('h2');
+      heading.style="text-align: right;";
+      heading.innerHTML = `<img src="${svgImage.src}"/>${title}`;
+
+      const paragraph = document.createElement('p');
+      paragraph.innerHTML = `
+      ${content}
+      `;
+
+      // Append elements
+      popupContent.appendChild(backButton);
+      popupContent.appendChild(heading);
+      popupContent.appendChild(paragraph);
+      svgPopup.appendChild(popupContent);
+      container.appendChild(svgImage);
+      container.appendChild(svgPopup);
+      document.getElementById(id).appendChild(container);
+
+      // JavaScript functionality
+      svgImage.addEventListener('click', () => {
+        svgPopup.style.display = 'flex'; // Show the popup
+      });
+
+      backButton.addEventListener('click', () => {
+        svgPopup.style.display = 'none'; // Hide the popup
+      });
+
+      // Optional: Close the popup when clicking outside the content area
+      svgPopup.addEventListener('click', (event) => {
+        if (event.target === svgPopup) {
+            svgPopup.style.display = 'none'; // Hide the popup
+        }
+      });
+    }
+  </script>
+  <style>
+    <%include "style.css"%>
+    body {
+      background-color: #0D1116;
+      color: #aaaaaa;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      font-size: 1rem;
+      position: relative;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100dvh - 0.625rem); /* Adjust for buttons-tray height */
+    }
+
+    /* Set initial flex-basis for resizing */
+    #markdown, #preview {
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 0.0625rem solid #ccc;
+      border-radius: 0.375rem;
+      box-shadow: 0.125rem 0.125rem .5rem rgba(0, 0, 0, 0.1);
+      resize: none; /* Disable textarea resizing */
+      overflow-y: auto;
+      height: 100%; /* Ensure it takes full height of the container */
+    }
+
+    /* Default to horizontal layout */
+    #markdown {
+      flex-basis: 50%; /* Start with 50% width */
+    }
+            
+    #preview {
+      flex-basis: 50%; /* Start with 50% width */
+      background-color: #ffffff;
+    }
+
+    /* Drag handle */
+    .drag-handle {
+      background-color: #ccc; /* Color of the handle */
+      cursor: ew-resize; /* Cursor style */
+      user-select: none; /* Prevent text selection */
+      width: 0.625rem; /* Fixed width for handle */
+    }
+
+    /* Media Queries */
+    @media (max-aspect-ratio: 3/2) {
+      .container {
+        flex-direction: column; /* Stack vertically in portrait mode */
+      }
+
+      .drag-handle {
+        width: 100%; /* Full width in portrait mode */
+        height: 0.625rem; /* Height of the handle */
+        cursor: ns-resize; /* Change cursor to indicate vertical resizing */
+      }
+
+      #markdown, #preview {
+        flex-basis: 50%; /* Each panel takes 50% height */
+        height: auto; /* Allow height to adjust */
+      }
+    }
+
+    @media (min-aspect-ratio: 3/2) {
+      .drag-handle {
+        width: 0.625rem; /* Width of the handle */
+        height: 100%; /* Full height in widescreen mode */
+        cursor: ew-resize; /* Cursor style */
+      }
+    }
+
+    .buttons-tray {
+      text-align: right;
+      padding: 0.75rem;
+      background-color: #22282F;
+      display: flex;
+      align-items: center
+    }
+
+    .button1, .button2 {
+      padding: 0.40rem 0.80rem;
+      font-weight: 600;
+      border-radius: 0.50rem;
+      margin-left: .3em;
+    }
+
+    .button1, .button2, #status {
+      font-size: 1.4rem;
+    }
+
+    @media (orientation: portrait)  {
+      .buttons-tray {
+        padding-top: 1px;
+        padding-bottom: 1px;
+        padding-right: 1px;
+      }
+      .button1, .button2, #status {
+        font-size: 1rem;
+        margin-left: .15em;
+      }
+      .drag-handle {
+        height: 1.25rem; /* Height of the handle */
+      }
+    }
+
+    .button1 {
+      border: 0.0625em solid #3f944b;
+      background-color: #228736;
+      color: #ffffff;
+    }
+
+    .button1:hover {
+      background-color: #228736;
+      color: #F3F8F3;
+    }
+
+    .button2 {
+      border: 0.0625em solid #7E8690;
+      background-color: #22282F;
+      color: #F3F8F3;
+    }
+
+    .button2:hover {
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+  <!-- <h1>Markdown Editor: <%=topic%></h1> -->
+  <div class="buttons-tray">
+    <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
+    <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
+    <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
+    <script>
+      createSvgPopup("infopopup", "Markdown", `<%include "template.markdown-help.html"%>`)
+    </script>
+    <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
+    <button id="uploadBtn" class="button2">Upload</button>
+    <button class="button2" onclick="cancelWiki()">Cancel</button>
+    <button class="button1" onclick="saveWiki()">Save</button>
+  </div>
+
+  <div class="container">
+    <textarea id="markdown" class="markdown" onkeyup="debouncedUpdatePreview(); debouncedAutosaveMarkdown();" rows="10" cols="50"><%=markdown%></textarea>
+    <div class="drag-handle"></div>
+    <div id="preview"></div>
+  </div>
+  <%include "template.global-error-handler.html"%>
+</body>
+</html>
