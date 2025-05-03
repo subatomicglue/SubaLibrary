@@ -448,8 +448,9 @@
       textarea.addEventListener('scroll', () => {
         const header = getFirstVisibleHeader(textarea, textarea_mirror);
         if (header != textarea_last_heading) {
-          last_heading = header
+          textarea_last_heading = header
           const anchor = document.getElementById(textarea_last_heading);
+          console.log( "scroll to:", textarea_last_heading, anchor)
           if (anchor) {
             anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
