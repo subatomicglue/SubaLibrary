@@ -70,6 +70,20 @@
       return null;
     }
 
+    // for autoscroll of the preview
+    let textarea_last_heading = ""
+    function updateAutoScrollPreview() {
+      const header = getFirstVisibleHeader(document.getElementById("markdown"), document.getElementById("markdown-mirror"));
+      if (header != textarea_last_heading) {
+        textarea_last_heading = header
+        const anchor = document.getElementById(textarea_last_heading);
+        console.log( "scroll to:", textarea_last_heading, anchor)
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+
     function updatePreview() {
       try {
       if (isChanging) {
@@ -105,6 +119,7 @@
         //requestIdleCallback(() => { // doesn't exist in safari!!!!!  defeats the purpose of trying to do this in a safe thread
         requestAnimationFrame(() => {
           updateMirrorContent(markdown);
+          updateAutoScrollPreview();
           document.getElementById("preview").innerHTML = html;
           requestAnimationFrame(() => {
             onFinishedChanging(); // DOM updated AND painted
@@ -443,18 +458,9 @@
 
       ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
       // Hook up everything  (to update:  updateMirrorContent(textarea.value))
-      const textarea_mirror = createMirrorDiv(textarea);
-      let textarea_last_heading = ""
+      createMirrorDiv(textarea);
       textarea.addEventListener('scroll', () => {
-        const header = getFirstVisibleHeader(textarea, textarea_mirror);
-        if (header != textarea_last_heading) {
-          textarea_last_heading = header
-          const anchor = document.getElementById(textarea_last_heading);
-          console.log( "scroll to:", textarea_last_heading, anchor)
-          if (anchor) {
-            anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }
+        updateAutoScrollPreview();
       });
       ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
     }); // DOMContentLoaded
