@@ -231,6 +231,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
         return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h${hashes.length}><intentional newline>`
       })
+      .replace(/^------+$/gm, "<hr><intentional newline>")
   }
 
   // formatting of inline elements (only, goes here)
@@ -353,9 +354,7 @@ function _htmlTreeToMarkdown(tree) {
   let indentLevel = indentLevelStart;
   let list_stats = []
   let insideAHREF = 0;
-  let insideBold = 0;
-  let insideItalics = 0;
-  let insideUnderscore = 0;
+  let insideDecorator = 0;
   let insideHeading = 0;
   let insideListType = "";
 
@@ -413,10 +412,11 @@ function _htmlTreeToMarkdown(tree) {
   }
   function getIndents(node) {
     if (node.attributes && node.attributes.style) {
-      let m = node.attributes.style.match( /margin-left:\s*([\d.]+)pt/ );
+      let m = node.attributes.style.match( /margin-left:\s*([\d.]+)(pt|px)/ );
       let indentLevel = m ? m[1] : `${indentLevelStart+1}`;
       const indent = parseFloat(indentLevel); // Get the numeric value in points
-      return Math.floor(indent / 36); // starts at 72, then increments by 36pt corresponds to each level
+      const increment = m ? (m[2] == "pt" ? 36 : 50) : 36; // google docs: starts at 72, then increments by 36pt corresponds to each level
+      return Math.floor(indent / increment);
     }
     return 0; // zero indent
   }
@@ -471,7 +471,7 @@ function _htmlTreeToMarkdown(tree) {
   
 
   function convertNodeToMarkdown(node) {
-    //let VERBOSE = false;
+    let VERBOSE = false;
     if (node.type === 'text') {
       let retval = typeof node.content == "string" ? node.content :   // comes up in nodejs side
                   node.content ? (                                    // comes up running in browser side
@@ -493,23 +493,26 @@ function _htmlTreeToMarkdown(tree) {
     const isNodeUnderscore = isUnderscore(node) // if the style info makes this node italic.
 
     function applyDecoration( content, options = {} ) {
-      const delimiters = (!insideHeading && (isNodeBold || options.isNodeBold)) ? "**" : (isNodeItalic || options.isNodeItalic) ? "*" : (insideAHREF == 0 && (isNodeUnderscore || options.isNodeUnderscore)) ? "__" : ""
-      const applied_delimiters = (insideBold == 0 && insideItalics == 0 && insideUnderscore == 0) ? delimiters : ""
+      const delimiters =  (insideHeading == 0 && (isNodeBold || options.isNodeBold)) ? "**" :
+                          (isNodeItalic || options.isNodeItalic) ? "*" :
+                          (insideAHREF == 0 && (isNodeUnderscore || options.isNodeUnderscore)) ? "__" :
+                          ""
+      const applied_delimiters = (insideDecorator == 1) ? delimiters : ""
+      //VERBOSE && console.log( ` applyDecoration applied_delimiters:${applied_delimiters} insideHeading:${insideHeading} isNodeBold:${isNodeBold || options.isNodeBold} isNodeItalic:${isNodeItalic || options.isNodeItalic}`)
       const c = content.replace(/^(\s*)/,`$1${applied_delimiters}`).replace(/(\s*)$/,`${applied_delimiters}$1`) // move the whitespace, delimiter must be butted up against the non-ws characters
       //console.log( `c:'${c}'` )
-      return c
+      return c.match(/\n/) ? content : c; // we dont apply decorators around multiline content
     }
 
     function sanitizeUrl( url ) {
       return decodeURIGreekOnly( url.replace(/\(/g,'%28').replace(/\)/g,'%29') )
     }
     function sanitizeUrlTitle( url ) {
-      return url.replace(/\[/g,'%5B').replace(/\]/g,'%5D')
+      return url.replace(/\[/g,'&lbrack;').replace(/\]/g,'&rbrack;')
     }
 
-    //console.log( "node.tagName:", node.tagName )
-
     // Handle specific HTML tags
+    function getSwitchResult() {
     switch (node.tagName) {
       case 'h1':
       case 'h2':
@@ -519,7 +522,7 @@ function _htmlTreeToMarkdown(tree) {
       case 'h6': {
         const level = parseInt( node.tagName[1] );
         insideHeading++
-        const content = `${"#".repeat(level)} ${node.children.map(convertNodeToMarkdown).join('')}\n\n`;
+        const content = `${"#".repeat(level)} ${node.children.map(convertNodeToMarkdown).join('')}\n`;
         insideHeading--
         return content
       }
@@ -529,54 +532,65 @@ function _htmlTreeToMarkdown(tree) {
           return `\`\`\`\n${content}\n\`\`\`\n\n`;
         }
         let levels = getIndents(node)
-        return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}\n\n`;
+        let retval = '\n' + `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}\n`;
+        if (indentLevel >= (indentLevelStart+1)) {
+          retval = retval.replace(/^[\s\n]+/g, '').replace(/[\s\n]+$/g, '').replace(/\n/g, '')
+        }
+        return retval;
       }
+      case 'b':
       case 'strong': {
-        insideBold++
+        insideDecorator++
         const content = applyDecoration( node.children.map(convertNodeToMarkdown).join(''), {isNodeBold: true} );
-        insideBold--
+        insideDecorator--
         return content;
       }
       case 'i':
       case 'em': {
-        insideItalics++
+        insideDecorator++
         const content = applyDecoration( node.children.map(convertNodeToMarkdown).join(''), {isNodeItalic: true} );
-        insideItalics--
+        insideDecorator--
+        return content;
+      }
+      case 'u': {
+        insideDecorator++
+        const content = applyDecoration( node.children.map(convertNodeToMarkdown).join(''), {isNodeUnderscore: true} );
+        insideDecorator--
         return content;
       }
       case 'blockquote': {
         indentLevel++; // Increase indentation level for nested blockquotes
         list_stats.push( {items:-1} )
-        const content = node.children.map(convertNodeToMarkdown).join('').trim();
-        const blockquotePrefix = `${'>'.repeat(indentLevel)} `;
+        const content = `\n${'>'.repeat(indentLevel)} ` + node.children.map(convertNodeToMarkdown).join('').trim() + `\n`;
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the blockquote
-        return `${blockquotePrefix} ${content}\n`;
+        return content;
       }
       case 'ul': {
         insideListType="ul"
         indentLevel++; // Increase indentation level for nested lists
         list_stats.push( {items:-1} )
-        const content = node.children.map(convertNodeToMarkdown).join('') + (indentLevel == (indentLevelStart+1)?'\n':'');
+        const content = node.children.map(convertNodeToMarkdown).join('').replace(/^[\n]+/g, '').replace(/[\n]+$/g, '') + (indentLevel == (indentLevelStart+1)?'\n':'');
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the list
         if (isBulletlessList(node)) {
-          return `${'}'.repeat(indentLevel)}${content}\n`;
+          return `\n${'}'.repeat(indentLevel)}${content}\n`;
         } else {
-          return content;
+          return `\n${content}`;
         }
       }
       case 'ol': {
         insideListType="ol"
         indentLevel++; // Increase indentation level for nested lists
         list_stats.push( {items:-1} )
-        const content = node.children.map(convertNodeToMarkdown).join('').replace(/^[\n]+/g, '').replace(/[\n]+$/g, '') + (indentLevel == (indentLevelStart+1)?'\n':'')
+        const content = `${indentLevel == (indentLevelStart+1) ? '\n' : ''}` + node.children.map(convertNodeToMarkdown).join('').replace(/^[\n]+/g, '').replace(/[\n]+$/g, '') + (indentLevel == (indentLevelStart+1)?'\n':'')
         list_stats.pop();
         indentLevel--; // Decrease indentation level after processing the list
         return content;
       }
       case 'li':
-        let content = node.children.map(convertNodeToMarkdown).join('').replace(/^[\s\n]+/g, '').replace(/[\s\n]+$/g, '').replace(/\n/g, '')
+        // keep in mind: nesting ul under my li...
+        let content = node.children.map(convertNodeToMarkdown).join('')
         let bullet = convertListIndexToMarkdown(node, list_stats.length == 0 ? 0 : (++list_stats[list_stats.length-1].items) )
         return `${' '.repeat(indentLevel == 0 ? 0 : (1 + (indentLevel-1)*2))}${bullet} ${content}\n`;
       case 'a': {
@@ -594,16 +608,16 @@ function _htmlTreeToMarkdown(tree) {
       case 'code':
         return `\`${node.children.map(convertNodeToMarkdown).join('')}\``;
       case 'pre':
-        return `\`\`\`\n${node.children.map(convertNodeToMarkdown).join('')}\n\`\`\`\n\n`;
+        return '\n' + `\`\`\`\n${node.children.map(convertNodeToMarkdown).join('')}\n\`\`\`\n`;
       case 'br':
         return `\n`;
       case 'table': {
         const rows = node.children.map(convertNodeToMarkdown).join('\n');
-        return `${rows}\n\n`;
+        return `${rows}\n`;
       }
       case 'thead': {
         const cells = node.children.map(convertNodeToMarkdown).join(' | ');
-        return `${cells}\n|${'|---'.repeat(cells.split('|').length-1)+'|'}`;
+        return `${cells}${'|---'.repeat(cells.split('|').length-2)+'|'}`;
       }
       case 'tr': {
         const cells = node.children.map(convertNodeToMarkdown).join(' | ');
@@ -629,14 +643,44 @@ function _htmlTreeToMarkdown(tree) {
         let levels = getIndents(node)
         return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}`;
       }
+      case 'hr': {
+        return '\n' + '---------\n';
+      }
+      case 'div': {
+        let levels = getIndents(node)
+        if (levels>0) {
+          indentLevel++; // Increase indentation level for nested blockquotes
+          list_stats.push( {items:-1} )
+        }
+        // assume divs are block level (requires a newline).
+        const content = `\n${'}'.repeat(levels)}${levels>0?' ':''}` + applyDecoration(node.children.map(convertNodeToMarkdown).join(''));
+        if (levels>0) {
+          list_stats.pop();
+          indentLevel--; // Decrease indentation level after processing the blockquote
+        }
+        return content;
+      }
+      case 'svg':
+        return '';
       default: {
         // Default fallback: Render children only
         let levels = getIndents(node)
-        const content = node.children.map(convertNodeToMarkdown).join('');
-        //console.log( "default:", content )
-        return `${'}'.repeat(levels)}${levels>0?' ':''}${applyDecoration( content )}`;
+        if (levels>0) {
+          indentLevel++; // Increase indentation level for nested blockquotes
+          list_stats.push( {items:-1} )
+        }
+        const content = `${levels>0 ? '\n':''}${'}'.repeat(levels)}${levels>0?' ':''}` + applyDecoration(node.children.map(convertNodeToMarkdown).join(''));
+        if (levels>0) {
+          list_stats.pop();
+          indentLevel--; // Decrease indentation level after processing the blockquote
+        }
+        return content;
       }
     }
+    }
+    const result = getSwitchResult().replace( /^\n+/, '\n' ).replace( /\n+$/, '\n' );
+    VERBOSE && console.log( `<${node.tagName}> result:'${result.replace(/\n/g,'\\n')}'` )
+    return result;
   }
 
   //console.log("tree.map(convertNodeToMarkdown).join('');")
@@ -651,116 +695,6 @@ function htmlToMarkdown( str ) {
   let markdown_str = _htmlTreeToMarkdown( htmlTree );
   return markdown_str;
 }
-
-// HTML testing
-// let txt = ``
-// console.log( "htmlToMarkdown ===============" )
-// console.log( txt )
-// console.log( htmlToMarkdown( txt ) );
-// console.log( "htmlToMarkdown done===========" )
-// console.log( "htmlToMarkdown ===============" )
-// console.log( markdownToHtml(htmlToMarkdown( txt ), "/wiki") );
-// console.log( "htmlToMarkdown done===========" )
-
-// markdown testing
-// let txt = `
-// `
-// console.log( txt )
-// console.log( "htmlToMarkdown ===============" )
-// console.log( markdownToHtml(txt, "/wiki") );
-// console.log( "htmlToMarkdown done===========" )
-
-function isBrowser() {
-  return typeof window !== "undefined";
-}
-function markdownToHtmlTest(markdown, expectedHTML) {
-  const html = markdownToHtml( markdown )
-  if (html != expectedHTML) {
-    console.log( "[markdown.js] test failed" )
-    console.log( "-------markdown-------" )
-    console.log( markdown )
-    console.log( "-------Generated HTML-------" )
-    console.log( html )
-    console.log( "-------Expected HTML-------" )
-    console.log( expectedHTML )
-    return false;
-  }
-  return true;
-}
-function htmlToMarkdownTest(html, expectedMarkdown) {
-  const markdown = htmlToMarkdown( html )
-  if (markdown != expectedMarkdown) {
-    console.log( "[markdown.js] test failed" )
-    console.log( "-------markdown-------" )
-    console.log( html )
-    console.log( "-------Generated markdown-------" )
-    console.log( markdown )
-    console.log( "-------Expected Markdown-------" )
-    console.log( expectedMarkdown )
-    return false;
-  }
-  return true;
-}
-if (!isBrowser()) {
-
-markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
-` )
-markdownToHtmlTest( `**word**`, `<b>word</b>` )
-markdownToHtmlTest( `*word*`,   `<i>word</i>` )
-markdownToHtmlTest( `__word__`, `<u>word</u>` )
-markdownToHtmlTest( `---
-word
----`, `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
-word
-</div>` )
-markdownToHtmlTest( `===
-word
-===`, `<div style="padding: 1em; margin: 1em 0;">
-word
-</div>` )
-markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2) ]`,
-`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
-` )
-markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="undefined/LoremIpsum">< back</a>` )
-
-// paste from ChatGPT (heading and numbered list)
-htmlToMarkdownTest( `<meta charset='utf-8'><h3 data-start="747" data-end="764" class="">What it does:</h3>
-<ol data-start="765" data-end="1025">
-<li data-start="765" data-end="821" class="">
-<p data-start="768" data-end="821" class=""><strong data-start="768" data-end="793">Sorts clipboard types</strong> so all <code data-start="801" data-end="809">text/*</code> come first.</p>
-</li>
-<li data-start="822" data-end="872" class="">
-<p data-start="825" data-end="872" class=""><strong data-start="825" data-end="840">Filters out</strong> any types that are image-based.</p>
-</li>
-<li data-start="873" data-end="943" class="">
-<p data-start="876" data-end="943" class=""><strong data-start="876" data-end="899">Gets clipboard data</strong>, filters to ensure it’s a non-empty string.</p>
-</li>
-<li data-start="944" data-end="1025" class="">
-<p data-start="947" data-end="1025" class=""><strong data-start="947" data-end="958">Returns</strong> the first matching string, or an empty string if nothing is found.</p>
-</li>
-</ol>
-<p data-start="1027" data-end="1142" class="">Let me know if you'd like it to also log the types for debugging, or preserve the original type name with the data.</p>`,
-`### What it does:
-
- 1. Sorts clipboard types so all \`text/*\` come first.
- 2. Filters out any types that are image-based.
- 3. Gets clipboard data, filters to ensure it’s a non-empty string.
- 4. Returns the first matching string, or an empty string if nothing is found.
-Let me know if you'd like it to also log the types for debugging, or preserve the original type name with the data.
-
-` )
-
-// paste from Google Doc (heading and bullets)
-htmlToMarkdownTest( `<meta charset='utf-8'><meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-8149a452-7fff-8a08-3ee4-bdad800da9b1"><h1 dir="ltr" style="line-height:1.38;margin-top:20pt;margin-bottom:6pt;"><span style="font-size:20pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Books</span></h1><ul style="margin-top:0;margin-bottom:0;padding-inline-start:48px;"><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 1</span></p></li><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 2</span></p></li><li dir="ltr" style="list-style-type:disc;font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">My Book 3</span></p></li></ul></b>`,
-`# Books
-
- - My Book 1
- - My Book 2
- - My Book 3
-
-`);
-
-} // if (isBrowser())
 
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;

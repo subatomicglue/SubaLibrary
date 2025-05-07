@@ -5,7 +5,9 @@ const router = express.Router();
 const sanitizer = require('./sanitizer');
 const sanitize = sanitizer.sanitize;
 const template = require('./template');
-const { markdownToHtml } = require('./markdown')
+const { markdownToHtml, htmlToMarkdown } = require('./markdown')
+const { init: markdownTests } = require('./markdown-tests')
+markdownTests();
 const { guardOnlyAllowHost } = require("./router-auth");
 
 const {
@@ -886,4 +888,3 @@ function init( l ) {
 // Plug into Express
 module.exports.router = router;
 module.exports.init = init;
-

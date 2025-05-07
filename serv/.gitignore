@@ -17,4 +17,4 @@ assets/favicons
 assets/favicon.ico
 build
 backup.sh
-
+deploy.sh
