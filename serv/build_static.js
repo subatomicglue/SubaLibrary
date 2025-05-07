@@ -223,7 +223,8 @@ function copyFolder(dir, recurse = true) {
         try {
           fs.realpathSync(srcPath)
         } catch (error) {
-          console.log( `looks like perhaps ${srcPath} symlink no longer points at a file (maybe you need to relink that symlink?)`, error )
+          console.log( `looks like perhaps "${srcPath}" symlink no longer points at a file (maybe you need to relink that symlink?)`, error )
+          return
         }
         const realSrcPath = isSymlink ? fs.realpathSync(srcPath) : srcPath;
         const realStat = fs.statSync(realSrcPath);
@@ -232,7 +233,7 @@ function copyFolder(dir, recurse = true) {
           if (recurse)
             copyRecursiveSync(realSrcPath, destPath);
           //console.log(`📁 Copied dir:'${relative_dir}': ${srcPath} → ${destPath}`);
-      } else {
+        } else {
           syncer.copyFileIfChanged(realSrcPath, destPath);
         }
       }
