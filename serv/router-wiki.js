@@ -28,7 +28,8 @@ const {
   isPM2,
   WIKI_DIR,
   USER_ANON_DISPLAY,
-  HOSTNAME_FOR_EDITS
+  HOSTNAME_FOR_EDITS,
+  WIKI_CHANGELOG_TOPICNAME,
 } = require('./settings');
 
 let logger;
@@ -36,6 +37,21 @@ let logger;
 // routes (must end in /)
 const view_route="/view"
 const edit_route="/edit"
+
+function writeToChangeLog( req, line_without_newline ) {
+  const filepath = path.resolve( path.join( WIKI_DIR, WIKI_CHANGELOG_TOPICNAME + ".md" ) )
+  const utcTimestamp = new Date();
+  const utcYear = utcTimestamp.getFullYear();
+  const utcMonth = String(utcTimestamp.getMonth() + 1).padStart(2, '0');
+  const utcDay = String(utcTimestamp.getDate()).padStart(2, '0');
+  const utcHours = String(utcTimestamp.getHours()).padStart(2, '0');
+  const utcMinutes = String(utcTimestamp.getMinutes()).padStart(2, '0');
+  const utcSeconds = String(utcTimestamp.getSeconds()).padStart(2, '0');
+  const formattedLocalDate = `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
+  let contents = fs.existsSync( filepath ) ? fs.readFileSync( filepath, 'utf8' ) : "";
+  contents = `[${formattedLocalDate}] [${req.user}](WikiUser-${req.user}) : ${line_without_newline}\n` + contents;
+  fs.writeFileSync( filepath, contents, 'utf8' );
+}
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {
@@ -245,6 +261,7 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
   logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /save ${topic} ${version} version (save)`);
   fs.writeFileSync(versionedFilePath, content, "utf8");
   fs.writeFileSync(latestFilePath, content, "utf8");
+  writeToChangeLog( req, `Edited '[${topic}](${req.baseUrl}${view_route}/${topic})' to [v${version}](${req.baseUrl}${view_route}/${topic}/${version})` )
   res.json({ message: "Wiki page updated.", version });
 });
 
@@ -723,6 +740,7 @@ router.post("/upload", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), upload.single("im
     logger.info( `[wiki] ${userLogDisplay(req.user, req.ip)} /upload  file:${req.file}` )
     // Return the URL of the uploaded image
       const imageUrl = `${req.baseUrl}/uploads/${req.file.filename}`;
+      writeToChangeLog( req, `Uploaded '[${req.file.filename}](${imageUrl})'` )
       res.json({ success: true, imageUrl: imageUrl });
   } else {
       res.status(400).json({ success: false, message: "No image uploaded." });
