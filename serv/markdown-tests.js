@@ -24,7 +24,7 @@ function isBrowser() {
   return typeof window !== "undefined";
 }
 function markdownToHtmlTest(markdown, expectedHTML) {
-  const html = markdownToHtml( markdown )
+  const html = markdownToHtml( markdown, "/base" )
   if (html != expectedHTML) {
     console.log( "[markdown.js] test failed" )
     console.log( "-------markdown-------" )
@@ -168,6 +168,26 @@ htmlToMarkdownTest( `<blockquote>hi<blockquote>hi</blockquote></blockquote>`,
 >> hi
 ` )
 
+markdownToHtmlTest( `# Heading
+text
+<!-- toc -->
+
+## Heading 2 [is Heading 2](some link crap)
+
+### Heading 2.1
+
+#### Heading 2.1.1
+
+## Heading 3
+`,
+`<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
+text<br>
+<ul><li><a href="#Heading">Heading</a><ul><li><a href="#Heading%202%20is%20Heading%202">Heading 2 is Heading 2</a><ul><li><a href="#Heading%202.1">Heading 2.1</a><ul><li><a href="#Heading%202.1.1">Heading 2.1.1</a></li></ul></li></ul></li><li><a href="#Heading%203">Heading 3</a></li></ul></li></ul>
+<p><h2 id="Heading 2 is Heading 2">Heading 2 <a href="/base/some link crap">is Heading 2</a><a href="#Heading%202%20is%20Heading%202"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h2>
+<p><h3 id="Heading 2.1">Heading 2.1<a href="#Heading%202.1"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
+<p><h4 id="Heading 2.1.1">Heading 2.1.1<a href="#Heading%202.1.1"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h4>
+<p><h2 id="Heading 3">Heading 3<a href="#Heading%203"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h2>
+`)
 
 
 } // if (isBrowser())

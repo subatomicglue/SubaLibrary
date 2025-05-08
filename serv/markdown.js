@@ -14,6 +14,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     inlineFormattingOnly: false,
   }
   options = { ...options_defaults, ...options };
+  const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
+  const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
 
   function isYouTubeURL(url) {
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
@@ -45,10 +47,13 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ).replace(/<[^>]+?>/g,'')
   }
   function sanitizeForHTMLParam(str) {
-    return htmlToText( markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ) ).replace(/"/g, '').trim()
+    return htmlToText( str ).replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\)/g, "%28").replace(/\(/g, "%29").trim()
   }
-  
-  
+
+  function sanitizeHeadingForTOC(heading) {
+    return heading.replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").trim()
+  }
+
   function transformCustomBlocks(markdown) {
     return markdown.replace(
       /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)\n([\s\S]*?\n)\1$/gm,
@@ -225,8 +230,29 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     });
   }
 
+  // Table of Contents markdown generator - looks at all markdown headings, and returns a table of contents in markdown
+function generateMarkdownTOC(markdown) {
+  const headings = markdown.match(/(?=^|\n)(#{1,6})\s+(.*?)(\s*#*)(?=\n|$)/gm);
+  if (!headings) {
+      return '';
+  }
+
+  // Create a table of contents
+  const toc = headings.map(heading => {
+      const level = heading.match(/^(#{1,6})/)[0].length; // Get the level of the heading
+      const text = heading.replace(/(^|\n)(#{1,6})\s+(.*?)\s*(\n|$)/, '$3'); // Remove all but the heading text
+      //const linkText = text.replace(/\s+/g, '-').toLowerCase(); // Create a slug for the link
+      return ` ${'  '.repeat(level - 1)}- [${sanitizeHeadingForTOC(text)}](#${encodeURIComponent(sanitizeForHTMLParam(text))})`; // Indent based on heading level
+  }).join('\n');
+  return toc;
+}
+
   // big structure comes first (theyll recurse inside)
   if (!options.inlineFormattingOnly) {
+    // markdown to markdown
+    markdown = markdown.replace(/<!--\s+toc\s+-->/gi, () => generateMarkdownTOC( markdown ) ) // lambda here to avoid calling generateMarkdownTOC unless we're matching.
+
+    // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
         return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h${hashes.length}><intentional newline>`
@@ -243,12 +269,12 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       const inner = escapeHtml(content)
       return inner == "" ? "" : `<tt>${inner}</tt>`
     })
-    .replace(/\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g, (match, title, url) => { // ![image title](image url)
+    .replace(match_markdown_img, (match, title, url) => { // ![image title](image url)
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
       return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>`
     })
-    .replace(/\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g, (match, title, url) => { // [title text](url)
+    .replace(match_markdown_link, (match, title, url) => { // [title text](url)
       const VERBOSE=false
       const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : options.link_relative_callback( baseUrl, url );
       VERBOSE && console.log( "[markdown] link", THEURL )
