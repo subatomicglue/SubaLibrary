@@ -178,16 +178,75 @@ router.get(`/`, (req, res) => {
   res.redirect(`${req.baseUrl}${view_route}`);  // Redirects to another route in the same app
 });
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')  // Must come first
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+const { diffLines, diffWords } = require( 'diff' );
+
+function diffLines_toMarkdown(oldText, newText) {
+  const changes = diffLines(oldText, newText);
+  let result = '';
+
+  changes.forEach(part => {
+    if (part.added) {
+      result += part.value
+        .split('\n')
+        .map(line => line && `+ ${line}`)
+        .join('\n') + '\n';
+    } else if (part.removed) {
+      result += part.value
+        .split('\n')
+        .map(line => line && `- ${line}`)
+        .join('\n') + '\n';
+    } else {
+      result += part.value
+        .split('\n')
+        .map(line => line && `  ${line}`)
+        .join('\n') + '\n';
+    }
+  });
+
+  return '```diff\n' + result.trimEnd() + '\n```';
+}
+
+function diffWords_toHTML(oldText, newText) {
+  const changes = diffWords(oldText, newText);
+  let result = '';
+
+  changes.forEach(part => {
+    if (part.added) {
+      result += part.value
+        .split('\n')
+        .map(line => line ? line.replace(/^(\s*)(.*?)(\s*)$/, `$1<b id="diff" style="background-color:lightgreen">$2</b>$3` ) : '<b id="diff" style="background-color:lightgreen">&lt;------:: newline added ::-------&gt;</b>' )
+        .join('\n');
+    } else if (part.removed) {
+      result += part.value
+        .split('\n')
+        .map(line => line ? line.replace(/^(\s*)(.*?)(\s*)$/, `$1<strike id="diff" style="background-color:pink">$2</strike>$3` ) : '<strike id="diff" style="background-color:pink">&lt;------:: newline removed ::-------&gt;</strike>' )
+        .join('\n');
+    } else {
+      result += part.value;
+    }
+  });
+
+  return result.trim();
+}
+
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, (req, res) => {
   //logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
-  const { topic, version, searchterm } = {
+  const { topic, version, searchterm, diff } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
     version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : "", // Default to empty string if no version provided
-    searchterm: req.query.searchterm ? req.query.searchterm : ""
+    searchterm: req.query.searchterm ? req.query.searchterm : "",
+    diff: req.query.diff ? `.${sanitizeInt( decodeURIComponent( req.query.diff ) )}` : "",
   };
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/${topic}${version != "" ?`/${version}`:''}`);
+  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/${topic}${version != "" ?`/${version}`:''}${diff!=""?` diff:${diff}`:``}${searchterm!=""?` searchterm:${searchterm}`:``}`);
 
   const filePath = sanitize( WIKI_DIR, `${topic}${version}.md`).fullPath
   if (filePath == "") {
@@ -206,8 +265,17 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
 
   let markdown = fs.readFileSync(filePath, "utf8");
   if (searchterm != "") {
-    console.log( searchterm)
     markdown = markdown.replace( new RegExp( `(${searchterm})`, 'gim' ), "<mark>$1</mark>" )
+  }
+  if (diff != "" && version != "") {
+    const filePath_older = sanitize( WIKI_DIR, `${topic}${diff}.md`).fullPath
+    let markdown_older = fs.readFileSync(filePath_older, "utf8");
+    //markdown = diffLines_toMarkdown( markdown_older, markdown )
+    let html = diffWords_toHTML( escapeHtml( markdown_older ), escapeHtml( markdown ) )
+    //markdown = markdown.replace(/^(\+.*)$/gm, "<b>$1</b>").replace(/^(\-.*)$/gm, "<strike>$1</strike>");
+    // markdown = diffLines_toMarkdown( older, newer );
+    html = wrapWithFrame(`<p><a href="${req.baseUrl}${view_route}/${topic}/${version.replace(/^\./,'')}">View ${version.replace(/^\./,'')}</a> <a href="${req.baseUrl}${view_route}/${topic}/${diff.replace(/^\./,'')}">View ${diff.replace(/^\./,'')}</a> </p><pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code>`+ html +"</code></pre>", topic, req);
+    res.send(html);
   }
   const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
@@ -236,6 +304,10 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
     logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
+  if (topic == "ChangeLog") {
+    writeToChangeLog( req, `Attempted to Edit '[${topic}](${req.baseUrl}${view_route}/${topic})'` )
+    return res.json({ message: "Wiki page did not change.", version: 0 });
+  }
   logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /save ${topic} content (save)`);
 
   // Find the next version number
@@ -252,6 +324,14 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
     return res.status(403).send(`Forbidden`);
   }
 
+  // bail early if the content didn't change
+  if (fs.existsSync(latestFilePath)) {
+    const latest_file_contents = fs.readFileSync(latestFilePath, "utf8");
+    if (content == latest_file_contents) {
+      return res.json({ message: "Wiki page did not change.", version: version - 1 });
+    }
+  }
+
   const versionedFilePath = sanitize( WIKI_DIR, `${topic}.${version}.md`).fullPath
   if (versionedFilePath == "") {
     logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 403 Forbidden '${topic}'`);
@@ -261,7 +341,7 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
   logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /save ${topic} ${version} version (save)`);
   fs.writeFileSync(versionedFilePath, content, "utf8");
   fs.writeFileSync(latestFilePath, content, "utf8");
-  writeToChangeLog( req, `Edited '[${topic}](${req.baseUrl}${view_route}/${topic})' to [v${version}](${req.baseUrl}${view_route}/${topic}/${version})` )
+  writeToChangeLog( req, `Edited '[${topic}](${req.baseUrl}${view_route}/${topic})' to [v${version}](${req.baseUrl}${view_route}/${topic}/${version}${version>1?`?diff=${version-1}#diff`:``})` )
   res.json({ message: "Wiki page updated.", version });
 });
 

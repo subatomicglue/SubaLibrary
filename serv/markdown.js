@@ -56,8 +56,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
 
   function transformCustomBlocks(markdown) {
     return markdown.replace(
-      /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)\n([\s\S]*?\n)\1$/gm,
-      (_, fence, content) => {
+      /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)([a-zA-Z]*)\n([\s\S]*?\n)\1$/gm,
+      (_, fence, optional_name, content) => {
         //console.log( `transformCustomBlocks "${content}"` )
         function recurse(content) {
           //return markdownToHtml(fence === '```' ? escapeHtml( content ) : content, baseUrl, options);
@@ -89,7 +89,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           return `<div style="text-align: right; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
         } else if (fence === '```') { // code box
           const inner = escapeHtml( content );
-          return `<pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code>${inner/*.replace(/</g, '&lt;').replace(/>/g, '&gt;')*/.replace(/\n/g, '<intentional newline>')}</code></pre>`;
+          return `${optional_name?`<b>${optional_name}</b><br>`:``}<pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code ${optional_name?`class="${optional_name}`:``}">${inner/*.replace(/</g, '&lt;').replace(/>/g, '&gt;')*/.replace(/\n/g, '<intentional newline>')}</code></pre>`;
         }
       }
     );
