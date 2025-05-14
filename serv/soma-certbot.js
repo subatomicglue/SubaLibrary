@@ -176,6 +176,13 @@ async function issueOrRenewCert() {
 
 // Run cert check on startup and daily at 3am
 issueOrRenewCert().catch(console.error);
+
+//             ┌───────────── minute (0 - 59)    (or * for every minute)
+//             │ ┌───────────── hour (0 - 23)
+//             │ │ ┌───────────── day of the month (1 - 31)
+//             │ │ │ ┌───────────── month (1 - 12)
+//             │ │ │ │ ┌───────────── day of the week (0 - 7) (0 and 7 both represent Sunday)
+//             │ │ │ │ │
 cron.schedule('0 3 * * *', () => {
   issueOrRenewCert().catch(console.error);
 });

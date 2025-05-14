@@ -255,7 +255,7 @@ function generateMarkdownTOC(markdown) {
     // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h${hashes.length}><intentional newline>`
+        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h${hashes.length}><intentional newline>`
       })
       .replace(/^------+$/gm, "<hr><intentional newline>")
   }

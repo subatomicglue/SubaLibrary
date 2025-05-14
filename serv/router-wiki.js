@@ -9,6 +9,7 @@ const { markdownToHtml, htmlToMarkdown } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
 markdownTests();
 const { guardOnlyAllowHost } = require("./router-auth");
+const cron = require( "node-cron" )
 
 const {
   TITLE,
@@ -1021,3 +1022,59 @@ function init( l ) {
 // Plug into Express
 module.exports.router = router;
 module.exports.init = init;
+
+
+
+function deployWiki() {
+  try {
+    const { execSync } = require('child_process');
+    console.log( "[wiki] wiki cron!" )
+    const output = execSync('./deploy.sh', { encoding: 'utf-8' });
+    console.log('[wiki] Command Output:');
+    console.log(output);
+    return output
+  } catch (error) {
+    console.error('[wiki] Command failed!');
+    console.error('[wiki] Error message:', error.message);
+    console.error('[wiki] Error output:', error.stderr.toString());
+    return `Error message: ${error.message}.   Error output: ${error.stderr.toString()}`
+  }
+}
+
+function backupWiki() {
+  try {
+    const { execSync } = require('child_process');
+    console.log( "[wiki] wiki cron!" )
+    const output = execSync('./backup.sh --noprompt', { encoding: 'utf-8' });
+    console.log('[wiki] Command Output:');
+    console.log(output);
+    return output
+  } catch (error) {
+    console.error('[wiki] Command failed!');
+    console.error('[wiki] Error message:', error.message);
+    console.error('[wiki] Error output:', error.stderr.toString());
+    return `Error message: ${error.message}.   Error output: ${error.stderr.toString()}`
+  }
+}
+
+//             ┌───────────── minute (0 - 59)    (or * for every minute)
+//             │ ┌───────────── hour (0 - 23)
+//             │ │ ┌───────────── day of the month (1 - 31)
+//             │ │ │ ┌───────────── month (1 - 12)
+//             │ │ │ │ ┌───────────── day of the week (0 - 7) (0 and 7 both represent Sunday)
+//             │ │ │ │ │
+cron.schedule('* * * * *', () => {
+  // deployWiki(); // if you want to auto update AWS... this will run the static site generation
+});
+
+// manually trigger the static site gen / deploy, by hitting the endpoint (must be logged in)
+router.use('/deploy', (req, res, next) => {
+  const result = deployWiki();
+  return res.status(200).send( result.replace(/\n/g,"<br>") );
+})
+
+// manually trigger the static site gen / deploy, by hitting the endpoint (must be logged in)
+router.use('/backup', (req, res, next) => {
+  const result = backupWiki();
+  return res.status(200).send( result.replace(/\n/g,"<br>") );
+})
