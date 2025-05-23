@@ -4,7 +4,7 @@ const path = require("path");
 const express = require("express");
 const router = express.Router();
 const sanitizer = require('./sanitizer');
-const sanitize = sanitizer.sanitize;
+const { sanitize, sanitizeFloat, sanitizeInt, sanitizeTopic } = sanitizer;
 const template = require('./template');
 const { markdownToHtml } = require('./markdown');
 const { makeRSS } = require('./router-rss-torrent');
@@ -284,7 +284,12 @@ fs.readdirSync(inputDir).forEach(file => {
     const markdown = fs.readFileSync(fullPath, 'utf-8');
     const req = new Req(topic);
     const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
-      link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
+      link_relative_callback: (baseUrl, link_topic) => {
+        const topic = sanitizeTopic( decodeURIComponent( link_topic ) )
+        const filePath = sanitize( SETTINGS.WIKI_DIR, `${topic}.md`).fullPath
+        //console.log( `${baseUrl}/${link_topic}` )
+        return /*fs.existsSync(filePath) ? */`${baseUrl}/${topic}` /*: `${baseUrl}/${topic}`*/
+      },
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )

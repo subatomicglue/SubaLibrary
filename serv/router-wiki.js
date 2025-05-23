@@ -3,7 +3,7 @@ const path = require("path");
 const express = require("express");
 const router = express.Router();
 const sanitizer = require('./sanitizer');
-const sanitize = sanitizer.sanitize;
+const { sanitize, sanitizeFloat, sanitizeInt, sanitizeTopic } = sanitizer;
 const template = require('./template');
 const { markdownToHtml, htmlToMarkdown } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
@@ -71,6 +71,8 @@ function userLogDisplay(req_user, req_ip) {
 
 function wrapWithFrame(content, topic, req, t=new Date()) {
   let autoscroll = `<script>
+    /////////////////////////////////////////
+    // auto scroll to the <mark>, when we're viewing a searchterm on the page
     function scrollToFirstMark() {
       const firstMark = document.querySelector('mark');
       if (firstMark)
@@ -85,6 +87,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     }
     if (searchTerm())
       document.addEventListener('DOMContentLoaded', scrollToFirstMark);
+    /////////////////////////////////////////
     </script>
   `
   return template.file( "template.page.html", {
@@ -99,7 +102,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
-    BODY: `${autoscroll}<div style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    BODY: `${autoscroll}<div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: (!isLoggedIn( req )) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
     SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`
   })
@@ -117,18 +120,6 @@ function readdirSync(dirPath, regex) {
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^=!:${}()|\[\]\/\\]/g, '\\$&');
-}
-
-function sanitizeTopic( topic ) {
-  return topic.replace( /[^\p{L}0-9 \-_]/ug, '' ).substring(0, 255) // << this is a whitelist, any chars NOT in this whitelist WILL be removed
-}
-
-function sanitizeInt( n ) {
-  return parseInt(n) ? parseInt(n) : 0
-}
-
-function sanitizeFloat( n ) {
-  return parseFloat(n) ? parseFloat(n) : 0.0
 }
 
 
@@ -832,7 +823,7 @@ const upload = multer({ storage: storage });
 
 // Static directory to serve uploaded files
 router.use('/uploads', (req, res, next) => {
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /uploads -> ${req.path}`);
+  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /uploads${req.path}`);
 
   // Absolute path to the requested file
   const requestedPath = path.resolve( WIKI_DIR, sanitize( WIKI_DIR, req.path ).fullPath );
@@ -1025,29 +1016,14 @@ module.exports.init = init;
 
 
 
-function deployWiki() {
+function runCommand(cmd, req) {
+  const VERBOSE = false
   try {
     const { execSync } = require('child_process');
-    console.log( "[wiki] wiki cron!" )
-    const output = execSync('./deploy.sh', { encoding: 'utf-8' });
-    console.log('[wiki] Command Output:');
-    console.log(output);
-    return output
-  } catch (error) {
-    console.error('[wiki] Command failed!');
-    console.error('[wiki] Error message:', error.message);
-    console.error('[wiki] Error output:', error.stderr.toString());
-    return `Error message: ${error.message}.   Error output: ${error.stderr.toString()}`
-  }
-}
-
-function backupWiki() {
-  try {
-    const { execSync } = require('child_process');
-    console.log( "[wiki] wiki cron!" )
-    const output = execSync('./backup.sh --noprompt', { encoding: 'utf-8' });
-    console.log('[wiki] Command Output:');
-    console.log(output);
+    console.log( `[wiki] ${req?userLogDisplay(req.user, req.ip):'[system]'} wiki cron exec: "${cmd}"` )
+    const output = execSync(cmd, { encoding: 'utf-8' });
+    VERBOSE && console.log('[wiki] Command Output:');
+    VERBOSE && console.log(output);
     return output
   } catch (error) {
     console.error('[wiki] Command failed!');
@@ -1064,17 +1040,23 @@ function backupWiki() {
 //             │ │ │ │ ┌───────────── day of the week (0 - 7) (0 and 7 both represent Sunday)
 //             │ │ │ │ │
 cron.schedule('* * * * *', () => {
-  // deployWiki(); // if you want to auto update AWS... this will run the static site generation
+  // runCommand('./deploy.sh'); // if you want to auto update AWS... this will run the static site generation
 });
 
 // manually trigger the static site gen / deploy, by hitting the endpoint (must be logged in)
 router.use('/deploy', (req, res, next) => {
-  const result = deployWiki();
-  return res.status(200).send( result.replace(/\n/g,"<br>") );
+  const result = runCommand('./deploy.sh 2>&1', req);
+  return res.status(200).send( `<a href="javascript:history.back()">&lt; Go Back</a><BR><hr>` + result.replace(/\n/g,"<br>") );
 })
 
 // manually trigger the static site gen / deploy, by hitting the endpoint (must be logged in)
 router.use('/backup', (req, res, next) => {
-  const result = backupWiki();
-  return res.status(200).send( result.replace(/\n/g,"<br>") );
+  const result = runCommand('./backup.sh --noprompt 2>&1', req);
+  return res.status(200).send( `<a href="javascript:history.back()">&lt; Go Back</a><BR><hr>` + result.replace(/\n/g,"<br>") );
 })
+
+// test command
+// router.use('/bokbok', (req, res, next) => {
+//   const result = runCommand('./bokbok.sh');
+//   return res.status(200).send( result.replace(/\n/g,"<br>") );
+// })

@@ -3,6 +3,17 @@
 // markdownToHtml
 //////////////////////////////////////////////////////////////////////////////////////
 
+function splitTopicAndHash(input) {
+  const parts = input.split("#", 2); // split at the first "#"
+  if (parts.length === 2) {
+    return [parts[0], parts[1]];
+  } else if (input.startsWith("#")) {
+    return ["", input.slice(1)];
+  } else {
+    return [input, ""];
+  }
+}
+
 // Basic Markdown to HTML conversion using regex, no dependencies,
 // Why not use "marked"? Some nice markup here that "marked" wasn't giving me, easy to customize... 
 // (happy to switch in the future, if someone can reach parity using marked...
@@ -276,7 +287,7 @@ function generateMarkdownTOC(markdown) {
     })
     .replace(match_markdown_link, (match, title, url) => { // [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : options.link_relative_callback( baseUrl, url );
+      const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : `${options.link_relative_callback( baseUrl, splitTopicAndHash( url )[0] )}${splitTopicAndHash( url )[1] != "" ? `#${splitTopicAndHash( url )[1]}` : ``}`;
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
@@ -724,3 +735,4 @@ function htmlToMarkdown( str ) {
 
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;
+module.exports.splitTopicAndHash = splitTopicAndHash;

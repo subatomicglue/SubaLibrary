@@ -1,4 +1,4 @@
-const { markdownToHtml, htmlToMarkdown } = require('./markdown')
+const { markdownToHtml, htmlToMarkdown, splitTopicAndHash } = require('./markdown')
 
 // ==================== MARKDOWN TESTING ==============================================================================
 
@@ -54,7 +54,7 @@ function htmlToMarkdownTest(html, expectedMarkdown) {
 
 if (!isBrowser()) {
 
-markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
+markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h1>
 ` )
 markdownToHtmlTest( `**word**`, `<b>word</b>` )
 markdownToHtmlTest( `*word*`,   `<i>word</i>` )
@@ -70,7 +70,7 @@ word
 word
 </div>` )
 markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2) ]`,
-`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
+`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a title="Permalink to this heading" href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h3>
 ` )
 markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="/base/LoremIpsum">< back</a>` )
 
@@ -180,14 +180,35 @@ text
 
 ## Heading 3
 `,
-`<h1 id="Heading">Heading<a href="#Heading"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h1>
+`<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h1>
 text<br>
 <ul><li><a href="#Heading">Heading</a><ul><li><a href="#Heading%202%20is%20Heading%202">Heading 2 is Heading 2</a><ul><li><a href="#Heading%202.1">Heading 2.1</a><ul><li><a href="#Heading%202.1.1">Heading 2.1.1</a></li></ul></li></ul></li><li><a href="#Heading%203">Heading 3</a></li></ul></li></ul>
-<p><h2 id="Heading 2 is Heading 2">Heading 2 <a href="/base/some link crap">is Heading 2</a><a href="#Heading%202%20is%20Heading%202"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h2>
-<p><h3 id="Heading 2.1">Heading 2.1<a href="#Heading%202.1"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h3>
-<p><h4 id="Heading 2.1.1">Heading 2.1.1<a href="#Heading%202.1.1"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h4>
-<p><h2 id="Heading 3">Heading 3<a href="#Heading%203"><span class="copy-icon" role="button" aria-label="Copy #link to heading"/></a></h2>
+<p><h2 id="Heading 2 is Heading 2">Heading 2 <a href="/base/some link crap">is Heading 2</a><a title="Permalink to this heading" href="#Heading%202%20is%20Heading%202"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
+<p><h3 id="Heading 2.1">Heading 2.1<a title="Permalink to this heading" href="#Heading%202.1"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h3>
+<p><h4 id="Heading 2.1.1">Heading 2.1.1<a title="Permalink to this heading" href="#Heading%202.1.1"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h4>
+<p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
 `)
+
+
+function testSplitTopicAndHash( url, expected ) {
+  const VERBOSE = false
+  let result = splitTopicAndHash( url );
+  if (result[0] == expected[0] && result[1] == expected[1]) {
+    VERBOSE && console.log( "[testSplitTopicAndHash]", url, "is good" )
+  } else {
+    console.log( "[testSplitTopicAndHash] FAIL:", url );
+    console.log( "Expected" )
+    console.log( " - Topic:", expected[0] )
+    console.log( " - Hash: ", expected[1] )
+    console.log( "Result" )
+    console.log( " - Topic:", result[0] )
+    console.log( " - Hash: ", result[1] )
+  }
+}
+
+testSplitTopicAndHash( "Topic#Hash", ["Topic", "Hash"] )
+testSplitTopicAndHash( "Topic", ["Topic", ""] )
+testSplitTopicAndHash( "#Hash", ["", "Hash"] )
 
 
 } // if (isBrowser())

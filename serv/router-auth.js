@@ -168,6 +168,11 @@ function failedLoginGuard(req, res, next) {
     next(); // Allow the login attempt
 }
 
+function isObject(variable) {
+  return variable !== null && typeof variable === 'object';
+}
+
+
 // 🔒 Authentication Middleware
 function authGuard(req, res, next) {
   try {
@@ -185,7 +190,12 @@ function authGuard(req, res, next) {
       const username = userpass_data && userpass_data.username; // Get username from cookie
       const password = userpass_data && userpass_data.password; // Get password from cookie
       if (username && password && username.length <= 256 && password.length <= 4096) {
-        if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
+        if (username in USERS_WHITELIST &&
+          (
+            (typeof USERS_WHITELIST[username] === 'string' && USERS_WHITELIST[username] == password) ||
+            (typeof USERS_WHITELIST[username] === 'object' && USERS_WHITELIST[username].password == password)
+          )
+        ) {
           req.user = username;
           return next(); // Passcode matches - Proceed to the next middleware
         }
@@ -203,38 +213,49 @@ function authGuard(req, res, next) {
 
     const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
 
-    logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}`);
-
     // block abusers
     if (loginAttempts[req.ip] && Date.now() < loginAttempts[req.ip].nextTry) {
       logHelper("auth guard", req);
     }
 
     // If passcode is incorrect/missing, show the login page
-    return res.send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Authentication Required</title>
-        </head>
-        <body>
-            <h2>Enter User/Pass</h2>
-            <form method="POST" action="/login">
-                username: <input type="username" name="username" required>
-                password: <input type="password" name="password" required>
-                <button type="submit">Submit</button>
-            </form>
+    if (req.path === "/login") {
+      logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}`);
+      return res.send(`
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Authentication Required</title>
+          </head>
+          <style>
+          body {
+            background-color: #333333;
+            color: #aaaaaa;
+          }
+          </style>
+          <body>
+              <h2>Enter User/Pass</h2>
+              <form method="POST" action="/login">
+                  <p>username: <input type="username" name="username" required>
+                  <p>password: <input type="password" name="password" required>
+                  <p><button type="submit">Submit</button>
+              </form>${SECRET_PASSCODE ? `
 
-            <h2>Enter Passcode</h2>
-            <form method="POST" action="/login">
-                passcode: <input type="password" name="passcode" required>
-                <button type="submit">Submit</button>
-            </form>
-        </body>
-        </html>
-    `);
+              <h2>Enter Passcode</h2>
+              <form method="POST" action="/login">
+                  passcode: <input type="password" name="passcode" required>
+                  <button type="submit">Submit</button>
+              </form>
+` : ''}
+          </body>
+          </html>
+      `);
+    }
+
+    logger.info(`[auth guard] 404 NOT FOUND path:${req.path} (not logged in)`);
+    return res.status(404).send("Not Found");
   } catch (error) {
     logger.info(`[auth guard] ${req.ip} -> req.path:${req.path}, CRASH: ${error}`);
     return res.status(403).send(`no, go away`);
@@ -268,7 +289,12 @@ router.post('/login', failedLoginGuard, (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
     //VERBOSE && logger.warn(`[login] debug: ${req.ip} -> user/pass '${username in USERS_WHITELIST}' '${USERS_WHITELIST[username] == password}'`);
-    if (username in USERS_WHITELIST && USERS_WHITELIST[username] == password) {
+    if (username in USERS_WHITELIST &&
+      (
+        (typeof USERS_WHITELIST[username] === 'string' && USERS_WHITELIST[username] == password) ||
+        (typeof USERS_WHITELIST[username] === 'object' && USERS_WHITELIST[username].password == password)
+      )
+    ) {
       logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}'`);
       res.cookie('userpass', JSON.stringify( { username, password } ), {
         httpOnly: true,         // Prevents JS access (secure against XSS)

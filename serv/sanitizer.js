@@ -48,6 +48,18 @@ function sanitize( baseDir, rel_path, options = {forceTypeAllowed: false} ) {
   }
 }
 
+function sanitizeTopic( topic ) {
+  return topic.replace( /[^\p{L}0-9 \-_]/ug, '' ).substring(0, 255) // << this is a whitelist, any chars NOT in this whitelist WILL be removed
+}
+
+function sanitizeInt( n ) {
+  return parseInt(n) ? parseInt(n) : 0
+}
+
+function sanitizeFloat( n ) {
+  return parseFloat(n) ? parseFloat(n) : 0.0
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // AUTO TEST
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,3 +144,6 @@ function init( l, ALLOW_DOTFILES_CONFIG = false ) {
 
 module.exports.init = init;
 module.exports.sanitize = sanitize;
+module.exports.sanitizeTopic = sanitizeTopic;
+module.exports.sanitizeFloat = sanitizeFloat;
+module.exports.sanitizeInt = sanitizeInt;
