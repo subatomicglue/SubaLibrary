@@ -9,8 +9,7 @@ const pm2 = require('pm2');
 const os = require('os');
 const mime = require('mime-types');
 const rateLimit = require('express-rate-limit');
-//const sanitizer = require('./sanitizer');
-//const sanitize = sanitizer.sanitize;
+const { userLogDisplay } = require("./common")
 const winston = require('winston');
 require('winston-daily-rotate-file');
 const {
@@ -27,6 +26,7 @@ const {
   WIKI_ENDPOINT,
   FILE_ENDPOINT,
   RSS_ENDPOINT,
+  ENDPOINTS,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -281,6 +281,89 @@ const rssTorrentMiddleware = require("./router-rss-torrent");
 rssTorrentMiddleware.init( logger );
 app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
+////////////////////////////////////////////////////////////////////////////////
+// register custom config-based system-call endpoints
+////////////////////////////////////////////////////////////////////////////////
+function runCommand(cmd, req) {
+  const VERBOSE = false
+  try {
+    const { execSync } = require('child_process');
+    console.log( `[some-serv] ${req?userLogDisplay(req.user, req.ip):'[system]'} wiki cron exec: "${cmd}"` )
+    const output = execSync(cmd, { encoding: 'utf-8' });
+    VERBOSE && console.log('[wiki] Command Output:');
+    VERBOSE && console.log(output);
+    return output
+  } catch (error) {
+    console.error('[some-serv] Command failed!');
+    console.error('[some-serv] Error message:', error.message);
+    console.error('[some-serv] Error output:', error.stderr ? error.stderr.toString() : '');
+    return `Error message: ${error.message}.   Error output: ${error.stderr ? error.stderr.toString() : ''}`
+  }
+}
+function authUsers(users) {
+  return (req, res, next) => {
+    if (users.includes( "*" ) || users.includes( req.user ))
+      next()
+    else
+      res.status(404).send( `not found` ) 
+  }
+}
+
+const cron = require( "node-cron" )
+ENDPOINTS.forEach( r => {
+  // custom endpoints
+  if (r.endpoint) {
+    if (typeof r.endpoint != "string" ||
+      typeof r.cmd != "string" ||
+      typeof r.users != "object" ||
+      !Array.isArray( r.users )) {
+      logger.info( `FAILED: custom endpoint ${JSON.stringify( r )}` );
+      logger.info( ` - r.endpoint(${r.endpoint}) typeof(${typeof r.endpoint}) should be 'string'` )
+      logger.info( ` - r.cmd(${r.cmd}) typeof(${typeof r.cmd}) should be 'string'` )
+      logger.info( ` - r.users(${r.users}) typeof(${typeof r.users} is array ${Array.isArray( r.users )}) should be 'array'` )
+    } else {
+      logger.info( `custom endpoint ${JSON.stringify( r )}` )
+      app.use(r.endpoint, authUsers(r.users), (req, res, next) => {
+        const result = runCommand(r.cmd, req);
+        return res.status(200).send( `<a href="javascript:history.back()">&lt; Go Back</a><BR><hr>` + result.replace(/\n/g,"<br>") );
+      })
+    }
+  }
+
+  // custom cronjobs
+  else if (r.cron) {
+    if (typeof r.cron != "string" ||
+      typeof r.cmd != "string") {
+      logger.info( `FAILED: custom CRON JOB ${JSON.stringify( r )}` );
+      logger.info( ` - r.cron(${r.cron}) typeof(${typeof r.cron}) should be 'string'` )
+      logger.info( ` - r.cmd(${r.cmd}) typeof(${typeof r.cmd}) should be 'string'` )
+    } else {
+      logger.info( `custom CRON JOB ${JSON.stringify( r )}` )
+      //             ┌───────────── minute (0 - 59)    (or * for every minute)
+      //             │ ┌───────────── hour (0 - 23)
+      //             │ │ ┌───────────── day of the month (1 - 31)
+      //             │ │ │ ┌───────────── month (1 - 12)
+      //             │ │ │ │ ┌───────────── day of the week (0 - 7) (0 and 7 both represent Sunday)
+      //             │ │ │ │ │
+      //            '* * * * *'
+      cron.schedule( r.cron, () => {
+        const result = runCommand(r.cmd);
+        console.log( result );
+      });
+    }
+  }
+
+  else {
+    logger.info( `FAILED: custom endpoint ${JSON.stringify( r )} is of UNKNOWN type` );
+  }
+})
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+// FALLBACK if ROUTE ISNT KNOWN
+////////////////////////////////////////////////////////////////////////////////
+
 // DEFAULT
 app.use('/', (req, res, next) => {
   res.redirect(`/${WIKI_ENDPOINT}/view`);
@@ -297,6 +380,10 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!')
 })
 
+
+////////////////////////////////////////////////////////////////////////////////
+// CREATE the SERVER
+////////////////////////////////////////////////////////////////////////////////
 
 // quick reload certs if they change...
 const CERT_DIR = path.join(__dirname, 'certs');
@@ -333,8 +420,6 @@ const options = {
     }));
   }
 };
-
-
 
 // Start server (pick https or http, https shouldn't have http because cert mgr runs on port 80)
 let servers = USE_HTTPS ? {} : { [HTTP_PORT]: http.createServer(app) };
