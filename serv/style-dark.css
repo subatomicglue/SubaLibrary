@@ -1,0 +1,6 @@
+<%include "style.css"%>
+body {
+  background-color: #333333;
+  color: #aaaaaa;
+}
+a { text-decoration: none; color: lightblue; }

@@ -26,7 +26,10 @@ const {
   WIKI_ENDPOINT,
   FILE_ENDPOINT,
   RSS_ENDPOINT,
-  ENDPOINTS,
+  CUSTOM,
+  MAP_ASSETS_TO_ROOT,
+  PUBLIC_ACCESS,
+  GLOBAL_REDIRECTS,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -250,16 +253,20 @@ app.use( (req, res, next) => {
   next()
 })
 
+function resolveVariables( str, dictionary ) {
+  let re = new RegExp( "\\${([^}]+)}", "g" )
+  return str.replace( re, (match, varname) => {
+    return dictionary[varname]
+  })
+}
+
 // AUTH
-const public_rootpath_file_whitelist = [ "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png" ]
-const public_rootpath_folder_whitelist = [ `^/?$`, `^/${WIKI_ENDPOINT}/view/?.*`, `^/${WIKI_ENDPOINT}/?$`, `^/${WIKI_ENDPOINT}/preview/?.*`, `^/${WIKI_ENDPOINT}/search`, `/${RSS_ENDPOINT}`, `^/${WIKI_ENDPOINT}/uploads/?.*`, `/${ASSETS_MAGIC}/*` ]
-const public_routes = [ ...public_rootpath_file_whitelist.map( r => `^${r}` ), ...public_rootpath_folder_whitelist ]
 const authMiddleware = require("./router-auth");
-authMiddleware.init( logger, public_routes );
+authMiddleware.init( logger, [ ...MAP_ASSETS_TO_ROOT.map( r => `^/${r}` ), ...PUBLIC_ACCESS.map( r => resolveVariables( r, require('./settings') ) ) ] );
 app.use("/", authMiddleware.router);
 
 // ROOT /favicon.ico (and friends) : expose certain assets onto root /
-const rootassetsMiddleware = require("./router-fileserv")( { logger, browser_dir: ASSETS_DIR, cache: true, allowed_exts: [ "ico", "png" ], filelist: public_rootpath_file_whitelist });
+const rootassetsMiddleware = require("./router-fileserv")( { logger, browser_dir: ASSETS_DIR, cache: true, allowed_exts: [ "ico", "png" ], filelist: MAP_ASSETS_TO_ROOT.map( r => `/${r}` ) });
 app.use(`/`, rootassetsMiddleware.router);
 
 // FILESERV the ASSETS_DIR
@@ -288,15 +295,15 @@ function runCommand(cmd, req) {
   const VERBOSE = false
   try {
     const { execSync } = require('child_process');
-    console.log( `[some-serv] ${req?userLogDisplay(req.user, req.ip):'[system]'} wiki cron exec: "${cmd}"` )
+    console.log( `[some-serv] ${userLogDisplay(req)} wiki cron exec: "${cmd}"` )
     const output = execSync(cmd, { encoding: 'utf-8' });
-    VERBOSE && console.log('[wiki] Command Output:');
+    VERBOSE && console.log('[some-serv] Command Output:');
     VERBOSE && console.log(output);
     return output
   } catch (error) {
-    console.error('[some-serv] Command failed!');
-    console.error('[some-serv] Error message:', error.message);
-    console.error('[some-serv] Error output:', error.stderr ? error.stderr.toString() : '');
+    console.error(`[some-serv] ${userLogDisplay(req)} Command failed!`);
+    console.error(`[some-serv] Error message:`, error.message);
+    console.error(`[some-serv] Error output:`, error.stderr ? error.stderr.toString() : '');
     return `Error message: ${error.message}.   Error output: ${error.stderr ? error.stderr.toString() : ''}`
   }
 }
@@ -310,19 +317,19 @@ function authUsers(users) {
 }
 
 const cron = require( "node-cron" )
-ENDPOINTS.forEach( r => {
+CUSTOM.forEach( r => {
   // custom endpoints
   if (r.endpoint) {
     if (typeof r.endpoint != "string" ||
       typeof r.cmd != "string" ||
       typeof r.users != "object" ||
       !Array.isArray( r.users )) {
-      logger.info( `FAILED: custom endpoint ${JSON.stringify( r )}` );
+      logger.info( `[CUSTOM] ${userLogDisplay(req)} FAILED: endpoint ${JSON.stringify( r )}` );
       logger.info( ` - r.endpoint(${r.endpoint}) typeof(${typeof r.endpoint}) should be 'string'` )
       logger.info( ` - r.cmd(${r.cmd}) typeof(${typeof r.cmd}) should be 'string'` )
       logger.info( ` - r.users(${r.users}) typeof(${typeof r.users} is array ${Array.isArray( r.users )}) should be 'array'` )
     } else {
-      logger.info( `custom endpoint ${JSON.stringify( r )}` )
+      logger.info( `[CUSTOM] ${userLogDisplay()} endpoint ${JSON.stringify( r )}` )
       app.use(r.endpoint, authUsers(r.users), (req, res, next) => {
         const result = runCommand(r.cmd, req);
         return res.status(200).send( `<a href="javascript:history.back()">&lt; Go Back</a><BR><hr>` + result.replace(/\n/g,"<br>") );
@@ -334,11 +341,11 @@ ENDPOINTS.forEach( r => {
   else if (r.cron) {
     if (typeof r.cron != "string" ||
       typeof r.cmd != "string") {
-      logger.info( `FAILED: custom CRON JOB ${JSON.stringify( r )}` );
+      logger.info( `[CUSTOM] ${userLogDisplay(req)} FAILED: cron ${JSON.stringify( r )}` );
       logger.info( ` - r.cron(${r.cron}) typeof(${typeof r.cron}) should be 'string'` )
       logger.info( ` - r.cmd(${r.cmd}) typeof(${typeof r.cmd}) should be 'string'` )
     } else {
-      logger.info( `custom CRON JOB ${JSON.stringify( r )}` )
+      logger.info( `[CUSTOM] ${userLogDisplay()} cron ${JSON.stringify( r )}` )
       //             ┌───────────── minute (0 - 59)    (or * for every minute)
       //             │ ┌───────────── hour (0 - 23)
       //             │ │ ┌───────────── day of the month (1 - 31)
@@ -354,7 +361,7 @@ ENDPOINTS.forEach( r => {
   }
 
   else {
-    logger.info( `FAILED: custom endpoint ${JSON.stringify( r )} is of UNKNOWN type` );
+    logger.info( `[CUSTOM] ${userLogDisplay(req)} FAILED: custom endpoint ${JSON.stringify( r )} is of UNKNOWN type` );
   }
 })
 ////////////////////////////////////////////////////////////////////////////////
@@ -365,9 +372,15 @@ ENDPOINTS.forEach( r => {
 ////////////////////////////////////////////////////////////////////////////////
 
 // DEFAULT
-app.use('/', (req, res, next) => {
-  res.redirect(`/${WIKI_ENDPOINT}/view`);
-});
+GLOBAL_REDIRECTS.forEach( r => {
+  const SRC  = Object.keys( r )[0]
+  const DST = resolveVariables( r[SRC], require('./settings') )
+  logger.info( `[GLOBAL_REDIRECTS] ${userLogDisplay()} mapping ${SRC} -> ${DST}`)
+  app.use(SRC, (req, res, next) => {
+    logger.info( `[GLOBAL_REDIRECTS] ${userLogDisplay(req)} rerouting request from ${SRC} -> ${DST}`)
+    res.redirect(DST);
+  });
+})
 
 // custom 404 for anything we forgot to cover in our routes.
 app.use((req, res, next) => {

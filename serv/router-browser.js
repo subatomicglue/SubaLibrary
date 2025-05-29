@@ -7,6 +7,7 @@ const router = express.Router();
 const sanitizer = require('./sanitizer');
 const sanitize = sanitizer.sanitize;
 const template = require('./template');
+const { userLogDisplay } = require("./common")
 
 const {
   TITLE,
@@ -52,11 +53,6 @@ function isFile( path ) {
     return false;
   }
 }
-
-function userLogDisplay(req_user, req_ip) {
-  return `[${req_user!=""?`${req_user}@`:""}${req_ip.replace(/^::ffff:/, '')}]`
-}
-
 
 // Function to get directory contents
 function getDirectoryContents( rel_dir ) {
@@ -146,7 +142,7 @@ router.get('*', (req, res) => {
   const sanitized = sanitize( PUBLIC_DIR, req_path )
   const { relPath, fullPath, mimeType, ext, forceTypeAllowed } = sanitized;
   let asset_match_result = undefined;
-  logger.info(`[browse]   ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
+  logger.info(`[browse]   ${userLogDisplay(req)} -> '${req_path}' -> '${fullPath}'`);
 
   try {
     // Check if the requested path exists
@@ -159,30 +155,66 @@ router.get('*', (req, res) => {
 
     // if the path points at a file, serv that up:
     if (isFile( fullPath )) {
-      logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
-
       if (!ALLOWED_EXTENSIONS.has(ext) && !forceTypeAllowed) {
           logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
           return res.status(403).send('403 - Forbidden: File type not allowed');
       }
   
-      // logger.info(`[download] ${userLogDisplay(req.user, req.ip)} -> ${fullPath} (${ext} | ${mimeType})`);
+      // logger.info(`[download] ${userLogDisplay(req)} -> ${fullPath} (${ext} | ${mimeType})`);
 
-      // Set headers to force download
-      //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
-      res.setHeader('Content-Disposition', 'inline'); // open in browser
+      const fileSize = fs.statSync(fullPath).size
       res.setHeader('Content-Type', mimeType);
-      if (forceTypeAllowed) // it's an assets resource, cache it, otherwise no cache
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-      res.sendFile(fullPath);
-      return
+
+      const range = req.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+        // Validate range
+        if (start >= fileSize || end >= fileSize) {
+          return res.status(416).setHeader('Content-Range', `bytes */${fileSize}`).send('Requested Range Not Satisfiable');
+        }
+
+        const chunkSize = end - start + 1;
+        const fileStream = fs.createReadStream(fullPath, { start, end });
+        res.status(206); // Partial Content
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Length', chunkSize);
+
+        logger.info(`[download] ${userLogDisplay(req)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}' range:${`[bytes=${start}-${end}/${fileSize}]`}`);
+        fileStream.pipe(res);
+        return
+      } else {
+        // Full file request
+        res.status(200); // OK
+        //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
+        res.setHeader('Content-Disposition', 'inline'); // open in browser
+        res.setHeader('Content-Length', fileSize);
+        if (forceTypeAllowed) // it's an assets resource, cache it, otherwise no cache
+          res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        logger.info(`[download] ${userLogDisplay(req)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}' length:${fileSize}`);
+        res.status(206); // Partial Content
+        fs.createReadStream(fullPath).pipe(res);
+        return
+      }
+
+      // // Set headers to force download
+      // //res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fullPath)}"`); // force browser to download
+      // res.setHeader('Content-Disposition', 'inline'); // open in browser
+      // res.setHeader('Content-Type', mimeType);
+      // if (forceTypeAllowed) // it's an assets resource, cache it, otherwise no cache
+      //   res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      // res.sendFile(fullPath);
+      // return
     }
 
     // otherwise, it's a directory, serv that up:
-    logger.info(`[listing]  ${userLogDisplay(req.user, req.ip)} -> '${req_path}' -> '${fullPath}'`);
+    logger.info(`[listing]  ${userLogDisplay(req)} -> '${req_path}' -> '${fullPath}'`);
     const directoryContents = getDirectoryContents(relPath);
     if (directoryContents === null) {
-      logger.warn(`[error]    ${userLogDisplay(req.user, req.ip)} -> 404 - Not Found: '${req_path}' -> ${fullPath}`);
+      logger.warn(`[error]    ${userLogDisplay(req)} -> 404 - Not Found: '${req_path}' -> ${fullPath}`);
       return res.status(404).send('404 - Not Found');
     }
 
@@ -216,7 +248,7 @@ router.get('*', (req, res) => {
     })
   );
   } catch (error) {
-    logger.warn(`[error]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: ${fullPath}, ${error}`);
+    logger.warn(`[error]    ${userLogDisplay(req)} -> 404 Not Found: ${fullPath}, ${error}`);
     res.status(404).send('404 - Not Found');
   }
 });

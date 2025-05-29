@@ -1,6 +1,7 @@
 const cookieParser = require('cookie-parser');
 const express = require("express");
 const router = express.Router();
+const template = require('./template');
 
 const {
   TITLE,
@@ -127,17 +128,16 @@ const loginAttempts = {}; // Store failed attempts per IP
 
 // blacklist guard
 router.use((req, res, next) => {
-  const ip = req.ip;
-  if (!isWhitelisted(req) && isBlacklisted(ip)) {
-    logger.info(`Blocked request from blacklisted IP: ${ip}`);
-    logHelper("blacklist", req);
-    return res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head></head>
-      <body>This is just a test!  Hello World!</body>
-      </html>
-    `);
+  try {
+    const ip = req.ip;
+    if (!isWhitelisted(req) && isBlacklisted(ip)) {
+      logger.info(`[blacklist guard] Blocked request from blacklisted IP: ${ip}`);
+      logHelper("blacklist", req);
+      return res.send(template.file( "template.blacklisted-response.html", {} ))
+    }
+  } catch (error) {
+    logger.info(`[blacklist guard] CRASH:  ${error}`);
+    return res.send(`hello world`)
   }
   next();
 });
@@ -220,38 +220,13 @@ function authGuard(req, res, next) {
 
     // If passcode is incorrect/missing, show the login page
     if (req.path === "/login") {
-      logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}`);
-      return res.send(`
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Authentication Required</title>
-          </head>
-          <style>
-          body {
-            background-color: #333333;
-            color: #aaaaaa;
-          }
-          </style>
-          <body>
-              <h2>Enter User/Pass</h2>
-              <form method="POST" action="/login">
-                  <p>username: <input type="username" name="username" required>
-                  <p>password: <input type="password" name="password" required>
-                  <p><button type="submit">Submit</button>
-              </form>${SECRET_PASSCODE ? `
-
-              <h2>Enter Passcode</h2>
-              <form method="POST" action="/login">
-                  passcode: <input type="password" name="passcode" required>
-                  <button type="submit">Submit</button>
-              </form>
-` : ''}
-          </body>
-          </html>
-      `);
+      const referrer = req.get('Referer') || '/'; // Default to '/' if no referrer is available
+      logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}, Referrer:${referrer}`);
+      return res.send(template.file( "template.login.html", {
+        REFERRER: referrer,
+        ENABLE_USERPASS: true,
+        ENABLE_PASSCODE: SECRET_PASSCODE,
+      }))
     }
 
     logger.info(`[auth guard] 404 NOT FOUND path:${req.path} (not logged in)`);
@@ -265,13 +240,14 @@ function authGuard(req, res, next) {
 // 🔒 Login Route (Handles Form Submission)
 router.post('/login', failedLoginGuard, (req, res) => {
   const ip = req.ip;
+  const referrer = req.body.referrer || '/'; // Default to '/' if no referrer is available
 
   // passcode auth
   if (req.body.passcode && req.body.passcode.length <= 4096) {
     const passcode = req.body.passcode;
     //VERBOSE && logger.warn(`[login] debug: ${req.ip} passcode:'${passcode}'`);
     if (passcode === SECRET_PASSCODE) {
-      logger.info(`[login] authorized: ${req.ip} -> Accepted Secret Passcode`);
+      logger.info(`[login] authorized: ${req.ip} -> Accepted Secret Passcode, referrer:${referrer}`);
       res.cookie('passcode', passcode, {
         httpOnly: true,         // Prevents JS access (secure against XSS)
         secure: true,           // Ensures cookie is sent only over HTTPS
@@ -279,7 +255,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
         maxAge: 52 * 7 * 24 * 60 * 60 * 1000, // 52 weeks in milliseconds
       });
       delete loginAttempts[ip]; // Reset failure count on success
-      return res.redirect('/');
+      return res.redirect(referrer);
     }
     logger.warn(`[login] unauthorized: ${req.ip} -> Incorrect passcode '${passcode}'`);
   }
@@ -295,7 +271,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
         (typeof USERS_WHITELIST[username] === 'object' && USERS_WHITELIST[username].password == password)
       )
     ) {
-      logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}'`);
+      logger.info(`[login] authorized: ${req.ip} -> Accepted User/Pass for '${username}', referrer:${referrer}`);
       res.cookie('userpass', JSON.stringify( { username, password } ), {
         httpOnly: true,         // Prevents JS access (secure against XSS)
         secure: true,           // Ensures cookie is sent only over HTTPS
@@ -303,7 +279,7 @@ router.post('/login', failedLoginGuard, (req, res) => {
         maxAge: 52 * 7 * 24 * 60 * 60 * 1000, // 52 weeks in milliseconds
       });
       delete loginAttempts[ip]; // Reset failure count on success
-      return res.redirect('/');
+      return res.redirect(referrer);
     }
     logger.warn(`[login] unauthorized: ${req.ip} -> Incorrect user/pass '${username}' '${password}'`);
   }
@@ -325,7 +301,8 @@ router.post('/login', failedLoginGuard, (req, res) => {
 router.get('/logout', (req, res) => {
   res.clearCookie('passcode'); // Remove the authentication cookie
   res.clearCookie('userpass'); // Remove the authentication cookie
-  res.send('<h1>Logged out.</h1><a href="/">Go back</a>');
+  const referrer = req.get('Referer') || '/'; // Fallback to '/' if no referrer is available
+  return res.send(template.file( "template.logout.html", { REFERRER: referrer } ))
 });
 
 // 🔒 Apply authGuard middleware to all protected routes
@@ -356,13 +333,14 @@ function guardOnlyAllowHost(allowed_hostname) {
   return (req, res, next) => {
     // detect production / dev mode
     const currentDomain = `${req.get('host')}`;
-    logger.info( "[auth]", currentDomain )
     const prod_mode = DOMAINS.includes( currentDomain )
-    if (!prod_mode) return next()
-
+    if (!prod_mode) {
+      logger.info( `[auth] guardOnlyAllowHost: host:"${currentDomain}" allowed:${allowed_hostname} prod_mode:${prod_mode}` )
+      return next()
+    }
     const hostname = req.hostname.toLowerCase();
     if (hostname !== allowed_hostname && !hostname.startsWith(`${allowed_hostname}.`)) {
-      logger.info( `[auth] guardOnlyAllowHost: host:${hostname} allowed:${allowed_hostname}  ` ); 
+      logger.info( `[auth] guardOnlyAllowHost: host:${hostname} allowed:${allowed_hostname}` ); 
       return res.status(403).send(`Forbidden`);
     }
 

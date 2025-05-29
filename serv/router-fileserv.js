@@ -5,6 +5,8 @@ const mime = require('mime-types');
 const express = require("express");
 const sanitizer = require('./sanitizer');
 const sanitize = sanitizer.sanitize;
+const { userLogDisplay } = require("./common")
+
 
 // const {
 //   TITLE,
@@ -32,10 +34,6 @@ function isFile( path ) {
   } catch (error) {
     return false;
   }
-}
-
-function userLogDisplay(req_user, req_ip) {
-  return `[${req_user!=""?`${req_user}@`:""}${req_ip ? req_ip.replace(/^::ffff:/, '') : ""}]`
 }
 
 class FileServ {
@@ -71,7 +69,7 @@ class FileServ {
 
           // if the path points at a file, serv that up:
           if (isFile( fullPath )) {
-            this.logger.info(`[fileserv] ${userLogDisplay(req.user, req.ip)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
+            this.logger.info(`[fileserv] ${userLogDisplay(req)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}'`);
             if (!this.ALLOWED_EXTENSIONS.has(ext)) {
               this.logger.warn(`[error] ${req.ip} -> 403 - Forbidden: File type not allowed: ${fullPath} (${ext})`);
                 return res.status(403).send('403 - Forbidden: File type not allowed');
@@ -87,11 +85,11 @@ class FileServ {
             return
           }
 
-          this.logger.warn(`[fileserv]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: '${req_path}' -> '${fullPath}' (is directory)`);
+          this.logger.warn(`[fileserv]    ${userLogDisplay(req)} -> 404 Not Found: '${req_path}' -> '${fullPath}' (is directory)`);
           res.status(404).send('404 - Not Found');
           return
         } catch (error) {
-          this.logger.warn(`[fileserv]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: '${req_path}' -> '${fullPath}', ${error}`);
+          this.logger.warn(`[fileserv]    ${userLogDisplay(req)} -> 404 Not Found: '${req_path}' -> '${fullPath}', ${error}`);
           res.status(404).send('404 - Not Found');
           return
         }
@@ -106,7 +104,7 @@ class FileServ {
           const sanitized = sanitize( this.BROWSER_DIRECTORY, req_path )
           const { relPath, fullPath, mimeType, ext } = sanitized;
       
-          this.logger.info(`[fileserve]   ${userLogDisplay(req.user, req.ip)} -> '${req.path}' -> '${fullPath}'`);
+          this.logger.info(`[fileserve]   ${userLogDisplay(req)} -> '${req.path}' -> '${fullPath}'`);
           try {
             // Check if the requested path exists
             fs.accessSync(fullPath);
@@ -125,7 +123,7 @@ class FileServ {
               return
             }
           } catch (error) {
-            this.logger.warn(`[fileserv]    ${userLogDisplay(req.user, req.ip)} -> 404 Not Found: '${req_path}' -> '${fullPath}', ${error}`);
+            this.logger.warn(`[fileserv]    ${userLogDisplay(req)} -> 404 Not Found: '${req_path}' -> '${fullPath}', ${error}`);
             return res.status(404).send('404 - Not Found');
           }
           next(); // we're not serving the entire baseUrl route, / dir for "asset", so defer to whoever's next in the express middleware.

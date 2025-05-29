@@ -127,7 +127,7 @@ function escapeRegex(str) {
 // general guard, filter anything unexpected or unsupported by the app
 router.use((req, res, next) => {
   const req_path = decodeURIComponent( req.path )
-  //logger.warn(`[wiki guard] ${userLogDisplay(req.user, req.ip)} : base:${req.baseUrl} path:${req_path} - TODO set up the guards!`);
+  //logger.warn(`[wiki guard] ${userLogDisplay(req)} : base:${req.baseUrl} path:${req_path} - TODO set up the guards!`);
 
   // wiki under development... todo: set this section up.
   next();
@@ -229,7 +229,7 @@ function diffWords_toHTML(oldText, newText) {
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, (req, res) => {
-  //logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
+  //logger.info(`[wiki] ${userLogDisplay(req)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
   const { topic, version, searchterm/*, diff*/ } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
     version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : "", // Default to empty string if no version provided
@@ -237,15 +237,15 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
     // diff: req.query.diff ? `.${sanitizeInt( decodeURIComponent( req.query.diff ) )}` : "",
   };
   //${diff!=""?` diff:${diff}`:``}
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/${topic}${version != "" ?`/${version}`:''}${searchterm!=""?` searchterm:${searchterm}`:``}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} ${view_route}/${topic}${version != "" ?`/${version}`:''}${searchterm!=""?` searchterm:${searchterm}`:``}`);
 
   const filePath = sanitize( WIKI_DIR, `${topic}${version}.md`).fullPath
   if (filePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/ 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${view_route}/ 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
   if (!fs.existsSync(filePath)) {
-    logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${view_route}/${topic}${version != "" ?`/${version}`:''} NOT FOUND: ${topic}${version}.md`);
+    logger.info(`[wiki] ${userLogDisplay(req)} ${view_route}/${topic}${version != "" ?`/${version}`:''} NOT FOUND: ${topic}${version}.md`);
     //return res.status(404).send("Topic not found.");
     const editUrl = `${req.baseUrl}${edit_route}/${topic}`;
     return res.send(`
@@ -287,20 +287,20 @@ router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
     version_new: req.params.version_new ? `.${sanitizeInt( decodeURIComponent( req.params.version_new ) )}` : "", // Default to empty string if no version provided
     version_old: req.params.version_old ? `.${sanitizeInt( decodeURIComponent( req.params.version_old ) )}` : "", // Default to empty string if no version provided
   };
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''}${version_old!=""?`/${version_old}`:``}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''}${version_old!=""?`/${version_old}`:``}`);
 
   const filePath_new = sanitize( WIKI_DIR, `${topic}${version_new}.md`).fullPath
   const filePath_old = sanitize( WIKI_DIR, `${topic}${version_old}.md`).fullPath
   if (filePath_new == "" || filePath_old == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${diff_route}/ 403 Forbidden${filePath_new == "" ? ` ${topic}.${version_new}`:""}${filePath_old == "" ? ` ${topic}.${version_old}`:""}`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${diff_route}/ 403 Forbidden${filePath_new == "" ? ` ${topic}.${version_new}`:""}${filePath_old == "" ? ` ${topic}.${version_old}`:""}`);
     return res.status(403).send(`Forbidden`);
   }
   if (!fs.existsSync(filePath_new)) {
-    logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''} NOT FOUND: ${topic}${version_new}.md`);
+    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''} NOT FOUND: ${topic}${version_new}.md`);
     return res.status(404).send( "Not found." );
   }
   if (!fs.existsSync(filePath_old)) {
-    logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${diff_route}/${topic}${version_old != "" ?`/${version_old}`:''} NOT FOUND: ${topic}${version_old}.md`);
+    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_old != "" ?`/${version_old}`:''} NOT FOUND: ${topic}${version_old}.md`);
     return res.status(404).send( "Not found." );
   }
 
@@ -320,19 +320,19 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
     content: req.body.content,
   }
   if (!topic || !content) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 400 Missing topic or content`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /save 400 Missing topic or content`);
     return res.status(400).send("Missing topic or content.");
   }
 
   if (topic == "" || sanitizeTopic( topic ) != topic) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
   if (topic == "ChangeLog") {
     writeToChangeLog( req, `Attempted to Edit '[${topic}](${req.baseUrl}${view_route}/${topic})'` )
     return res.json({ message: "Wiki page did not change.", version: 0 });
   }
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /save ${topic} content (save)`);
+  logger.info(`[wiki] ${userLogDisplay(req)} /save ${topic} content (save)`);
 
   // Find the next version number
   let existing_versions = readdirSync( WIKI_DIR, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
@@ -344,7 +344,7 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
 
   const latestFilePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
   if (latestFilePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
 
@@ -358,11 +358,11 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
 
   const versionedFilePath = sanitize( WIKI_DIR, `${topic}.${version}.md`).fullPath
   if (versionedFilePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /save 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
 
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /save ${topic} ${version} version (save)`);
+  logger.info(`[wiki] ${userLogDisplay(req)} /save ${topic} ${version} version (save)`);
   fs.writeFileSync(versionedFilePath, content, "utf8");
   fs.writeFileSync(latestFilePath, content, "utf8");
   writeToChangeLog( req, `Edited '[${topic}](${req.baseUrl}${view_route}/${topic})' to [v${version}](${req.baseUrl}${diff_route}/${topic}/${version}${version>1?`/${version-1}#diff`:``})` )
@@ -374,17 +374,17 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
 router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
   const topic = req.params.topic ? sanitizeTopic( decodeURIComponent( req.params.topic ) ) : undefined;
   if (!topic) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} 400 Missing topic name`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 400 Missing topic name`);
     return res.status(400).send("Missing topic name.");
   }
 
   const filePath = sanitize( WIKI_DIR, `${topic}.md` ).fullPath
   if (filePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
 
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} ${topic} ${filePath}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
   let t = new Date();
   res.send(template.file( "template.wiki-edit.html", {
@@ -412,17 +412,17 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
   const topic = req.params.topic ? sanitizeTopic( decodeURIComponent( req.params.topic ) ) : undefined;
   if (!topic) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} 400 Missing topic name`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 400 Missing topic name`);
     return res.status(400).send("Missing topic name.");
   }
 
   const filePath = sanitize( WIKI_DIR, `${topic}.md` ).fullPath
   if (filePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} 403 Forbidden '${topic}'`);
+    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
   }
 
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} ${edit_route} ${topic} ${filePath}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
   const html = markdownToHtml( markdown );
   //console.log( html )
@@ -772,10 +772,10 @@ router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS),
     topic: req.params.topic ? sanitizeTopic( decodeURIComponent( `${req.params.topic}` ) ) : undefined,
     version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : ""
   };
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /markdown/${topic}/${version}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} /markdown/${topic}/${version}`);
 
   if (!topic) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /markdown 400 Missing topic name.`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /markdown 400 Missing topic name.`);
     return res.status(400).send("Missing topic name.");
   }
 
@@ -792,7 +792,7 @@ router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS),
 router.post("/preview", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
   const { content } = req.body; // markdown
   if (!content) {
-    logger.error(`[wiki] ${userLogDisplay(req.user, req.ip)} /preview 400 Missing content`);
+    logger.error(`[wiki] ${userLogDisplay(req)} /preview 400 Missing content`);
     return res.status(400).send("Missing content.");
   }
   res.send(markdownToHtml(content, `${req.baseUrl}${view_route}`));
@@ -820,7 +820,7 @@ const upload = multer({ storage: storage });
 
 // Static directory to serve uploaded files
 router.use('/uploads', (req, res, next) => {
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /uploads${req.path}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} /uploads${req.path}`);
 
   // Absolute path to the requested file
   const requestedPath = path.resolve( WIKI_DIR, sanitize( WIKI_DIR, req.path ).fullPath );
@@ -839,9 +839,9 @@ router.use('/uploads', (req, res, next) => {
 
 // Route to handle image upload
 router.post("/upload", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), upload.single("image"), (req, res) => {
-  logger.info(`[wiki] ${userLogDisplay(req.user, req.ip)} /upload`);
+  logger.info(`[wiki] ${userLogDisplay(req)} /upload`);
   if (req.file) {
-    logger.info( `[wiki] ${userLogDisplay(req.user, req.ip)} /upload  file:${req.file}` )
+    logger.info( `[wiki] ${userLogDisplay(req)} /upload  file:${req.file}` )
     // Return the URL of the uploaded image
       const imageUrl = `${req.baseUrl}/uploads/${req.file.filename}`;
       writeToChangeLog( req, `Uploaded '[${req.file.filename}](${imageUrl})'` )
@@ -887,6 +887,13 @@ router.get('/search', (req, res) => {
               .expanded {
                 display: inline-block; /* Show when expanded */
               }
+            </style>
+            <style>
+              body {
+                background-color: #333333;
+                color: #aaaaaa;
+              }
+              a { text-decoration: none; color: lightblue; }
             </style>
         </head>
         <body>
@@ -976,7 +983,7 @@ router.put('/search', express.json(), (req, res) => {
     // Sort results by score in descending order
     results.sort((a, b) => b.score - a.score);
 
-    console.log( `[search] ${userLogDisplay(req.user, req.ip)} "${searchTerm}" ${results.length} results` )
+    console.log( `[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results` )
     // Return the results
     res.json(results);
   } catch (error) {

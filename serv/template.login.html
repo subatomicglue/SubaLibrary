@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Required</title>
+  <style>
+    <%include "style-dark.css"%>
+  </style>
+</head>
+<body>
+  <div id="userpass-container" style="display: none">
+    <h2>Enter User/Pass</h2>
+    <form method="POST" action="/login">
+      <p>username: <input type="username" name="username" required>
+      <p>password: <input type="password" name="password" required>
+      <input type="hidden" name="referrer" id="referrer" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
+      <p><button type="submit">Submit</button>
+    </form>
+  </div>
+
+  <div id="passcode-container" style="display: none">
+    <h2>Enter Passcode</h2>
+    <form method="POST" action="/login">
+      passcode: <input type="password" name="passcode" required>
+      <input type="hidden" name="referrer" id="referrer" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+  <script>
+    document.getElementById('userpass-container').style.display = <%=ENABLE_USERPASS%> ? "block" : "none";
+    document.getElementById('passcode-container').style.display = <%=ENABLE_PASSCODE%> ? "block" : "none";
+  </script>
+  *** After login, you'll return to <%=REFERRER%>
+</body>
+</html>

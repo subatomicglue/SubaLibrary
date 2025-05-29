@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Required</title>
+  <style>
+    <%include "style-dark.css"%>
+  </style>
+</head>
+<body>
+  <h1>Logged out.</h1><a href="<%=REFERRER%>">Go back</a> (automatically in <span id="countdown"></span>)
+  <script>
+    let count = 5;
+    countdown.innerHTML = count;
+    setInterval( () => {
+      --count;
+      if (count < 0) {
+        window.location.href = "<%=REFERRER%>"
+      }
+      countdown.innerHTML = 0 <= count ? count : "BYE";
+    }, 1000 )
+  </script>
+</body>
+</html>
