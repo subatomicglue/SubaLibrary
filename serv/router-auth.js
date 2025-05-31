@@ -110,13 +110,13 @@ function isBlacklisted(ip) {
 
 function logHelper(prefix, req) {
   let st = (obj) => JSON.stringify(obj, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  console.log( `[${prefix}]     - Headers:`, st( req.headers ));
-  console.log( `[${prefix}]     - Query params:`, st( req.query ));
-  console.log( `[${prefix}]     - Body:`, st( req.body ));
-  console.log( `[${prefix}]     - Route params:`, st( req.params ));
-  console.log( `[${prefix}]     - Original URL:`, st( req.originalUrl ) );
-  console.log( `[${prefix}]     - IP:`, st( req.ip ));
-  console.log( `[${prefix}]     - Cookies:`, st( req.cookies ));
+  logger.info( `[${prefix}]     - Headers:`, st( req.headers ));
+  logger.info( `[${prefix}]     - Query params:`, st( req.query ));
+  logger.info( `[${prefix}]     - Body:`, st( req.body ));
+  logger.info( `[${prefix}]     - Route params:`, st( req.params ));
+  logger.info( `[${prefix}]     - Original URL:`, st( req.originalUrl ) );
+  logger.info( `[${prefix}]     - IP:`, st( req.ip ));
+  logger.info( `[${prefix}]     - Cookies:`, st( req.cookies ));
 }
 
 
@@ -132,7 +132,7 @@ router.use((req, res, next) => {
     const ip = req.ip;
     if (!isWhitelisted(req) && isBlacklisted(ip)) {
       logger.info(`[blacklist guard] Blocked request from blacklisted IP: ${ip}`);
-      logHelper("blacklist", req);
+      logHelper("blacklist guard", req);
       return res.send(template.file( "template.blacklisted-response.html", {} ))
     }
   } catch (error) {

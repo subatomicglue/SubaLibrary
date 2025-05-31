@@ -157,7 +157,7 @@ if (isPM2) {
   pm2.connect(err => {
     logger.info(`🕒 [pm2] Connected to PM2...`);
     if (err) {
-      console.error(err)
+      logger.error(err)
       process.exit(2)
     }
 
@@ -207,7 +207,7 @@ if (isPM2) {
 
     pm2.list((err, processList) => {
       if (err) {
-        console.error('🕒 [pm2] Error retrieving PM2 process list:', err);
+        logger.error('🕒 [pm2] Error retrieving PM2 process list:', err);
         return;
       }
 
@@ -295,15 +295,15 @@ function runCommand(cmd, req) {
   const VERBOSE = false
   try {
     const { execSync } = require('child_process');
-    console.log( `[some-serv] ${userLogDisplay(req)} wiki cron exec: "${cmd}"` )
+    logger.info( `[some-serv] ${userLogDisplay(req)} wiki cron exec: "${cmd}"` )
     const output = execSync(cmd, { encoding: 'utf-8' });
-    VERBOSE && console.log('[some-serv] Command Output:');
-    VERBOSE && console.log(output);
+    VERBOSE && logger.info('[some-serv] Command Output:');
+    VERBOSE && logger.info(output);
     return output
   } catch (error) {
-    console.error(`[some-serv] ${userLogDisplay(req)} Command failed!`);
-    console.error(`[some-serv] Error message:`, error.message);
-    console.error(`[some-serv] Error output:`, error.stderr ? error.stderr.toString() : '');
+    logger.error(`[some-serv] ${userLogDisplay(req)} Command failed!`);
+    logger.error(`[some-serv] Error message:`, error.message);
+    logger.error(`[some-serv] Error output:`, error.stderr ? error.stderr.toString() : '');
     return `Error message: ${error.message}.   Error output: ${error.stderr ? error.stderr.toString() : ''}`
   }
 }
@@ -355,7 +355,7 @@ CUSTOM.forEach( r => {
       //            '* * * * *'
       cron.schedule( r.cron, () => {
         const result = runCommand(r.cmd);
-        console.log( result );
+        logger.info( result );
       });
     }
   }
@@ -389,7 +389,7 @@ app.use((req, res, next) => {
 
 // custom 500 error handler - for anything that falls through, server's broken!
 app.use((err, req, res, next) => {
-  console.error(err.stack)
+  logger.error(err.stack)
   res.status(500).send('Something broke!')
 })
 
@@ -417,7 +417,7 @@ function loadCerts() {
 let currentCerts = loadCerts();
 fs.watch(CERT_DIR, { encoding: 'utf8' }, (eventType, filename) => {
   if (filename === 'cert.pem' || filename === 'privkey.pem') {
-    console.log(`[SERVER] Certificate file changed: ${filename}. Reloading...`);
+    logger.info(`[SERVER] Certificate file changed: ${filename}. Reloading...`);
     currentCerts = loadCerts();  // Update the certs on change
   }
 });

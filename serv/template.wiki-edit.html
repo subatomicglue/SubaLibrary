@@ -372,12 +372,30 @@
             const markdown = html != "" ? htmlToMarkdown(html) : plainText; // fallback if nothing in text/html
             insertMarkdown(markdown != "" ? markdown : plainText);          // fallback if htmlToMarkdown fails
           } else if (clipboardData.types.includes("text/plain")) {
-            const markdown = plainText;
-            insertMarkdown(markdown);
+            if (plainText.match( /^https?:\/\// ))
+              handleUrlPaste( plainText )
+            else
+              insertMarkdown( plainText );
           } else if (clipboardData.types.includes("text/uri-list")) {
-            insertMarkdown( clipboardData.getData("text/uri-list") );
+            const url = clipboardData.getData("text/uri-list")
+            handleUrlPaste( url );
           } else {
             insertMarkdown( extractBestClipboardString( clipboardData ) )
+          }
+
+          function handleUrlPaste(pastedText) {
+            const selectionStart = textarea.selectionStart;
+            const selectionEnd = textarea.selectionEnd;
+
+            if (selectionStart !== selectionEnd) {
+              // Text is selected, format as markdown link
+              const selectedText = textarea.value.substring(selectionStart, selectionEnd);
+              const markdown = `[${selectedText}](${pastedText})`;
+              insertMarkdown(markdown);
+            } else {
+              // No text selected, paste plain URL
+              insertMarkdown(pastedText);
+            }
           }
 
           function insertMarkdown(markdown) {
