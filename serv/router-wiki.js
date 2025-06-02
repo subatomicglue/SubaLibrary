@@ -9,7 +9,7 @@ const { markdownToHtml, htmlToMarkdown } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
 markdownTests();
 const { guardOnlyAllowHost } = require("./router-auth");
-const { userLogDisplay } = require("./common")
+const { userLogDisplay, getReferrerFromReq } = require("./common")
 
 const {
   TITLE,
@@ -100,8 +100,9 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
     BODY: `${autoscroll}<div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
-    USER_LOGOUT: (!isLoggedIn( req )) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
-    SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`
+    USER_LOGOUT: (!isLoggedIn( req )) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+    SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`,
+    // REFERRER: getReferrerFromReq( req )
   })
 }
 
@@ -394,7 +395,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
       ASSETS_MAGIC,
       SCROLL_CLASS: "scroll-child-wiki",
       WHITESPACE: "normal",
-      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
       req_baseUrl:req.baseUrl,
       topic,
       view_route,
@@ -760,11 +761,10 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
     `, {
       SCROLL_CLASS: "scroll-child-wiki",
       WHITESPACE: "normal",
-      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a style="color: grey;" href="/login">&nbsp;signin</a>` : `<a style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
     })
   );
 });
-
 
 // GET /markdown/:topic/:version?   (get the page markdown data)
 router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
@@ -786,7 +786,6 @@ router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS),
 
   res.sendFile(filePath);
 });
-
 
 // POST ${req.baseUrl}/preview (submit req.body: { content: <markdown> }, get HTML; used for live preview in edit page)
 router.post("/preview", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {

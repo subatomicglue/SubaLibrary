@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta name="referrer" content="strict-origin-when-cross-origin"> -->
     <title><%=SOCIAL_TITLE%></title>
     <%include "template.meta.html"%>
     <style>
@@ -35,5 +36,18 @@
       </ul>
     </div>
   </div>
+  <script>
+    try {
+      // Get the current URL's path and query string
+      let signinLink = document.getElementById('signin-link');
+      if (signinLink) {
+        const url = new URL(signinLink.href);
+        url.searchParams.set("referrer", encodeURIComponent(window.location.pathname + window.location.search));
+        signinLink.href = url.toString();
+      }
+    } catch (error) {
+      console.log( error )
+    }
+  </script>
 </body>
 </html>

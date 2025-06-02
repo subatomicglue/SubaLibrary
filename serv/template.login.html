@@ -14,7 +14,7 @@
     <form method="POST" action="/login">
       <p>username: <input type="username" name="username" required>
       <p>password: <input type="password" name="password" required>
-      <input type="hidden" name="referrer" id="referrer" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
+      <input type="hidden" name="referrer" id="referrer-userpass" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
       <p><button type="submit">Submit</button>
     </form>
   </div>
@@ -23,7 +23,7 @@
     <h2>Enter Passcode</h2>
     <form method="POST" action="/login">
       passcode: <input type="password" name="passcode" required>
-      <input type="hidden" name="referrer" id="referrer" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
+      <input type="hidden" name="referrer" id="referrer-passcode" value="<%=REFERRER%>"> <!-- Hidden input to store the referrer -->
       <button type="submit">Submit</button>
     </form>
   </div>

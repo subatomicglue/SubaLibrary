@@ -86,6 +86,39 @@ Resources:
             Cookies:
               Forward: none
           ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: !Ref MyCachePolicy
+          ResponseHeadersPolicyId: !Ref MyResponseHeadersPolicy
+
+  MyCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: CachePolicy
+        Comment: Configures caching behavior
+        DefaultTTL: 86400                # Default time-to-live (24 hours)
+        MaxTTL: 31536000                # Maximum time-to-live (1 year)
+        MinTTL: 0                       # Minimum time-to-live (no forced caching)
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          HeadersConfig:
+            HeaderBehavior: none         # No custom headers forwarded
+          CookiesConfig:
+            CookieBehavior: none         # No cookies forwarded
+          QueryStringsConfig:
+            QueryStringBehavior: none    # No query strings forwarded
+
+  MyResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: ReferrerPolicyHeaderPolicy
+        Comment: Adds security headers including Referrer-Policy
+        SecurityHeadersConfig:
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: strict-origin-when-cross-origin
+
 
   BucketPolicy:
     Type: AWS::S3::BucketPolicy

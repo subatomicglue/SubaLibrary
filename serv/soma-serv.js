@@ -236,6 +236,13 @@ app.set('etag', false); // be more stealthy, plus, we want the latest sent when 
 // auth endpoints
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// so that clicking from www to another host will share the referrer URL, since we expect that.
+// app.use((req, res, next) => {
+//   //res.setHeader('Referrer-Policy', 'origin-when-cross-origin');
+//   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+//   next();
+// });
+
 // populate some variables we'll use.
 app.use( (req, res, next) => {
   req.canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;

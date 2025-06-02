@@ -2,6 +2,7 @@ const cookieParser = require('cookie-parser');
 const express = require("express");
 const router = express.Router();
 const template = require('./template');
+const { getReferrerFromReq } = require( './common' )
 
 const {
   TITLE,
@@ -128,6 +129,7 @@ const loginAttempts = {}; // Store failed attempts per IP
 
 // blacklist guard
 router.use((req, res, next) => {
+  //VERBOSE && logger.info( "USE blacklist guard ===================================================" )
   try {
     const ip = req.ip;
     if (!isWhitelisted(req) && isBlacklisted(ip)) {
@@ -144,6 +146,8 @@ router.use((req, res, next) => {
 
 // 🔒 Increasing timeout on repeated login fail attempts.
 function failedLoginGuard(req, res, next) {
+  //VERBOSE && logger.info( "failedLoginGuard ===================================================" )
+
     const ip = req.ip; // Get user's IP address
 
     if (!loginAttempts[ip]) {
@@ -175,11 +179,14 @@ function isObject(variable) {
 
 // 🔒 Authentication Middleware
 function authGuard(req, res, next) {
+  //VERBOSE && logger.info( "USE authGuard ===================================================" )
+
   try {
     if (req.cookies.passcode && req.cookies.passcode.length <= 4096) {
       const passcode = req.cookies.passcode; // Get passcode from cookie
       if (passcode === SECRET_PASSCODE) {
         req.user = ""
+        //VERBOSE && logger.info( "USE authGuard passcode accepted" )
         return next(); // Passcode matches - Proceed to the next middleware
       }
     }
@@ -197,6 +204,7 @@ function authGuard(req, res, next) {
           )
         ) {
           req.user = username;
+          //VERBOSE && logger.info( `USE authGuard user/pass accepted user:${req.user}` )
           return next(); // Passcode matches - Proceed to the next middleware
         }
       }
@@ -208,6 +216,7 @@ function authGuard(req, res, next) {
     if (is_public) {
       // console.log( "[authGuard] allowing PUBLIC viewonly: ", req_path )
       req.user = USER_ANON_DISPLAY
+      //VERBOSE && logger.info( "USE authGuard public route is ok" )
       return next(); // Passcode matches - Proceed to the next middleware
     }
 
@@ -220,7 +229,7 @@ function authGuard(req, res, next) {
 
     // If passcode is incorrect/missing, show the login page
     if (req.path === "/login") {
-      const referrer = req.get('Referer') || '/'; // Default to '/' if no referrer is available
+      const referrer = getReferrerFromReq( req );
       logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}, Referrer:${referrer}`);
       return res.send(template.file( "template.login.html", {
         REFERRER: referrer,
@@ -233,14 +242,28 @@ function authGuard(req, res, next) {
     return res.status(404).send("Not Found");
   } catch (error) {
     logger.info(`[auth guard] ${req.ip} -> req.path:${req.path}, CRASH: ${error}`);
+    logger.info(error)
     return res.status(403).send(`no, go away`);
   }
 }
 
+
+router.get('/login', authGuard, (req, res, next) => {
+  // if we get here, it's because we passed the authGuard, meaning, we got the cookie/user/pass to get in
+  // So we're in!
+  // so redirect to the referrer...
+  let referrerPath = getReferrerFromReq( req )
+  //VERBOSE && logger.info( `GET /login for user:${req.user} referrerPath:${referrerPath} ===================================================` )
+  return req.user ? res.redirect(referrerPath) : next();
+})
+
+
 // 🔒 Login Route (Handles Form Submission)
 router.post('/login', failedLoginGuard, (req, res) => {
   const ip = req.ip;
-  const referrer = req.body.referrer || '/'; // Default to '/' if no referrer is available
+  const referrer = getReferrerFromReq( req );
+
+  //VERBOSE && logger.info( `POST /login referrer:${referrer} ===================================================` )
 
   // passcode auth
   if (req.body.passcode && req.body.passcode.length <= 4096) {
@@ -299,9 +322,11 @@ router.post('/login', failedLoginGuard, (req, res) => {
 
 // 🔒 Logout Route: Clears the cookie and redirects to login
 router.get('/logout', (req, res) => {
+  //VERBOSE && logger.info( "GET /logout ===================================================" )
   res.clearCookie('passcode'); // Remove the authentication cookie
   res.clearCookie('userpass'); // Remove the authentication cookie
-  const referrer = req.get('Referer') || '/'; // Fallback to '/' if no referrer is available
+  const referrer = getReferrerFromReq( req );
+
   return res.send(template.file( "template.logout.html", { REFERRER: referrer } ))
 });
 
@@ -330,6 +355,7 @@ module.exports.init = init;
 
 // guard certain routes
 function guardOnlyAllowHost(allowed_hostname) {
+  //VERBOSE && logger.info( "guardOnlyAllowHost ===================================================" )
   return (req, res, next) => {
     // detect production / dev mode
     const currentDomain = `${req.get('host')}`;
