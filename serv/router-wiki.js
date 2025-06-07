@@ -832,8 +832,18 @@ router.use('/uploads', (req, res, next) => {
     return res.status(403).send("Forbidden");
   }
 
-  // Serve it safely
-  express.static(WIKI_DIR)(req, res, next);
+  // images are mostly static since they cant really be deleted in the wiki
+  const staticMiddleware = express.static(WIKI_DIR, {
+    maxAge: '7d',          // client-side cache duration
+    etag: true,            // enable ETag headers
+    lastModified: true,    // include Last-Modified header
+    setHeaders: (res, path) => {
+      // Optional: customize headers further if needed
+      res.set('Cache-Control', 'public, max-age=604800'); // 7 days
+    }
+  })
+
+  staticMiddleware(req, res, next);
 });
 
 // Route to handle image upload

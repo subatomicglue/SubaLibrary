@@ -617,15 +617,11 @@
       height: 100%; /* Ensure it takes full height of the container */
     }
 
-    /* Default to horizontal layout */
-    #markdown {
-      flex-basis: 50%; /* Start with 50% width */
-    }
-            
     #preview {
-      flex-basis: 50%; /* Start with 50% width */
       background-color: #ffffff;
     }
+    #markdown { flex-basis: 50%; }
+    #preview  { flex-basis: 50%; }
 
     /* Drag handle */
     .drag-handle {
@@ -648,9 +644,10 @@
       }
 
       #markdown, #preview {
-        flex-basis: 50%; /* Each panel takes 50% height */
         height: auto; /* Allow height to adjust */
       }
+      #markdown { flex-basis: 75%; }
+      #preview  { flex-basis: 25%; }
     }
 
     @media (min-aspect-ratio: 3/2) {

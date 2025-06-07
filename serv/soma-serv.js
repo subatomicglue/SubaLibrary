@@ -243,6 +243,9 @@ app.set('etag', false); // be more stealthy, plus, we want the latest sent when 
 //   next();
 // });
 
+const compression = require('compression');
+app.use(compression());
+
 // populate some variables we'll use.
 app.use( (req, res, next) => {
   req.canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
