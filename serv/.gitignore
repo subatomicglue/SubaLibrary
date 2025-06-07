@@ -1,3 +1,4 @@
+soma-serv.service
 torrents/**
 certs/**
 logs/**
@@ -15,6 +16,7 @@ assets/apple-touch-icon-precomposed.png
 assets/apple-touch-icon.png
 assets/favicons
 assets/favicon.ico
+assets/favicon-128.png
 build
 backup.sh
 deploy.sh
