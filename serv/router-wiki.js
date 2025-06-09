@@ -817,9 +817,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// images are mostly static since they cant really be deleted in the wiki
+const staticMiddleware = express.static(WIKI_DIR, {
+  maxAge: '7d',          // client-side cache duration
+  etag: true,            // enable ETag headers
+  lastModified: true,    // include Last-Modified header
+  setHeaders: (res, path) => {
+    // Optional: customize headers further if needed
+    res.set('Cache-Control', 'public, max-age=604800'); // 7 days
+  }
+})
+
 // Static directory to serve uploaded files
 router.use('/uploads', (req, res, next) => {
-  logger.info(`[wiki] ${userLogDisplay(req)} /uploads${req.path}`);
 
   // Absolute path to the requested file
   const requestedPath = path.resolve( WIKI_DIR, sanitize( WIKI_DIR, req.path ).fullPath );
@@ -832,17 +842,9 @@ router.use('/uploads', (req, res, next) => {
     return res.status(403).send("Forbidden");
   }
 
-  // images are mostly static since they cant really be deleted in the wiki
-  const staticMiddleware = express.static(WIKI_DIR, {
-    maxAge: '7d',          // client-side cache duration
-    etag: true,            // enable ETag headers
-    lastModified: true,    // include Last-Modified header
-    setHeaders: (res, path) => {
-      // Optional: customize headers further if needed
-      res.set('Cache-Control', 'public, max-age=604800'); // 7 days
-    }
-  })
-
+  let relativePath = path.relative(WIKI_DIR, requestedPath);
+  req.url = '/' + relativePath;
+  logger.info(`[wiki] ${userLogDisplay(req)} /uploads${req.path} url:${req.url}`);
   staticMiddleware(req, res, next);
 });
 

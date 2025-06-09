@@ -117,12 +117,10 @@ function logHelper(prefix, req) {
   logger.info( `[${prefix}]     - Cookies:`, st( req.cookies ));
 }
 
-
 // Middleware to parse cookies and URL-encoded form data
 router.use(cookieParser());
 router.use(express.urlencoded({ extended: true })); // Needed to parse form submissions
 const loginAttempts = {}; // Store failed attempts per IP
-
 
 // blacklist guard
 router.use((req, res, next) => {
@@ -130,7 +128,7 @@ router.use((req, res, next) => {
   try {
     const ip = req.ip;
     if (!isWhitelisted(req) && isBlacklisted(ip)) {
-      logger.info(`[blacklist guard] Blocked request from blacklisted IP: ${ip}`);
+      logger.info(`[blacklist guard] Blocked request from blacklisted IP: ${ip} isBlacklisted:${isBlacklisted(ip)}`);
       logHelper("blacklist guard", req);
       return res.send(template.file( "template.blacklisted-response.html", {} ))
     }

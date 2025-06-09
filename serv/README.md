@@ -160,3 +160,69 @@ restart systemd soma-serv service
 # Customizing
 After you get it running, you can
 Look at `soma-serv.json`, and edit settings there...
+
+# Running pm2 as systemd on raspberry pi (NOTES)
+here we've put the app running in `/home/pi/src/SomaLibrary/serv`
+```
+# run pm2, verify that you can load the app from a browser...
+npm run start
+npm run start-certbot
+
+# save the pm2 config
+./node_modules/.bin/pm2 save
+
+# run this to output the next command that you can run
+./node_modules/.bin/pm2 startup systemd
+
+# command from the previous line...
+sudo env PATH=$PATH:/home/pi/.nvm/versions/node/v18.0.0/bin /var/usbdrive/SomaLibrary/serv/node_modules/.bin/pm2 startup systemd -u pi --hp /home/pi
+
+# enable the new pm2-pi process
+sudo systemctl enable pm2-pi
+
+# get some status about why it is or isn't running...
+systemctl status pm2-pi
+journalctl -u pm2-pi.service --no-pager
+
+# edit the systemd process, see config below for one that works on raspbian buster (32bit)
+sudo nano /etc/systemd/system/pm2-pi.service
+
+# reload systemd, restart the daemon 
+sudo systemctl daemon-reload
+sudo systemctl restart pm2-pi
+systemctl status pm2-pi
+
+# dont see a pid file?   force it again...  (see below ExecStartPost which creates the pid)
+./node_modules/.bin/pm2 kill
+./node_modules/.bin/pm2 resurrect
+ls /home/pi/.pm2/pm2.pid
+```
+
+`sudo nano /etc/systemd/system/pm2-pi.service`
+```
+[Unit]
+Description=PM2 process manager
+Documentation=https://pm2.keymetrics.io/
+After=network.target
+After=local-fs.target
+Requires=local-fs.target
+
+[Service]
+Type=forking
+User=pi
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+Environment=PATH=/home/pi/.nvm/versions/node/v18.0.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games:/snap/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PM2_HOME=/home/pi/.pm2
+PIDFile=/home/pi/.pm2/pm2.pid
+Restart=on-failure
+
+ExecStart=/var/usbdrive/SomaLibrary/serv/node_modules/.bin/pm2 resurrect
+ExecReload=/var/usbdrive/SomaLibrary/serv/node_modules/.bin/pm2 reload all
+ExecStop=/var/usbdrive/SomaLibrary/serv/node_modules/.bin/pm2 kill
+ExecStartPost=/bin/sh -c "echo $(pgrep PM2) > /home/pi/.pm2/pm2.pid"
+
+[Install]
+WantedBy=multi-user.target
+```

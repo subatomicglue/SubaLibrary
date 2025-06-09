@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 // call it like:
 // userLogDisplay( req )
 // or
@@ -54,3 +56,18 @@ function getReferrerFromReq( req ) {
   return referrerPath || defaultReferrer
 }
 module.exports.getReferrerFromReq = getReferrerFromReq;
+
+
+let cached_files = {} // key is the filename
+function fs_readFileSync_cached( filename, encoding='utf8' ) {
+  if (!(filename in cached_files)) {
+    cached_files[filename] = fs.readFileSync(filename, encoding)
+    console.log( `[template.js] loaded ${filename} into cache` )
+  }
+  if (cached_files[filename] == undefined) {
+    delete cached_files[filename]
+    throw `File not found "${filename}", cwd:${process.cwd()} cached:${filename in cached_files}`
+  }
+  return cached_files[filename];
+}
+module.exports.fs_readFileSync_cached = fs_readFileSync_cached;
