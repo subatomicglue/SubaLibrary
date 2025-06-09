@@ -84,7 +84,6 @@ function fetchList({ name, url, filter, parse }) {
     });
   });
 }
-
 async function fetchDropList() {
   logger.info('[Blacklist] Fetching IP blocklists...');
   dropList = new Set(); // Clear current set
@@ -95,7 +94,6 @@ async function fetchDropList() {
 
   logger.info(`[Blacklist] Combined blocklist has ${dropList.size} total unique entries.`);
 }
-
 // Check if an IP matches any CIDR in the drop list
 const ipRangeCheck = require('ip-range-check');
 
@@ -105,9 +103,8 @@ function isWhitelisted(req) {
 }
 
 function isBlacklisted(ip) {
-  return ipRangeCheck(ip, [...dropList]);
+  return false;// return ipRangeCheck(ip, [...dropList]); // slow!
 }
-
 
 function logHelper(prefix, req) {
   let st = (obj) => JSON.stringify(obj, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -171,6 +168,7 @@ function failedLoginGuard(req, res, next) {
 
     next(); // Allow the login attempt
 }
+
 
 function isObject(variable) {
   return variable !== null && typeof variable === 'object';
