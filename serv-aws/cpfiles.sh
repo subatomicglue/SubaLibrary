@@ -1,3 +1,8 @@
+#!/bin/bash
+if [ ! -f "parameters.sourceme.sh" ]; then
+  echo "error:  parameters.sourceme.sh doesn't exist"
+  exit -1
+fi
 source parameters.sourceme.sh
 
 # upload dummy file (hello world)
