@@ -33,27 +33,14 @@ const {
   WIKI_CHANGELOG_TOPICNAME,
 } = require('./settings');
 
+const { writeToChangeLog } = require( "./ChangeLog.js" )
+
 let logger;
 
 // routes (must end in /)
 const view_route="/view"
 const edit_route="/edit"
 const diff_route="/diff"
-
-function writeToChangeLog( req, line_without_newline ) {
-  const filepath = path.resolve( path.join( WIKI_DIR, WIKI_CHANGELOG_TOPICNAME + ".md" ) )
-  const utcTimestamp = new Date();
-  const utcYear = utcTimestamp.getFullYear();
-  const utcMonth = String(utcTimestamp.getMonth() + 1).padStart(2, '0');
-  const utcDay = String(utcTimestamp.getDate()).padStart(2, '0');
-  const utcHours = String(utcTimestamp.getHours()).padStart(2, '0');
-  const utcMinutes = String(utcTimestamp.getMinutes()).padStart(2, '0');
-  const utcSeconds = String(utcTimestamp.getSeconds()).padStart(2, '0');
-  const formattedLocalDate = `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
-  let contents = fs.existsSync( filepath ) ? fs.readFileSync( filepath, 'utf8' ) : "";
-  contents = `[${formattedLocalDate}] [${req.user}](WikiUser-${req.user}) : ${line_without_newline}\n` + contents;
-  fs.writeFileSync( filepath, contents, 'utf8' );
-}
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {
