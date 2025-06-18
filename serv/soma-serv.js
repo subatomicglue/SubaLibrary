@@ -30,6 +30,7 @@ const {
   MAP_ASSETS_TO_ROOT,
   PUBLIC_ACCESS,
   GLOBAL_REDIRECTS,
+  HOSTNAME_FOR_EDITS,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -297,6 +298,21 @@ app.use(`/${FILE_ENDPOINT}`, browserMiddleware.router);
 const rssTorrentMiddleware = require("./router-rss-torrent");
 rssTorrentMiddleware.init( logger );
 app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
+
+app.get('/robots.txt', (req, res) => {
+  const host = req.headers.host; // Get the Host header
+  if (host === HOSTNAME_FOR_EDITS) {
+      // prevent crawlers
+      res.type('text/plain');
+      res.send(`User-agent: *
+Disallow: /`);
+  } else {
+      // everything allowed
+      res.type('text/plain');
+      res.send(`User-agent: *
+Disallow:`);
+  }
+});
 
 ////////////////////////////////////////////////////////////////////////////////
 // register custom config-based system-call endpoints
