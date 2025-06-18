@@ -300,7 +300,8 @@ rssTorrentMiddleware.init( logger );
 app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
 app.get('/robots.txt', (req, res) => {
-  const host = req.headers.host; // Get the Host header
+  const host = req.headers.host.split('.')[0]; // Get the Host header
+  console.log( "[robots.txt] host:", host );
   if (host === HOSTNAME_FOR_EDITS) {
       // prevent crawlers
       res.type('text/plain');
