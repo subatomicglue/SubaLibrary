@@ -27,36 +27,39 @@ function mergeLines(logLines) {
       userLink = `[${editedFormatMatch[2]}](${editedFormatMatch[3]})`;
       pageName = editedFormatMatch[4];
       versionInfo = editedFormatMatch[5];
-    }
-    else {
-      mergedLines.push( line )
-      return; // Skip merging lines that don't match either format
-    }
 
-    if (currentMerge && currentMerge.pageName === pageName) {
-      currentMerge.versions.push(versionInfo);
-      currentMerge.endTime = currentMerge.endTime > endTime ? currentMerge.endTime : endTime; // Update the earliest time
-      currentMerge.startTime = currentMerge.startTime < startTime ? currentMerge.startTime : startTime; // Update the latest time
+      if (currentMerge && currentMerge.pageName === pageName) {
+        currentMerge.versions.push(versionInfo);
+        currentMerge.endTime = currentMerge.endTime > endTime ? currentMerge.endTime : endTime; // Update the earliest time
+        currentMerge.startTime = currentMerge.startTime < startTime ? currentMerge.startTime : startTime; // Update the latest time
+      } else {
+        if (currentMerge) {
+          mergedLines.push(formatMergedLine(currentMerge));
+        }
+        // start a new merge
+        currentMerge = {
+          startTime: startTime,
+          endTime: endTime,
+          userLink: userLink,
+          pageName: pageName,
+          versions: [versionInfo]
+        };
+      }
     } else {
       if (currentMerge) {
         mergedLines.push(formatMergedLine(currentMerge));
       }
-      // start a new merge
-      currentMerge = {
-        startTime: startTime,
-        endTime: endTime,
-        userLink: userLink,
-        pageName: pageName,
-        versions: [versionInfo]
-      };
-    }
+      currentMerge = null; // Reset currentMerge for non-edited lines
+      mergedLines.push( line )
+    }  
   });
 
   if (currentMerge) {
     mergedLines.push(formatMergedLine(currentMerge));
   }
 
-  return mergedLines;
+  //return mergedLines;
+  return mergedLines.sort((a, b) => b.localeCompare(a)); // should be unnessesary, but safe.
 }
 
 function writeToChangeLog( req, line_without_newline ) {
