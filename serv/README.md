@@ -161,9 +161,26 @@ restart systemd soma-serv service
 After you get it running, you can
 Look at `soma-serv.json`, and edit settings there...
 
+
+
 # Running pm2 as systemd on raspberry pi (NOTES)
-here we've put the app running in `/home/pi/src/SomaLibrary/serv`
+
+ - rPi: Raspberry Pi 4b
+ - OS:  Raspian bookworm-lite 12 (64bit)
+ - Storage:
+   - Boot:  sandisk 32GB A1 (sdcard)
+   - App:   samsung 256GB   (USB drive)
+
+here we've
+ - burned a sdcard with Raspian bookworm-lite 12 (64bit)
+ - mounted the app drive at /var/usbmount
+ - symlinked /var/usbmount to /home/pi/src
+ - the app running in `/home/pi/src/SomaLibrary/serv`
+ - using pm2 to save state into a systemd configuration, will restore service automatically on reboot.
+
 ```
+cd /home/pi/src/SomaLibrary/serv
+
 # run pm2, verify that you can load the app from a browser...
 npm run start
 npm run start-certbot
@@ -187,7 +204,7 @@ journalctl -u pm2-pi.service --no-pager
 # edit the systemd process, see config below for one that works on raspbian buster (32bit)
 sudo nano /etc/systemd/system/pm2-pi.service
 
-# reload systemd, restart the daemon 
+# reload systemd, restart the daemon
 sudo systemctl daemon-reload
 sudo systemctl restart pm2-pi
 systemctl status pm2-pi
@@ -226,3 +243,4 @@ ExecStartPost=/bin/sh -c "echo $(pgrep PM2) > /home/pi/.pm2/pm2.pid"
 [Install]
 WantedBy=multi-user.target
 ```
+
