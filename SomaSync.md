@@ -13,9 +13,10 @@
 
 - Peer-to-peer file sync over HTTP(S)
 - SHA-256 hash verification and resume support
+- Parallel download (for speed and efficiency) when multiple peers have same content. 
 - Supports library subscriptions and multi-source file merging
 - Per-peer trust model with auto-discovery
-- Quorum-based deletion & change approval (planned)
+- Quorum-based file deletion & move approval
 - Status endpoint for sync progress visibility
 - Clean JSON-config structure
 - Secure (basic user/pass today, extensible)
