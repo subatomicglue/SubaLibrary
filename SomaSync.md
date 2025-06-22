@@ -5,7 +5,9 @@
 
 ## 1. Purpose
 
-Create a peer-to-peer, file-based library synchronization daemon for high-trust networks (e.g., small teams with shared clearance). It ensures high redundancy and nuclear-resilience for a set of static assets, with an intuitive CLI daemon and a web UI.
+**Primary:** a decentralized, trust-tiered, resilient file replication and publishing system — a powerful concept that directly addresses the modern "digital book burning" threat.
+
+**More Formally:** Create a peer-to-peer, file-based library synchronization daemon for high-trust networks (e.g., small teams with shared clearance). It ensures high redundancy and nuclear-resilience for a set of static assets, with an intuitive CLI daemon and a web UI.
 
 ## 2. Features at a Glance
 
