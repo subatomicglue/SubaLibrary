@@ -148,6 +148,29 @@ somasync/
 - Login-based web UI.
 - Trusted peers can send proposed user entries for manual approval.
 
+## 8.1 Trust Model & Peer Levels
+- Each peer in peers.json includes a "trusted": true|false field.
+- Trusted peers:
+  - Can add files to shared libraries.
+  - Participate in quorum-based delete/move decisions.
+  - Share new user credentials (for review).
+- Untrusted peers:
+  - May sync any library they’re authorized for.
+  - Cannot add, move, or delete files.
+  - Ignored for file authorship or voting.
+- Public Mirror Role (Level 2)
+  - Untrusted peers are encouraged to:
+    - Host public browsing interfaces.
+    - Seed files over BitTorrent or similar.
+    - Act as digital preservation relays.
+  - No access to sensitive metadata or quorum privileges.
+## 8.2 File Source Trust Enforcement
+When syncing:
+- Only trusted peers’ versions of a file are accepted.
+- If conflicting versions arise, trusted peers override.
+- Untrusted peer additions are ignored completely
+
+
 ## 9. Discovery & Merging
 
 - Peers can share their peer list.
