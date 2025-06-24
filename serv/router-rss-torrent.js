@@ -53,7 +53,7 @@ router.get('/', (req, res) => {
     // Dynamically generate the base URL
     const BASE_URL = `${protocol}://${host}/rss`;
 
-    makeRSS(BASE_URL, TORRENT_DIR);
+    const rss = makeRSS(BASE_URL, TORRENT_DIR);
 
     res.set('Cache-Control', 'no-store');
     res.set('Content-Type', 'application/rss+xml');
