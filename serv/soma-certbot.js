@@ -19,7 +19,7 @@ const CERT_PATH = {
   cert: path.join(CERT_DIR, config.CERT_CRT)
 };
 const EMAIL = config.EMAIL
-const DOMAINS = config.DOMAINS
+const DOMAINS = config.CERTBOT_DOMAINS || config.DOMAINS
 ///////////////////////////////////////////////////////
 
 
