@@ -347,6 +347,11 @@ function authUsers(users) {
 const cron = require( "node-cron" )
 CUSTOM.forEach( r => {
   // custom endpoints
+  // {
+  //   "endpoint": "/wiki/backup",
+  //   "cmd": "./backup.sh --noprompt 2>&1",
+  //   "users": ["myusername"]
+  // },
   if (r.endpoint) {
     if (typeof r.endpoint != "string" ||
       typeof r.cmd != "string" ||
@@ -366,6 +371,10 @@ CUSTOM.forEach( r => {
   }
 
   // custom cronjobs
+  // {
+  //   "cron": "* * * * *",
+  //   "cmd": "./backup.sh --noprompt 2>&1"
+  // },
   else if (r.cron) {
     if (typeof r.cron != "string" ||
       typeof r.cmd != "string") {
