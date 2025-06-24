@@ -24,6 +24,7 @@ Example:
   node update-host_aws.js --zone "example.com." --records "www" "api" "private"
   node update-host_aws.js --zone "example.com." --value "dxxxxxxxxxxxxx.cloudfront.net" --records "private" "private2"
   node update-host_aws.js --zone "example.com." --value "192.0.2.1" --records "private"
+  node update-host_aws.js --zone "example.com." --value $(curl -s https://api.ipify.org) --records "private"
 
   NOTE: --records must always be the last arg
   `);
