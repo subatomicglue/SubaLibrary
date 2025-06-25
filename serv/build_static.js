@@ -315,6 +315,11 @@ const serveScriptPath = path.join(outputDir, "serve.sh")
 syncer.writeFileIfChanged(undefined, serveScriptPath, "#!/bin/bash\npython -m http.server", "utf8")
 syncer.setChmodIfNeeded(serveScriptPath, 0o755)
 
+// write out robots.txt
+const robotsTxtPath = path.join(outputDir, "robots.txt")
+syncer.writeFileIfChanged(undefined, robotsTxtPath, `User-agent: *
+Disallow:`)
+
 // write out the rss
 const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")
