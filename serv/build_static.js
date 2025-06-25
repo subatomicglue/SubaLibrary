@@ -65,7 +65,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     WHITESPACE: "normal",
     BODY: `${autoscroll}<div style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: `<a id="signin-link" style="color: grey;" href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/login">&nbsp;signin</a>`,
-    SEARCH: `<a href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/wiki/search"><img src="/assets/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/></a>`,
+    SEARCH: `<a href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/wiki/search"><img src="/assets/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]"/></a>`,
   })
 }
 
