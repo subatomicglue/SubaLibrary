@@ -27,5 +27,5 @@ aws s3 cp ../serv/build/rss "s3://$BUCKET_NAME/" --cache-control 'no-cache' --co
 aws s3 sync ../serv/build/torrents/ "s3://$BUCKET_NAME/rss/" --cache-control 'max-age=31536000' --include "*.torrent" --content-type 'application/x-bittorrent'
 
 # robots
-aws s3 sync ../serv/build/ "s3://$BUCKET_NAME/" --cache-control 'max-age=31536000' --include "robots.txt" --content-type 'text/plain'
+aws s3 cp ../serv/build/robots.txt "s3://$BUCKET_NAME/" --cache-control 'max-age=31536000' --content-type 'text/plain'
 
