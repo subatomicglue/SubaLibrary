@@ -373,7 +373,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
   }
 
   logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
-  const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : `# ${topic}]\n\n\n`;
+  const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : `# ${topic}\n\n\n`;
   let t = new Date();
   res.send(template.file( "template.wiki-edit.html", {
       ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
