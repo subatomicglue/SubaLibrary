@@ -182,6 +182,7 @@ router.get('*', (req, res) => {
         res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Content-Length', chunkSize);
+        res.setHeader('Content-Disposition', 'inline'); // open in browser
 
         logger.info(`[download] ${userLogDisplay(req)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}' range:${`[bytes=${start}-${end}/${fileSize}]`}`);
         fileStream.pipe(res);
@@ -195,7 +196,6 @@ router.get('*', (req, res) => {
         if (forceTypeAllowed) // it's an assets resource, cache it, otherwise no cache
           res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
         logger.info(`[download] ${userLogDisplay(req)} -> path:'${fullPath}' ext:'${ext}' mime:'${mimeType}' length:${fileSize}`);
-        res.status(206); // Partial Content
         fs.createReadStream(fullPath).pipe(res);
         return
       }
