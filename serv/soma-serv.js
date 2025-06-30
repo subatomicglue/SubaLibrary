@@ -301,17 +301,26 @@ app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
 // robots.txt
 app.get('/robots.txt', (req, res) => {
-  const host = req.headers.host.split('.')[0]; // Get the Host header
-  logger.info( "[robots.txt] host:", host );
+  try {
+  const host = req.get('host').replace(/\..*$/, '');
+  logger.info( `[robots.txt] host:${host} domain:${req.get('host')}` );
   if (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
       // prevent crawlers
+      logger.info( `/robots.txt preventing crawlers not-www:${HOSTNAME_FOR_EDITS != "www"} edit-host:${host === HOSTNAME_FOR_EDITS}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow: /`);
   } else {
       // everything allowed
+      logger.info( `/robots.txt everything allowed - crawlers allowed host:${host}` );
       res.type('text/plain');
       res.send(`User-agent: *
+Disallow:`);
+  }
+  } catch (error) {
+    logger.error( "/robots.txt", error );
+    res.type('text/plain');
+    res.send(`User-agent: *
 Disallow:`);
   }
 });
