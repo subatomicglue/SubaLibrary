@@ -876,7 +876,7 @@ router.get('/search-youtube', (req, res) => {
     TITLE: "Search (YouTube Transcripts)",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: "search-youtube",
-    DESCRIPTION: `Keep in mind that youtube transcripts have transcribe errors, butchers words that aren't pronounced clearly, doesnt handle audio dropouts, and especially non-english words are often wrong (obliterated typically, misspelled at best)<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`
+    DESCRIPTION: `Keep in mind that YouTube have transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`
   }));
 });
 
