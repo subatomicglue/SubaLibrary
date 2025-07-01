@@ -935,33 +935,8 @@ router.put('/search', express.json(), (req, res) => {
 });
 
 
-// your directory with .json subtitle files
+// youtube subtitles directory: with .json subtitle files
 const subsCache = new Map();
-
-/**
- * Utility function to search subtitles, same logic as before
- */
-function searchSubtitles(subtitles, query) {
-  const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
-
-  const scored = subtitles.map(sub => {
-    const text = sub.text.toLowerCase();
-    let matchCount = 0;
-    for (const word of queryWords) {
-      if (text.includes(word)) {
-        matchCount++;
-      }
-    }
-    return {
-      ...sub,
-      score: matchCount
-    };
-  });
-
-  const filtered = scored.filter(sub => sub.score > 0);
-  filtered.sort((a, b) => b.score - a.score);
-  return filtered;
-}
 
 /**
  * PUT /search-youtube
@@ -978,7 +953,8 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 
     const files = await fs.promises.readdir(YOUTUBE_TRANSCRIPTS_DIR);
 
-    const queryWords = searchTerm.split(/\s+/).filter(Boolean);
+    //const queryWords = searchTerm.split(/,/).filter(Boolean); /
+    const queryWords = [ searchTerm ]; // no splitting, one term only.
 
     // parallel
     const filePromises = files
@@ -994,14 +970,18 @@ router.put('/search-youtube', express.json(), async (req, res) => {
           subsCache.set(file, subtitles);
         }
 
-        // search
+        // count the matches in that one file's subtitles...
         const matches = subtitles
           .map(sub => {
             const text = sub.text.toLowerCase();
-            let matchCount = 0;
+            let found_words = {}
             for (const word of queryWords) {
-              if (text.includes(word)) matchCount++;
+              if (text.includes(word)) {
+                found_words[word] = found_words[word] ? (found_words[word] + 1) : 1;
+              }
             }
+            let matchCount = Object.values(found_words).reduce((a, b) => a + b, 0);
+            //let uniqueCount = Object.values(found_words).reduce((a, b) => (a>0?1:0) + (b>0?1:0), 0);
             if (matchCount > 0) {
               // highlight
               let highlighted = sub.text;
@@ -1013,7 +993,9 @@ router.put('/search-youtube', express.json(), async (req, res) => {
                 start: sub.start,
                 end: sub.end,
                 text: highlighted,
-                score: matchCount
+                found_words,
+                //matchCount,
+                //uniqueCount,
               };
             }
             return null;
@@ -1021,7 +1003,17 @@ router.put('/search-youtube', express.json(), async (req, res) => {
           .filter(Boolean);
 
         if (matches.length > 0) {
-          const fileScore = matches.reduce((acc, cur) => acc + cur.score, 0);
+          //const fileScore = matches.reduce((acc, cur) => acc + (cur.matchCount*1) + (cur.uniqueCount*5) - ((queryWords - cur.uniqueCount) * 100), 0);
+          const fileStats = matches.reduce((acc, cur) => {
+            for (const [word, count] of Object.entries(cur.found_words)) {
+              acc.found_words[word] = (acc.found_words[word] || 0) + count;
+            }
+            return acc;
+          }, { found_words: {} });
+          let matchCount = Object.values(fileStats.found_words).reduce((a, b) => a + b, 0);
+          let uniqueCount = Object.values(fileStats.found_words).reduce((a, b) => (a>0?1:0) + (b>0?1:0), 0);
+          const fileScore = (matchCount*1) + (uniqueCount*5) - ((queryWords.length - uniqueCount) * 100);
+          //console.log( file, fileScore )
 
           function srtTimestampToSeconds(timestamp) {
             // expects format HH:MM:SS,mmm
@@ -1058,7 +1050,7 @@ router.put('/search-youtube', express.json(), async (req, res) => {
           }
           return {
             topic: "youtube",
-            title,
+            title: `${title} (score:${fileScore} hits:${matchCount})`,
             link: videoUrl,
             score: fileScore,
             body: '<ul>\n' + lines.join( "\n") + '\n</ul>'

@@ -40,7 +40,7 @@
     <p><%=DESCRIPTION%></p>
     <form id="searchForm">
         <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
-        <button type="submit">Search</button>
+        <button id="submitButton" type="submit">Search</button>
     </form>
     <ul id="results"></ul>
 
@@ -56,29 +56,54 @@
       if (st) document.getElementById('searchTerm').value = st
       document.getElementById('searchForm').onsubmit = async function(event) {
         event.preventDefault();
+        const submitButton = document.getElementById('submitButton');
+        submitButton.disabled = true;
+        submitButton.style.opacity = 0.5;
+        submitButton.style.cursor = 'not-allowed';
+        
         const searchTerm = document.getElementById('searchTerm').value;
-        // console.log( "PUT <%=REQ_BASEURL%>/search", {
-        //   method: 'PUT',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ searchTerm })
-        // })
-        const response = await fetch('<%=REQ_BASEURL%>/<%=SEARCH_URL%>', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ searchTerm })
-        });
-        const results = await response.json();
-        console.log("results:", results)
-        const resultsList = document.getElementById('results');
-        resultsList.innerHTML = ''
-        if (results.length == 0)
-          resultsList.innerHTML = "no results"
-        else
-          results.forEach(result => {
-            const li = document.createElement('li');
-            li.innerHTML = `<a href="${result.link}">${result.title}</a>${result.body}`;
-            resultsList.appendChild(li);
+
+        async function fetchWithTimeout(resource, options, timeoutMs = 15000) {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            const response = await fetch(resource, {
+              ...options,
+              signal: controller.signal
+            });
+            return response;
+          } finally {
+            clearTimeout(id);
+          }
+        }
+
+        try {
+          const response = await fetchWithTimeout('<%=REQ_BASEURL%>/<%=SEARCH_URL%>', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ searchTerm })
           });
+          const results = await response.json();
+          //console.log("results:", results)
+          const resultsList = document.getElementById('results');
+          resultsList.innerHTML = ''
+          if (results.length == 0)
+            resultsList.innerHTML = "no results"
+          else
+            results.forEach(result => {
+              const li = document.createElement('li');
+              li.innerHTML = `<a href="${result.link}">${result.title}</a>${result.body}`;
+              resultsList.appendChild(li);
+            });
+        } catch (err) {
+          console.error("search failed", err);
+          alert("Search failed.");
+        } finally {
+          // restore the button
+          submitButton.disabled = false;
+          submitButton.style.opacity = 1.0;
+          submitButton.style.cursor = 'pointer';
+        }
       };
     </script>
 </body>
