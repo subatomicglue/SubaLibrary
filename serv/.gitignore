@@ -9,6 +9,8 @@ users.json
 *.csr
 *.key
 public/**
+youtube
+youtube/**
 wiki
 wiki/**
 soma-serv.json
