@@ -5,8 +5,8 @@
   "main": "soma-serv.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start-certbot-dev": "ACME_STAGING=true pm2 start soma-certbot.js --name soma-certbot-staging --watch --ignore-watch 'torrents *.html build public logs build_static.js node_modules wiki certs app.js build_static.js router-auth.js router-fileserv.js router-wiki.js sanitizer.js settings.js template.js markdown.js  router-browser.js router-rss-torrent.js soma-serv.js' ",
-    "start-certbot": "ACME_STAGING=false pm2 start soma-certbot.js --name soma-certbot --watch --ignore-watch 'torrents *.html build public logs build_static.js node_modules wiki certs app.js build_static.js router-auth.js router-fileserv.js router-wiki.js sanitizer.js settings.js template.js markdown.js  router-browser.js router-rss-torrent.js soma-serv.js' ",
+    "start-certbot-dev": "ACME_STAGING=true pm2 start soma-certbot.js --name soma-certbot-staging --watch --ignore-watch 'youtube torrents *.html build public logs build_static.js node_modules wiki certs app.js build_static.js router-auth.js router-fileserv.js router-wiki.js sanitizer.js settings.js template.js markdown.js  router-browser.js router-rss-torrent.js soma-serv.js' ",
+    "start-certbot": "ACME_STAGING=false pm2 start soma-certbot.js --name soma-certbot --watch --ignore-watch 'youtube torrents *.html build public logs build_static.js node_modules wiki certs app.js build_static.js router-auth.js router-fileserv.js router-wiki.js sanitizer.js settings.js template.js markdown.js  router-browser.js router-rss-torrent.js soma-serv.js' ",
     "start": "NODE_HTTPS_PORT=443 NODE_HTTP_PORT=80 pm2 start soma-serv.js --log-date-format 'YYYY.MM.DD | HH:mm:ss' --watch --ignore-watch 'build public logs node_modules wiki certs soma-certbot.js'  --name soma-serv",
     "logs": "pm2 logs",
     "setup": "pm2 save; pm2 startup",

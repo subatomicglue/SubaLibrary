@@ -30,6 +30,7 @@ const {
   WIKI_DIR,
   USER_ANON_DISPLAY,
   HOSTNAME_FOR_EDITS,
+  YOUTUBE_TRANSCRIPTS_DIR,
   WIKI_CHANGELOG_TOPICNAME,
 } = require('./settings');
 
@@ -854,94 +855,37 @@ router.post("/upload", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), upload.single("im
 
 // GET /search: Serve the search page
 router.get('/search', (req, res) => {
-    const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+  const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+  logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search`)
 
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Search</title>
-            <style>
-              /* Basic styling for the search button and input */
-              #searchButton {
-                cursor: pointer;
-                border: none;
-                background: none;
-                outline: none;
-                display: inline-flex;
-                align-items: center;
-              }
+  res.send(template.file( "template.search.html", {
+    TITLE: "Search",
+    REQ_BASEURL: req.baseUrl,
+    SEARCH_URL: "search",
+    DESCRIPTION: (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ?
+      `Or head over to <a href='${req.baseUrl}/search-youtube'>youtube search</a>` : "",
+  }));
+});
 
-              #searchInput {
-                display: none; /* Hidden by default */
-                padding: 0.5rem;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                margin-left: 0.5rem;
-              }
+// GET /search-youtube: Serve the search page
+router.get('/search-youtube', (req, res) => {
+  const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+  logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search-youtube`)
 
-              .expanded {
-                display: inline-block; /* Show when expanded */
-              }
-            </style>
-            <style>
-              body {
-                background-color: #333333;
-                color: #aaaaaa;
-              }
-              a { text-decoration: none; color: lightblue; }
-            </style>
-        </head>
-        <body>
-            <h1>Search</h1>
-            <form id="searchForm">
-                <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
-                <button type="submit">Search</button>
-            </form>
-            <ul id="results"></ul>
-
-            <script>
-              function searchTerm() {
-                const url = new URL(window.location.href);
-                const params = new URLSearchParams(url.search);
-                if (params.has('searchterm'))
-                  return params.get('searchterm'); // Get the value of the searchterm
-                return false;
-              }
-              const st = searchTerm();
-              if (st) document.getElementById('searchTerm').value = st
-              document.getElementById('searchForm').onsubmit = async function(event) {
-                event.preventDefault();
-                const searchTerm = document.getElementById('searchTerm').value;
-                console.log( "PUT ${req.baseUrl}/search", {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ searchTerm })
-                })
-                const response = await fetch('${req.baseUrl}/search', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ searchTerm })
-                });
-                const results = await response.json();
-                console.log("results:", results)
-                const resultsList = document.getElementById('results');
-                resultsList.innerHTML = '';
-                results.forEach(result => {
-                  const li = document.createElement('li');
-                  li.innerHTML = \`<a href="\${result.link}">\${result.title}</a>\${result.body}\`;
-                  resultsList.appendChild(li);
-                });
-              };
-            </script>
-        </body>
-        </html>
-    `);
+  res.send(template.file( "template.search.html", {
+    TITLE: "Search (YouTube Transcripts)",
+    REQ_BASEURL: req.baseUrl,
+    SEARCH_URL: "search-youtube",
+    DESCRIPTION: `Keep in mind that youtube transcripts have transcribe errors, butchers words that aren't pronounced clearly, doesnt handle audio dropouts, and especially non-english words are often wrong (obliterated typically, misspelled at best)<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`
+  }));
 });
 
 // PUT /search: Handle the search request
+// {
+//   method: 'PUT',
+//   headers: { 'Content-Type': 'application/json' },
+//   body: JSON.stringify({ searchTerm })
+// }
 router.put('/search', express.json(), (req, res) => {
   try {
     const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
@@ -981,7 +925,7 @@ router.put('/search', express.json(), (req, res) => {
     // Sort results by score in descending order
     results.sort((a, b) => b.score - a.score);
 
-    console.log( `[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results` )
+    console.log( `[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results (topics)` )
     // Return the results
     res.json(results);
   } catch (error) {
@@ -989,6 +933,156 @@ router.put('/search', express.json(), (req, res) => {
     return res.json([]);
   }
 });
+
+
+// your directory with .json subtitle files
+const subsCache = new Map();
+
+/**
+ * Utility function to search subtitles, same logic as before
+ */
+function searchSubtitles(subtitles, query) {
+  const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  const scored = subtitles.map(sub => {
+    const text = sub.text.toLowerCase();
+    let matchCount = 0;
+    for (const word of queryWords) {
+      if (text.includes(word)) {
+        matchCount++;
+      }
+    }
+    return {
+      ...sub,
+      score: matchCount
+    };
+  });
+
+  const filtered = scored.filter(sub => sub.score > 0);
+  filtered.sort((a, b) => b.score - a.score);
+  return filtered;
+}
+
+/**
+ * PUT /search-youtube
+ * {
+ *   method: 'PUT',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({ searchTerm })
+ * }
+ */
+router.put('/search-youtube', express.json(), async (req, res) => {
+  try {
+    const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+    if (searchTerm === "") return res.json([]);
+
+    const files = await fs.promises.readdir(YOUTUBE_TRANSCRIPTS_DIR);
+
+    const queryWords = searchTerm.split(/\s+/).filter(Boolean);
+
+    // parallel
+    const filePromises = files
+      .filter(file => file.endsWith('.json'))
+      .map(async file => {
+        let subtitles;
+
+        if (subsCache.has(file)) {
+          subtitles = subsCache.get(file);
+        } else {
+          const fileData = await fs.promises.readFile(path.join(YOUTUBE_TRANSCRIPTS_DIR, file), 'utf8');
+          subtitles = JSON.parse(fileData);
+          subsCache.set(file, subtitles);
+        }
+
+        // search
+        const matches = subtitles
+          .map(sub => {
+            const text = sub.text.toLowerCase();
+            let matchCount = 0;
+            for (const word of queryWords) {
+              if (text.includes(word)) matchCount++;
+            }
+            if (matchCount > 0) {
+              // highlight
+              let highlighted = sub.text;
+              for (const word of queryWords) {
+                const re = new RegExp(`(${word})`, "ig");
+                highlighted = highlighted.replace(re, "<b>$1</b>");
+              }
+              return {
+                start: sub.start,
+                end: sub.end,
+                text: highlighted,
+                score: matchCount
+              };
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        if (matches.length > 0) {
+          const fileScore = matches.reduce((acc, cur) => acc + cur.score, 0);
+
+          function srtTimestampToSeconds(timestamp) {
+            // expects format HH:MM:SS,mmm
+            const parts = timestamp.split(/[:,]/); // split on colon and comma
+            if (parts.length !== 4) return 0; // fallback
+            
+            const [hours, minutes, seconds, millis] = parts.map(Number);
+            return hours * 3600 + minutes * 60 + seconds;
+          }
+          function linkifyTimestamps(textLine, videoId) {
+            const timestampRegex = /(\d{2}:\d{2}:\d{2},\d{3})/g;
+          
+            return textLine.replace(timestampRegex, (match) => {
+              const seconds = srtTimestampToSeconds(match);
+              return `<a href="https://youtu.be/${videoId}?t=${seconds}">${match}</a>`;
+            });
+          }
+
+          // parse video ID from filename
+          //console.log( file )
+          const idMatch = file.match(/^(.+)-([-\w]{11})\.([a-z][a-z])\.srt\.json$/);
+          const title = idMatch ? idMatch[1] : null;
+          const videoId = idMatch ? idMatch[2] : null;
+          const videoUrl = videoId ? `https://youtu.be/${videoId}` : null;
+
+          // format lines
+          const lines = matches.map(m => {
+            return `  <li>${linkifyTimestamps( m.start, videoId )} → ${linkifyTimestamps( m.end, videoId )} - ${m.text}`;
+          });
+
+          // results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
+          if (title == null || title == "null") {
+            console.log( `null: file:"${file}" matches:${idMatch ? idMatch.length : 0} ${JSON.stringify( idMatch )}`, )
+          }
+          return {
+            topic: "youtube",
+            title,
+            link: videoUrl,
+            score: fileScore,
+            body: '<ul>\n' + lines.join( "\n") + '\n</ul>'
+          };
+        } else {
+          return null;
+        }
+      });
+
+    const results = (await Promise.all(filePromises)).filter(Boolean);
+
+    // sort descending by score
+    results.sort((a, b) => b.score - a.score);
+
+    console.log(`[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results (youtube)`);
+
+    res.json(results);
+
+  } catch (err) {
+    console.error(err);
+    res.status(200).json([]);
+  }
+});
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
