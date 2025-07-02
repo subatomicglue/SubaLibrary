@@ -58,6 +58,45 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
   let autoscroll = `<script>
     /////////////////////////////////////////
     // auto scroll to the <mark>, when we're viewing a searchterm on the page
+    function markupSearchTerms() {
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(url.search);
+      const term = params.get('searchterm');
+      if (!term) return;
+
+      // build regex for case-insensitive match
+      const searchRegex = new RegExp(term, 'gi');
+
+      const container = document.getElementById('the-scroll-page');
+      if (!container) return;
+
+      // get *all* text nodes under container
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      const textNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.parentNode && !['SCRIPT', 'STYLE'].includes(node.parentNode.tagName)) {
+          textNodes.push(node);
+        }
+      }
+
+      // replace in each text node
+      textNodes.forEach(textNode => {
+        const replaced = textNode.nodeValue.replace(searchRegex, match => \`<mark>\${match}</mark>\`);
+        if (replaced !== textNode.nodeValue) {
+          // swap in HTML
+          const span = document.createElement('span');
+          span.innerHTML = replaced;
+          textNode.parentNode.replaceChild(span, textNode);
+        }
+      });
+    }
     function scrollToFirstMark() {
       const firstMark = document.querySelector('mark');
       if (firstMark)
@@ -70,8 +109,12 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
         return params.get('searchterm'); // Get the value of the searchterm
       return false;
     }
-    if (searchTerm())
-      document.addEventListener('DOMContentLoaded', scrollToFirstMark);
+    if (searchTerm()) {
+      document.addEventListener('DOMContentLoaded', () => {
+        markupSearchTerms()
+        scrollToFirstMark()
+      });
+    }
     /////////////////////////////////////////
     </script>
   `
@@ -244,25 +287,17 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
   }
 
   let markdown = fs.readFileSync(filePath, "utf8");
-  if (searchterm != "") {
-    markdown = markdown.replace( new RegExp( `(${searchterm})`, 'gim' ), "<mark>$1</mark>" )
-  }
-  // if (diff != "" && version != "") {
-  //   const filePath_older = sanitize( WIKI_DIR, `${topic}${diff}.md`).fullPath
-  //   let markdown_older = fs.readFileSync(filePath_older, "utf8");
-  //   //markdown = diffLines_toMarkdown( markdown_older, markdown )
-  //   let html = diffWords_toHTML( escapeHtml( markdown_older ), escapeHtml( markdown ) )
-  //   //markdown = markdown.replace(/^(\+.*)$/gm, "<b>$1</b>").replace(/^(\-.*)$/gm, "<strike>$1</strike>");
-  //   // markdown = diffLines_toMarkdown( older, newer );
-  //   html = wrapWithFrame(`<p><a href="${req.baseUrl}${view_route}/${topic}/${version.replace(/^\./,'')}">View ${version.replace(/^\./,'')}</a> <a href="${req.baseUrl}${view_route}/${topic}/${diff.replace(/^\./,'')}">View ${diff.replace(/^\./,'')}</a> </p><pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code>`+ html +"</code></pre>", topic, req);
-  //   res.send(html);
+  // if (searchterm != "") {
+  //   markdown = markdown.replace( new RegExp( `(${searchterm})`, 'gim' ), "<mark>$1</mark>" )
   // }
   const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
     link_relative_callback: (baseUrl, link_topic) => {
-      const topic = sanitizeTopic( decodeURIComponent( link_topic ) )
+      const link_topic_base = link_topic.replace( /[#?].*$/, '' )
+      //const link_topic_extra = link_topic.replace( /^[^#?]+([#?].*)$/, '$1' )
+      const topic = sanitizeTopic( decodeURIComponent( link_topic_base ) )
       const filePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
-      return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${topic}` : (!fs.existsSync(filePath) && !isLoggedIn( req )) ? '' : `${req.baseUrl}${edit_route}/${topic}`
+      return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${link_topic}` : (!fs.existsSync(filePath) && !isLoggedIn( req )) ? '' : `${req.baseUrl}${edit_route}/${link_topic_base}`
     },
   }), topic, req);
   res.send(html);
@@ -876,7 +911,7 @@ router.get('/search-youtube', (req, res) => {
     TITLE: "Search (YouTube Transcripts)",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: "search-youtube",
-    DESCRIPTION: `Keep in mind that YouTube have transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`
+    DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`
   }));
 });
 

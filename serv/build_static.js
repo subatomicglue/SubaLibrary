@@ -36,6 +36,47 @@ class Req {
 // generate .html file.
 function wrapWithFrame(content, topic, req, t=new Date()) {
   let autoscroll = `<script>
+    /////////////////////////////////////////
+    // auto scroll to the <mark>, when we're viewing a searchterm on the page
+    function markupSearchTerms() {
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(url.search);
+      const term = params.get('searchterm');
+      if (!term) return;
+
+      // build regex for case-insensitive match
+      const searchRegex = new RegExp(term, 'gi');
+
+      const container = document.getElementById('the-scroll-page');
+      if (!container) return;
+
+      // get *all* text nodes under container
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      const textNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.parentNode && !['SCRIPT', 'STYLE'].includes(node.parentNode.tagName)) {
+          textNodes.push(node);
+        }
+      }
+
+      // replace in each text node
+      textNodes.forEach(textNode => {
+        const replaced = textNode.nodeValue.replace(searchRegex, match => \`<mark>\${match}</mark>\`);
+        if (replaced !== textNode.nodeValue) {
+          // swap in HTML
+          const span = document.createElement('span');
+          span.innerHTML = replaced;
+          textNode.parentNode.replaceChild(span, textNode);
+        }
+      });
+    }
     function scrollToFirstMark() {
       const firstMark = document.querySelector('mark');
       if (firstMark)
@@ -48,8 +89,13 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
         return params.get('searchterm'); // Get the value of the searchterm
       return false;
     }
-    if (searchTerm())
-      document.addEventListener('DOMContentLoaded', scrollToFirstMark);
+    if (searchTerm()) {
+      document.addEventListener('DOMContentLoaded', () => {
+        markupSearchTerms()
+        scrollToFirstMark()
+      });
+    }
+    /////////////////////////////////////////
     </script>
   `
   return template.file( "template.page.html", {
@@ -284,12 +330,7 @@ fs.readdirSync(inputDir).forEach(file => {
     const markdown = fs.readFileSync(fullPath, 'utf-8');
     const req = new Req(topic);
     const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
-      link_relative_callback: (baseUrl, link_topic) => {
-        const topic = sanitizeTopic( decodeURIComponent( link_topic ) )
-        const filePath = sanitize( SETTINGS.WIKI_DIR, `${topic}.md`).fullPath
-        //console.log( `${baseUrl}/${link_topic}` )
-        return /*fs.existsSync(filePath) ? */`${baseUrl}/${topic}` /*: `${baseUrl}/${topic}`*/
-      },
+      link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )

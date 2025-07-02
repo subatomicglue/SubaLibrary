@@ -189,6 +189,14 @@ text<br>
 <p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
 `)
 
+markdownToHtmlTest( ` - bullet [[link](mytopic?searchterm=bokbok)]
+  `,
+  `<ul><li>bullet [<a href="/base/mytopic?searchterm=bokbok">link</a>]</li></ul>
+  `)
+markdownToHtmlTest( ` - bullet [[link](mytopic#bokbok)]
+  `,
+  `<ul><li>bullet [<a href="/base/mytopic#bokbok">link</a>]</li></ul>
+  `)
 
 function testSplitTopicAndHash( url, expected ) {
   const VERBOSE = false
