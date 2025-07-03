@@ -988,8 +988,8 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 
     const files = await fs.promises.readdir(YOUTUBE_TRANSCRIPTS_DIR);
 
-    //const queryWords = searchTerm.split(/,/).filter(Boolean); /
-    const queryWords = [ searchTerm ]; // no splitting, one term only.
+    const queryWords = searchTerm.split(/,/).filter(Boolean); // multiple terms if commas are used, otherwise single unsplit term
+    //const queryWords = [ searchTerm ]; // no splitting, one term only.
 
     // parallel
     const filePromises = files
