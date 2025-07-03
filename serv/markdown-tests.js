@@ -30,9 +30,9 @@ function markdownToHtmlTest(markdown, expectedHTML) {
     console.log( "-------markdown-------" )
     console.log( markdown )
     console.log( "-------Generated HTML-------" )
-    console.log( html )
+    console.log( `'${html}'` )
     console.log( "-------Expected HTML-------" )
-    console.log( expectedHTML )
+    console.log( `${expectedHTML}` )
     return false;
   }
   return true;
@@ -44,9 +44,9 @@ function htmlToMarkdownTest(html, expectedMarkdown) {
     console.log( "-------html-------" )
     console.log( html )
     console.log( "-------Generated markdown-------" )
-    console.log( markdown )
+    console.log( `'${markdown}'` )
     console.log( "-------Expected Markdown-------" )
-    console.log( expectedMarkdown )
+    console.log( `'${expectedMarkdown}'` )
     return false;
   }
   return true;
@@ -197,6 +197,10 @@ markdownToHtmlTest( ` - bullet [[link](mytopic#bokbok)]
   `,
   `<ul><li>bullet [<a href="/base/mytopic#bokbok">link</a>]</li></ul>
   `)
+
+
+htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
+  `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)
 
 function testSplitTopicAndHash( url, expected ) {
   const VERBOSE = false

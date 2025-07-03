@@ -542,10 +542,10 @@ function _htmlTreeToMarkdown(tree) {
     }
 
     function sanitizeUrl( url ) {
-      return decodeURIGreekOnly( url.replace(/\(/g,'%28').replace(/\)/g,'%29') )
+      return decodeURIGreekOnly( url.replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\*/g,'%2A') )
     }
     function sanitizeUrlTitle( url ) {
-      return url.replace(/\[/g,'&lbrack;').replace(/\]/g,'&rbrack;')
+      return url.replace(/\[/g,'&lbrack;').replace(/\]/g,'&rbrack;').replace(/\*/g,'&ast;')
     }
 
     // Handle specific HTML tags
