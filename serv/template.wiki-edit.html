@@ -63,7 +63,7 @@
         const span = spans[i];
         //console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
         if (span.offsetTop >= scrollTop && /^#+\s+.*?\n?$/.test(span.textContent)) {
-          return span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" );
+          return __sanitizeForHTMLParam( span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" ) );
         }
       }
 
@@ -74,12 +74,14 @@
     let textarea_last_heading = ""
     function updateAutoScrollPreview() {
       const header = getFirstVisibleHeader(document.getElementById("markdown"), document.getElementById("markdown-mirror"));
-      if (header != textarea_last_heading) {
+      if (header != null && header != textarea_last_heading) {
         textarea_last_heading = header
         const anchor = document.getElementById(textarea_last_heading);
         console.log( "scroll to:", textarea_last_heading, anchor)
         if (anchor) {
           anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          console.log( "[ERROR] anchor not found in the DOM: ", textarea_last_heading )
         }
       }
     }

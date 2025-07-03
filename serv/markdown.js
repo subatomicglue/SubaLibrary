@@ -14,6 +14,12 @@ function splitTopicAndHash(input) {
   }
 }
 
+const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
+const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
+function __sanitizeForHTMLParam(str) {
+  return str.replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\)/g, "%28").replace(/\(/g, "%29").trim()
+}
+
 // Basic Markdown to HTML conversion using regex, no dependencies,
 // Why not use "marked"? Some nice markup here that "marked" wasn't giving me, easy to customize... 
 // (happy to switch in the future, if someone can reach parity using marked...
@@ -25,8 +31,6 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     inlineFormattingOnly: false,
   }
   options = { ...options_defaults, ...options };
-  const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
-  const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
 
   function isYouTubeURL(url) {
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
@@ -58,9 +62,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ).replace(/<[^>]+?>/g,'')
   }
   function sanitizeForHTMLParam(str) {
-    return htmlToText( str ).replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\)/g, "%28").replace(/\(/g, "%29").trim()
+    return __sanitizeForHTMLParam( htmlToText( str ) )
   }
-
   function sanitizeHeadingForTOC(heading) {
     return heading.replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").trim()
   }
