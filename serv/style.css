@@ -173,3 +173,13 @@ p {
   margin-inline-start: 0rem;
   margin-inline-end: 0rem;
 }
+
+/* avoid empty table cells of zero height */
+td, td:empty {
+  min-height: 1em;
+}
+td:empty::before {
+  content: "\00a0"; /* non-breaking space */
+  display: inline-block;
+  height: 1em;
+}

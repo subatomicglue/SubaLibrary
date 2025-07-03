@@ -184,7 +184,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           ++whichcol
           let just = justification[Math.min( justification.length, whichcol )];
           VERBOSE && console.log( `[markdown] table:    - ${is_heading ? "heading" : "content"}:'${content}' col:'${whichcol}' just:'${just}'` )
-          return `<${is_heading?'th':'td'} style='text-align:${just};'>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</${is_heading?'th':'td'}>`
+          return `<${is_heading?'th':'td'} style='text-align:${just};'>${content.trim() === "" ? "&nbsp;" : markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</${is_heading?'th':'td'}>`
         }).replace( /\s*\|$/, '' ) // eat the last trailing |
         result += `</tr></${is_heading ? "thead" : "tbody"}>`
         ++whichline
