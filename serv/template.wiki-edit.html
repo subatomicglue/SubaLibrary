@@ -152,30 +152,42 @@
 
     // Example of how to use debounce with updatePreview
     const debouncedUpdatePreview = debounce(updatePreview, 800);
+    let markdown_version_on_server = <%=markdown_version%>;
+    let markdown_version = <%=markdown_version%>;
 
     ////////////////////////// autosave into localStorage ////////////////
     const LS_KEY = `editor-autosave_<%=topic%>`;
     function autosaveMarkdownRestored() {
-      const saved = localStorage.getItem(LS_KEY);
-      if (saved !== null) {
-        document.getElementById('markdown').value = saved;
-        document.getElementById('status').innerHTML = '<span style="color: #ffaa00"><b>restored...</b></span>';
+      const autosave_item = JSON.parse( localStorage.getItem(LS_KEY) ); // { content: "markdown goes here", version: N }
+      //console.log( LS_KEY, autosave_item )
+      if (autosave_item !== null) {
+        markdown_version = autosave_item.version ? autosave_item.version : 0;
+        document.getElementById('markdown').value = autosave_item.content ? autosave_item.content : autosave_item;
+        document.getElementById('status').innerHTML = `<span style="color: #ffaa00"><b>restored v${autosave_item.version}</b></span>`;
+        setTimeout( () => {
+          if (markdown_version < markdown_version_on_server)
+            alert( `Your local autosave (${markdown_version}) appears out of date with the server version (${markdown_version_on_server}).\n - If you save, it will overwrite a newer version.\n - To be safe: Carefully copy/paste your markdown out to another app, and [cancel] here...` )
+        }, 1000)
         setTimeout( () => {
           document.getElementById('status').textContent = '';
         }, 5000)
-        return true
+        return true;
       }
       return false;
     }
     let autosaveLastSaved = ""
     function autosaveMarkdown() {
-      const content = document.getElementById('markdown').value;
+      const autosave_item = {
+        content: document.getElementById('markdown').value,
+        version: markdown_version // whatever was loaded in (from autosave, or from server)
+      }
 
       // avoid setting if it didn't change.
-      if (content === autosaveLastSaved) return
-      autosaveLastSaved = content
+      if (autosave_item.content === autosaveLastSaved) return
+      autosaveLastSaved = autosave_item.content
 
-      localStorage.setItem(LS_KEY, content);
+      //console.log( LS_KEY, autosave_item )
+      localStorage.setItem(LS_KEY, JSON.stringify( autosave_item ));
       document.getElementById('status').innerHTML = '<span style="color: #aaff00"><b>autosaved...</b></span>';
       setTimeout( () => {
         document.getElementById('status').textContent = '';
@@ -194,18 +206,24 @@
       fetch("<%=req_baseUrl%>/save", {
         method: "PUT", 
         headers: {"Content-Type": "application/json"}, 
-        body: JSON.stringify({ topic: "<%=topic%>", content: markdown }) 
+        body: JSON.stringify({ topic: "<%=topic%>", content: markdown, version: markdown_version }) 
       })
-      .then(res => res.json())
-      .then(data => {
+      .then( async res => {
+        const data = await res.json();
+        if (res.status === 409) {
+          document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
+          alert( `v${data.version} - ${data.message}` );
+          return null
+        }
+
         document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
         setTimeout( ()=> {
           autosaveMarkdownClear();
 
           // Redirect to the view page for the updated topic
           window.location.href = "<%=req_baseUrl%><%=view_route%>/<%=topic%>";
-        }, 700 );
-      });
+        }, 700 )
+      })
     }
 
     function cancelWiki() {

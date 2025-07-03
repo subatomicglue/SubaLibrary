@@ -339,9 +339,10 @@ router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
 // SAVE
 // PUT /save   (write page markdown;  req.body: { topic: "TOPICNAME", content: "Markdown content" })
 router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
-  const { topic, content } = {
+  const { topic, content, save_version } = {
     topic: sanitizeTopic( req.body.topic ),
     content: req.body.content,
+    save_version: req.body.version,
   }
   if (!topic || !content) {
     logger.error(`[wiki] ${userLogDisplay(req)} /save 400 Missing topic or content`);
@@ -361,6 +362,11 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
   // Find the next version number
   let existing_versions = readdirSync( WIKI_DIR, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
   let version = existing_versions.length == 0 ? 1 : existing_versions.length;
+  if (version != undefined && version != save_version) {
+    const message = `Your local copy of '${topic}' v${save_version} is older than server's v${version}.  It appears someone saved the same topic you're working on.\n - If you save, it will overwrite a newer version.\n - To be safe: Carefully copy/paste your markdown out to another app, and [cancel] here...`;
+    logger.error(`[wiki] ${userLogDisplay(req)} /save 409 Conflict.  ${message}`);
+    return res.status(409).json({ message: `Conflict ${message}`, version: version } );
+  }
 
   // debugging... break out early
   // logger.error(`[wiki] /save Debugging found:${existing_versions.length} next_version:${version} list:${JSON.stringify( existing_versions )}`);
@@ -408,6 +414,11 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
     return res.status(403).send(`Forbidden`);
   }
 
+  // Find the next version number (so we can tell the frontend user, their local cache is older than on server)
+  // this is the version being edited (n+1), not the last version saved (n)
+  let existing_versions = readdirSync( WIKI_DIR, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
+  let version = existing_versions.length == 0 ? 1 : existing_versions.length;  
+
   logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : `# ${topic}\n\n\n`;
   let t = new Date();
@@ -426,6 +437,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
       description: markdown.length == 0 ? `Reload as <a href="<%=req_baseUrl%><%=edit_route%>2/<%=topic%>">natural</a> &nbsp; &nbsp; &nbsp;` : '',
       // description: markdown.length == 0 ? `For Precise Editing &amp; HTML Paste.   (Reload as <a href="<%=req_baseUrl%><%=edit_route%>2/<%=topic%>">natural</a> for simple/wysiwyg editing)` : '',
       markdown: markdown.replace(/&/g, "&amp;"),
+      markdown_version: version, // version being edited (n+1), not the last version saved (n)
     })
   );
 });
