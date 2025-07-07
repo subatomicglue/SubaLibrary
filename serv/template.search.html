@@ -95,6 +95,11 @@
               li.innerHTML = `<a href="${result.link}">${result.title}</a>${result.body}`;
               resultsList.appendChild(li);
             });
+
+            // Update the URL with the search term (without reloading)
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('searchterm', searchTerm);
+            window.history.replaceState({}, '', newUrl);
         } catch (err) {
           console.error("search failed", err);
           alert("Search failed.");
@@ -105,6 +110,10 @@
           submitButton.style.cursor = 'pointer';
         }
       };
+
+      if (st && st != "") {
+        document.getElementById('submitButton').click()
+      }
     </script>
 </body>
 </html>

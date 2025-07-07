@@ -264,28 +264,36 @@
           handleFileSelect({ target: { files: [file] } });
       });
 
-      // Function to handle image uploads (used by paste and file input)
-      async function handleImageUpload(file) {
-        if (!file || !file.type.startsWith("image/")) {
-          alert("Please upload a valid image.");
+      // General file upload handler, supporting images and PDFs
+      async function handleFileUpload(file) {
+        if (!file) {
+          alert("No file selected.");
+          return null;
+        }
+
+        const allowedTypes = ["image/", "application/pdf"];
+        const isAllowed = allowedTypes.some((type) => file.type.startsWith(type));
+
+        if (!isAllowed) {
+          alert("Please upload an image or PDF.");
           return null;
         }
 
         const formData = new FormData();
-        formData.append("image", file);
+        formData.append("file", file); // "file" is the field the backend will recieve
 
         try {
-          const response = await fetch("<%=req_baseUrl%>/upload", {
-            method: "POST",
-            body: formData,
-          });
-
+          const response =  file.type.startsWith("image/") ? await fetch("<%=req_baseUrl%>/upload/image", { method: "POST", body: formData }) :
+                            await fetch("<%=req_baseUrl%>/upload/file", { method: "POST", body: formData });
           const data = await response.json();
-
+          if (response.status === 415) {
+            alert(`Upload failed: ${data.message || "Unsupported file type"}`);
+            return null;
+          }
           if (data.success) {
-            return data.imageUrl; // Return URL for use by caller
+            return data.fileUrl; // let backend name it fileUrl, more general
           } else {
-            alert("Failed to upload image.");
+            alert(`Failed to upload file ${`with status ${response.status ? response.status : ""}`}`);
             return null;
           }
         } catch (error) {
@@ -294,18 +302,37 @@
         }
       }
 
-      // Original function, now using handleImageUpload
       function handleFileSelect(event) {
         const file = event.target.files[0];
-        handleImageUpload(file).then((imageUrl) => {
-          if (imageUrl) {
+        handleFileUpload(file).then((fileUrl) => {
+          if (fileUrl) {
             setTimeout(() => {
-              textarea.value += `![an image](${imageUrl})`;
+              const textarea = document.getElementById("markdown");
+              const startPos = textarea.selectionStart;
+              const endPos = textarea.selectionEnd;
+              const before = textarea.value.substring(0, startPos);
+              const after = textarea.value.substring(endPos);
+
+              let insertText;
+              if (file.type.startsWith("image/")) {
+                insertText = `![image](${fileUrl})`;
+              } else if (file.type === "application/pdf") {
+                insertText = `[PDF](${fileUrl})`;
+              } else {
+                insertText = `[file](${fileUrl})`;
+              }
+
+              textarea.value = before + insertText + after;
+
+              const newPos = startPos + insertText.length;
+              textarea.selectionStart = textarea.selectionEnd = newPos;
+
               debouncedUpdatePreview();
             }, 400);
           }
         });
       }
+
 
       //////////////////////////   resize handle  //////////////////////////
       let isDragging = false;
@@ -373,7 +400,7 @@
                 //console.log("Pasted image file:", file);
 
                 // TODO: Replace this with your actual image upload logic
-                const imageUrl = await handleImageUpload(file); // Returns a URL after upload
+                const imageUrl = await handleFileUpload(file); // Returns a URL after upload
 
                 if (imageUrl) {
                   const markdown = `![pasted image](${imageUrl})`;
@@ -743,7 +770,7 @@
     <script>
       createSvgPopup("infopopup", "Markdown", `<%include "template.markdown-help.html"%>`)
     </script>
-    <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
+    <input type="file" id="uploadInput" accept="image/*, application/pdf" style="display: none;" />
     <button id="uploadBtn" class="button2">Upload</button>
     <button class="button2" onclick="cancelWiki()">Cancel</button>
     <button class="button1" onclick="saveWiki()">Save</button>

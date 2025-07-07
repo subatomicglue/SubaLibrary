@@ -28,6 +28,7 @@ const {
   ASSETS_MAGIC,
   isPM2,
   WIKI_DIR,
+  WIKI_FILES_DIR,
   USER_ANON_DISPLAY,
   HOSTNAME_FOR_EDITS,
   YOUTUBE_TRANSCRIPTS_DIR,
@@ -42,6 +43,9 @@ let logger;
 const view_route="/view"
 const edit_route="/edit"
 const diff_route="/diff"
+const uploads_file_serv_url_prefix = '/uploads/files';
+const uploads_image_serv_url_prefix = '/uploads';
+
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {
@@ -834,24 +838,87 @@ router.post("/preview", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ l
 
 const multer = require("multer");
 
-// Set up multer for image uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-      // Make sure the 'uploads' directory exists
-      const uploadDir = path.join(__dirname, "wiki");
-      if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir);
-      }
-      cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-      // Use the original file name, or a unique one based on the current time
+
+//////////  filestorage utils //////////////////////////////////////////////////
+const uploadFile = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      if (!fs.existsSync( WIKI_DIR ))
+        fs.mkdirSync(WIKI_FILES_DIR, { recursive: true });
+      cb(null, WIKI_FILES_DIR);
+    },
+    filename: (req, file, cb) => {
       cb(null, Date.now() + path.extname(file.originalname));
+    },
+  })
+});
+// files are mostly static since they cant really be deleted in the wiki
+const staticFileMiddleware = express.static(WIKI_FILES_DIR, {
+  maxAge: '7d',          // client-side cache duration
+  etag: true,            // enable ETag headers
+  lastModified: true,    // include Last-Modified header
+  setHeaders: (res, path) => {
+    // Optional: customize headers further if needed
+    res.set('Cache-Control', 'public, max-age=604800'); // 7 days
+  }
+})
+
+// Static directory to serve uploaded files
+router.use( uploads_file_serv_url_prefix, (req, res, next) => {
+
+  // Absolute path to the requested file
+  const requestedPath = path.resolve( WIKI_FILES_DIR, sanitize( WIKI_FILES_DIR, req.path ).fullPath );
+
+  // Ensure the resolved path is still inside the WIKI_DIR
+  // no .md files.
+  // TODO: use a whitelist maybe...
+  if (!requestedPath.startsWith(path.resolve(WIKI_FILES_DIR)) || requestedPath.match( /\.md$/ )) {
+    logger.warn(`[wiki] ${userLogDisplay(req)} USE ${uploads_file_serv_url_prefix} ... Attempted path traversal: ${requestedPath}`);
+    return res.status(403).send("Forbidden");
+  }
+
+  let relativePath = path.relative( WIKI_FILES_DIR, requestedPath);
+  req.url = '/' + relativePath;
+  logger.info(`[wiki] ${userLogDisplay(req)} USE ${uploads_file_serv_url_prefix}${req.path} url:${req.url}`);
+  staticFileMiddleware(req, res, next);
+});
+
+// Route to handle file upload)
+router.post( "/upload/file", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), uploadFile.single("file"), (req, res) => {
+  if (req.file) {
+    logger.info(`[wiki] ${userLogDisplay(req)} POST /upload/file starting: '${req.file.filename}'`);
+    const allowedMimes = [ "application/pdf" ];
+    if (!allowedMimes.some((type) => type instanceof RegExp ? type.test(req.file.mimetype) : req.file.mimetype === type )) {
+      logger.warn(`[wiki] /upload/file rejected: unsupported mimetype ${req.file.mimetype}`);
+      return res.status(415).json({ success: false, message: `Unsupported file type: ${req.file.mimetype}` });
+    }
+    const fileUrl = `${req.baseUrl}${uploads_file_serv_url_prefix}/${req.file.filename}`;
+    logger.info(`[wiki] ${userLogDisplay(req)} POST /upload/file finished: '${req.file.filename}', url:${fileUrl}`);
+    writeToChangeLog( req, `Uploaded '[${req.file.filename}](${fileUrl})'` );
+    return res.json({ success: true, fileUrl });
+  } else {
+    logger.warn(`[wiki] ${userLogDisplay(req)} POST /upload/file ... No file uploaded`);
+    return res.status(400).json({ success: false, message: "No file uploaded." });
   }
 });
 
-const upload = multer({ storage: storage });
 
+
+//////////  image storage utils ////////////////////////////////////////////////
+// Set up multer for image uploads
+const uploadImage = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      if (!fs.existsSync( WIKI_DIR ))
+        fs.mkdirSync(WIKI_DIR, { recursive: true });
+      cb(null, WIKI_DIR);
+    },
+    filename: (req, file, cb) => {
+      // Use the original file name, or a unique one based on the current time
+      cb(null, Date.now() + path.extname(file.originalname));
+    }
+  })
+});
 // images are mostly static since they cant really be deleted in the wiki
 const staticMiddleware = express.static(WIKI_DIR, {
   maxAge: '7d',          // client-side cache duration
@@ -863,8 +930,8 @@ const staticMiddleware = express.static(WIKI_DIR, {
   }
 })
 
-// Static directory to serve uploaded files
-router.use('/uploads', (req, res, next) => {
+// Static directory to serve uploaded images
+router.use(uploads_image_serv_url_prefix, (req, res, next) => {
 
   // Absolute path to the requested file
   const requestedPath = path.resolve( WIKI_DIR, sanitize( WIKI_DIR, req.path ).fullPath );
@@ -873,36 +940,42 @@ router.use('/uploads', (req, res, next) => {
   // no .md files.
   // TODO: use a whitelist maybe...
   if (!requestedPath.startsWith(path.resolve(WIKI_DIR)) || requestedPath.match( /\.md$/ )) {
-    logger.warn(`Attempted path traversal: ${requestedPath}`);
+    logger.warn(`[wiki] ${userLogDisplay(req)} USE ${uploads_image_serv_url_prefix} ... Attempted path traversal: ${requestedPath}`);
     return res.status(403).send("Forbidden");
   }
 
   let relativePath = path.relative(WIKI_DIR, requestedPath);
   req.url = '/' + relativePath;
-  logger.info(`[wiki] ${userLogDisplay(req)} /uploads${req.path} url:${req.url}`);
+  logger.info(`[wiki] ${userLogDisplay(req)} USE ${uploads_image_serv_url_prefix}${req.path} url:${req.url}`);
   staticMiddleware(req, res, next);
 });
 
 // Route to handle image upload
-router.post("/upload", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), upload.single("image"), (req, res) => {
-  logger.info(`[wiki] ${userLogDisplay(req)} /upload`);
+router.post( "/upload/image", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), uploadImage.single("file"), (req, res) => {
   if (req.file) {
-    logger.info( `[wiki] ${userLogDisplay(req)} /upload  file:${req.file}` )
-    // Return the URL of the uploaded image
-      const imageUrl = `${req.baseUrl}/uploads/${req.file.filename}`;
-      writeToChangeLog( req, `Uploaded '[${req.file.filename}](${imageUrl})'` )
-      res.json({ success: true, imageUrl: imageUrl });
+    logger.info(`[wiki] ${userLogDisplay(req)} POST /upload starting: '${req.file.filename}'`);
+    const allowedMimes = [ /^image\// ];
+    if (!allowedMimes.some(type => type instanceof RegExp ? type.test(req.file.mimetype) : req.file.mimetype === type )) {
+      logger.warn(`[wiki] /upload rejected: unsupported mimetype ${req.file.mimetype}`);
+      return res.status(415).json({ success: false, message: `Unsupported file type: ${req.file.mimetype}` });
+    }
+    const fileUrl = `${req.baseUrl}${uploads_image_serv_url_prefix}/${req.file.filename}`;
+    logger.info(`[wiki] ${userLogDisplay(req)} POST /upload finished: '${req.file.filename}', url:${fileUrl}`);
+    writeToChangeLog( req, `Uploaded '[${req.file.filename}](${fileUrl})'` );
+    return res.json({ success: true, fileUrl });
   } else {
-      res.status(400).json({ success: false, message: "No image uploaded." });
+    logger.warn(`[wiki] ${userLogDisplay(req)} POST /upload ... No file uploaded`);
+    return res.status(400).json({ success: false, message: "No file uploaded." });
   }
 });
+
 
 
 ///////////////////// SEARCH ///////////////////////////////////////////////////
 
 // GET /search: Serve the search page
 router.get('/search', (req, res) => {
-  const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+  //const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
   logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search`)
 
   res.send(template.file( "template.search.html", {
@@ -916,7 +989,7 @@ router.get('/search', (req, res) => {
 
 // GET /search-youtube: Serve the search page
 router.get('/search-youtube', (req, res) => {
-  const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
+  //const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
   logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search-youtube`)
 
   res.send(template.file( "template.search.html", {

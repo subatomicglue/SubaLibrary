@@ -24,6 +24,7 @@ module.exports = {
   isPM2: process.env.pm_id !== undefined,
   MAX_PATH_LENGTH: config.MAX_PATH_LENGTH || 4096, // Default if not in config
   WIKI_DIR: path.resolve( config.WIKI_DIR ),
+  WIKI_FILES_DIR: path.resolve( config.WIKI_FILES_DIR ),
   TORRENT_DIR: path.resolve( config.TORRENT_DIR ),
 
   // few extras we want in our settings
