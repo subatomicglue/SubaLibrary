@@ -333,7 +333,7 @@ function runCommand(cmd, req) {
   try {
     const { execSync } = require('child_process');
     logger.info( `[some-serv] ${userLogDisplay(req)} wiki cron exec: "${cmd}"` )
-    const output = execSync(cmd, { encoding: 'utf-8' });
+    const output = execSync(cmd, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10 });
     VERBOSE && logger.info('[some-serv] Command Output:');
     VERBOSE && logger.info(output);
     return output
