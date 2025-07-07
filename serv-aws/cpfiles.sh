@@ -20,6 +20,9 @@ aws s3 sync ../serv/build/wiki/view/ "s3://$BUCKET_NAME/wiki/view/" --cache-cont
 aws s3 sync ../serv/build/assets/ "s3://$BUCKET_NAME/assets/" --cache-control 'max-age=31536000' --exclude "*.html"
 aws s3 sync ../serv/build/wiki/uploads/ "s3://$BUCKET_NAME/wiki/uploads/" --cache-control 'max-age=31536000' --exclude "*.html"
 
+# pdf
+aws s3 sync ../serv/build/uploads/ "s3://$BUCKET_NAME/wiki/uploads/files/" --cache-control 'max-age=31536000' --exclude "*.html"
+
 # rss
 aws s3 cp ../serv/build/rss "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'application/rss+xml'
 
