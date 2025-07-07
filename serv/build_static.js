@@ -351,6 +351,9 @@ copyFolder( SETTINGS.ASSETS_DIR )
 // Copy torrents
 copyFolder( SETTINGS.TORRENT_DIR, false )
 
+// Copy uploads
+copyFolder( SETTINGS.WIKI_FILES_DIR, false )
+
 // write out build/serve.sh
 const serveScriptPath = path.join(outputDir, "serve.sh")
 syncer.writeFileIfChanged(undefined, serveScriptPath, "#!/bin/bash\npython -m http.server", "utf8")
