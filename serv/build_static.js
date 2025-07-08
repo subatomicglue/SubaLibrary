@@ -35,69 +35,6 @@ class Req {
 
 // generate .html file.
 function wrapWithFrame(content, topic, req, t=new Date()) {
-  let autoscroll = `<script>
-    /////////////////////////////////////////
-    // auto scroll to the <mark>, when we're viewing a searchterm on the page
-    function markupSearchTerms() {
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams(url.search);
-      const term = params.get('searchterm');
-      if (!term) return;
-
-      // build regex for case-insensitive match
-      const searchRegex = new RegExp(term, 'gi');
-
-      const container = document.getElementById('the-scroll-page');
-      if (!container) return;
-
-      // get *all* text nodes under container
-      const walker = document.createTreeWalker(
-        container,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
-
-      const textNodes = [];
-      let node;
-      while ((node = walker.nextNode())) {
-        if (node.parentNode && !['SCRIPT', 'STYLE'].includes(node.parentNode.tagName)) {
-          textNodes.push(node);
-        }
-      }
-
-      // replace in each text node
-      textNodes.forEach(textNode => {
-        const replaced = textNode.nodeValue.replace(searchRegex, match => \`<mark>\${match}</mark>\`);
-        if (replaced !== textNode.nodeValue) {
-          // swap in HTML
-          const span = document.createElement('span');
-          span.innerHTML = replaced;
-          textNode.parentNode.replaceChild(span, textNode);
-        }
-      });
-    }
-    function scrollToFirstMark() {
-      const firstMark = document.querySelector('mark');
-      if (firstMark)
-        firstMark.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    function searchTerm() {
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams(url.search);
-      if (params.has('searchterm'))
-        return params.get('searchterm'); // Get the value of the searchterm
-      return false;
-    }
-    if (searchTerm()) {
-      document.addEventListener('DOMContentLoaded', () => {
-        markupSearchTerms()
-        scrollToFirstMark()
-      });
-    }
-    /////////////////////////////////////////
-    </script>
-  `
   return template.file( "template.page.html", {
     ...SETTINGS, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     SOCIAL_TITLE: `${SETTINGS.TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
@@ -109,7 +46,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
-    BODY: `${autoscroll}<div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: `<a id="signin-link" style="color: grey;" href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/login">&nbsp;signin</a>`,
     SEARCH: `<a href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/wiki/search"><img src="/assets/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"/></a>`,
   })

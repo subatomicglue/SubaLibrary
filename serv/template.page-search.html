@@ -1,0 +1,65 @@
+<script>
+  /////////////////////////////////////////
+  // auto scroll to the <mark>, when we're viewing a searchterm on the page
+  function markupSearchTerms() {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    const term = params.get('searchterm');
+    if (!term) return;
+
+    // build regex for case-insensitive match
+    const searchRegex = new RegExp(term, 'gi');
+
+    const container = document.getElementById('the-scroll-page');
+    if (!container) return;
+
+    // get *all* text nodes under container
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    const textNodes = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentNode && !['SCRIPT', 'STYLE'].includes(node.parentNode.tagName)) {
+        textNodes.push(node);
+      }
+    }
+
+    // replace in each text node
+    textNodes.forEach(textNode => {
+      const replaced = textNode.nodeValue.replace(searchRegex, match => `<mark>${match}</mark>`);
+      if (replaced !== textNode.nodeValue) {
+        // swap in HTML
+        const span = document.createElement('span');
+        span.innerHTML = replaced;
+        textNode.parentNode.replaceChild(span, textNode);
+      }
+    });
+  }
+
+  function scrollToFirstMark() {
+    const firstMark = document.querySelector('mark');
+    if (firstMark)
+      firstMark.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function searchTerm() {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    if (params.has('searchterm'))
+      return params.get('searchterm'); // Get the value of the searchterm
+    return false;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (searchTerm()) {
+      markupSearchTerms()
+      scrollToFirstMark()
+    }
+  });
+  /////////////////////////////////////////
+</script>
