@@ -233,7 +233,7 @@ router.get('*', (req, res) => {
       WHITESPACE: "nowrap",
       USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
       BODY: `
-          <ul style="padding: 0; padding-top: 0; margin-top: 0.5em">
+          <ul style="padding: 0; padding-top: 0; margin-top: 0.5em; padding-left: 0.5rem;">
             <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
             ${directoryContents.map(item => `
                 <li>

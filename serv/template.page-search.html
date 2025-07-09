@@ -1,26 +1,17 @@
 <script>
   /////////////////////////////////////////
-  // auto scroll to the <mark>, when we're viewing a searchterm on the page
-  function markupSearchTerms() {
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.search);
-    const term = params.get('searchterm');
+  // Mark search terms and scroll logic
+  function markupSearchTerms(term) {
     if (!term) return;
 
-    // build regex for case-insensitive match
     const searchRegex = new RegExp(term, 'gi');
-
     const container = document.getElementById('the-scroll-page');
     if (!container) return;
 
-    // get *all* text nodes under container
-    const walker = document.createTreeWalker(
-      container,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
+    clearMarks();
 
+    // Get all text nodes
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     let node;
     while ((node = walker.nextNode())) {
@@ -29,11 +20,10 @@
       }
     }
 
-    // replace in each text node
+    // Replace matches with <mark>
     textNodes.forEach(textNode => {
       const replaced = textNode.nodeValue.replace(searchRegex, match => `<mark>${match}</mark>`);
       if (replaced !== textNode.nodeValue) {
-        // swap in HTML
         const span = document.createElement('span');
         span.innerHTML = replaced;
         textNode.parentNode.replaceChild(span, textNode);
@@ -41,24 +31,164 @@
     });
   }
 
-  function scrollToFirstMark() {
-    const firstMark = document.querySelector('mark');
-    if (firstMark)
-      firstMark.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function searchTerm() {
+  function getSearchTerm() {
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
-    if (params.has('searchterm'))
-      return params.get('searchterm'); // Get the value of the searchterm
-    return false;
+    return params.get('searchterm') || '';
   }
 
+  // Navigation logic
+  let currentIndex = 0;
+
+  function scrollToMark(index) {
+    const marks = document.querySelectorAll('mark');
+    if (marks.length === 0 || index < 0 || index >= marks.length) return;
+
+    currentIndex = index;
+    marks[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    updateCounterDisplay();
+  }
+
+  function updateCounterDisplay() {
+    const marks = document.querySelectorAll('mark');
+    const counter = document.getElementById('mark-counter');
+    if (counter) {
+      if (marks.length === 0) {
+        counter.textContent = '(0 of 0)';
+      } else {
+        counter.textContent = `(${currentIndex + 1} of ${marks.length})`;
+      }
+    }
+  }
+
+  function nextMark() {
+    const marks = document.querySelectorAll('mark');
+    if (currentIndex < marks.length - 1) {
+      scrollToMark(currentIndex + 1);
+    }
+  }
+
+  function prevMark() {
+    if (currentIndex > 0) {
+      scrollToMark(currentIndex - 1);
+    }
+  }
+
+  function clearMarks() {
+    const container = document.getElementById('the-scroll-page');
+    if (!container) return;
+    const oldMarks = container.querySelectorAll('mark');
+
+    oldMarks.forEach(mark => {
+      const prevNode = mark.previousSibling;
+      const nextNode = mark.nextSibling;
+      
+      const textContent = mark.textContent;
+
+      let combinedText = textContent;
+      
+      if (prevNode && prevNode.nodeType === Node.TEXT_NODE) {
+        combinedText = prevNode.textContent + combinedText;
+        prevNode.remove();
+      }
+
+      if (nextNode && nextNode.nodeType === Node.TEXT_NODE) {
+        combinedText += nextNode.textContent;
+        nextNode.remove();
+      }
+
+      const textNode = document.createTextNode(combinedText);
+      mark.replaceWith(textNode);
+    });
+  }
+
+  // Helper to clear the searchterm from URL without reloading
+  function clearSearchTermFromURL() {
+    updateSearchTermInURL('')
+  }
+
+  function updateSearchTermInURL(term) {
+    const url = new URL(window.location.href);
+    if (term === '') {
+      url.searchParams.delete('searchterm');
+      storeScrollPosition();
+      window.history.pushState({}, document.title, url.toString());
+    } else {
+      url.searchParams.set('searchterm', term);
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }
+
+  function storeScrollPosition() {
+    const scrollPosition = window.scrollY || window.pageYOffset;
+    sessionStorage.setItem('scrollPosition', scrollPosition);
+  }
+
+  function restoreScrollPosition() {
+    const storedScrollPosition = sessionStorage.getItem('scrollPosition');
+    if (storedScrollPosition) {
+      window.scrollTo(0, parseInt(storedScrollPosition, 10));
+      sessionStorage.removeItem('scrollPosition');  // clean up storage
+    }
+  }
+
+  // Add search control UI
+  // Helper to clear marks
+  function addSearchControl(term) {
+    const controlDiv = document.getElementById('searchcontrol');
+    if (!controlDiv) return;
+
+    controlDiv.style.display = 'block';
+    controlDiv.innerHTML = `
+      <div class="search-inner" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem; width: 100%;">
+        <button id="search-prev">↑</button>
+        <button id="search-next">↓</button>
+        <input id="search-box" type="text" value="${term}" />
+        <span id="mark-counter">(0 of 0)</span>
+        <button id="search-clear" title="Clear search" style="font-weight: bold; font-size: 1.2rem; cursor: pointer;">×</button>
+      </div>
+    `;
+
+    document.getElementById('search-prev').addEventListener('click', prevMark);
+    document.getElementById('search-next').addEventListener('click', nextMark);
+
+    const searchBox = document.getElementById('search-box');
+    searchBox.addEventListener('input', () => {
+      const newTerm = searchBox.value.trim();
+      if (newTerm === '') {
+        clearMarks();
+        updateCounterDisplay();
+      } else {
+        markupSearchTerms(newTerm);
+        currentIndex = 0;
+        scrollToMark(0);
+      }
+    });
+
+    // Clear (X) button logic
+    document.getElementById('search-clear').addEventListener('click', () => {
+      // Clear input box
+      searchBox.value = '';
+      // Clear marks
+      clearMarks();
+      // Update counter display
+      updateCounterDisplay();
+      // Remove searchterm from URL (no reload)
+      clearSearchTermFromURL();
+      // Hide the search control bar if desired:
+      controlDiv.style.display = 'none';
+    });
+  }
+
+
   document.addEventListener('DOMContentLoaded', () => {
-    if (searchTerm()) {
-      markupSearchTerms()
-      scrollToFirstMark()
+    const term = getSearchTerm();
+    if (term) {
+      markupSearchTerms(term);
+      addSearchControl(term);
+      scrollToMark(0);
+    } else {
+      restoreScrollPosition(); // if set from previous page navigation, restore it
     }
   });
   /////////////////////////////////////////

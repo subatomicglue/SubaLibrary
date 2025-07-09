@@ -14,20 +14,23 @@
   <div id="page" style="max-width: 100%; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: 0; margin: 0;">
     <div id="page-title" style="max-width: 100%; width:100%; background:#333; color: #fff; margin: 0;">
       <div class="heading-container" style="">
-        <div class="heading-backbutton">
-          <a href="<%=BACKBUTTON_PATH%>"><img style="margin-left: -5px; visibility:<%=BACKBUTTON_VISIBILITY%>" src="<%=BACKBUTTON_IMAGE%>" alt="[back]" title="[back]">&nbsp;&nbsp;</a>
-        </div><div class="heading-left">
-          <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
-                - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
-                - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
-                - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
-          -->
-          <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E<%=PAGE_TITLE%></span>
-        </div><div class="heading-right">
-          <%=SEARCH%>
-        </div><div class="heading-right">
-          &nbsp;<%=TITLE%><BR><%=USER_LOGOUT%>
+        <div class="heading-row">
+          <div class="heading-backbutton">
+            <a href="<%=BACKBUTTON_PATH%>"><img style="margin-left: -5px; visibility:<%=BACKBUTTON_VISIBILITY%>" src="<%=BACKBUTTON_IMAGE%>" alt="[back]" title="[back]">&nbsp;&nbsp;</a>
+          </div><div class="heading-left">
+            <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
+                  - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
+                  - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
+                  - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
+            -->
+            <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E<%=PAGE_TITLE%></span>
+          </div><div class="heading-right">
+            <%=SEARCH%>
+          </div><div class="heading-right">
+            &nbsp;<%=TITLE%><BR><%=USER_LOGOUT%>
+          </div>
         </div>
+        <div id="searchcontrol" style="display: none"></div>
       </div>
     </div>
     <div id="page-body" class="scroll-parent" style="flex-grow: 1; padding: 0; margin: 0">
