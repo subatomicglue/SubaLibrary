@@ -214,7 +214,8 @@ td:empty::before {
 #searchcontrol #search-box {
   padding: 4px 8px;
   font-size: 1rem;
-  width: 6rem;
+  min-width: 6rem;
+  max-width: 12rem;
 }
 #searchcontrol button {
   font-size: 1rem;
