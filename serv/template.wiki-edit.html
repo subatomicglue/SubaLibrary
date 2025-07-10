@@ -202,6 +202,10 @@
 
 
     function saveWiki() {
+      let save_button = document.getElementById("save_button");
+      save_button.disabled = true;                  // disable the button
+      save_button.style.opacity = "0.5";            // grey it visually
+
       let markdown = document.getElementById("markdown").value;
       fetch("<%=req_baseUrl%>/save", {
         method: "PUT", 
@@ -210,25 +214,38 @@
       })
       .then( async res => {
         const data = await res.json();
+        document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
+
         if (res.status === 409) {
-          document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
           alert( `v${data.version} - ${data.message}` );
+          save_button.disabled = false;             // re-enable on error
+          save_button.style.opacity = "1";          // restore visual
           return null
         }
 
-        document.getElementById("preview").innerHTML = `<p>Msg:'${data.message}' Ver:'${data.version}'`
         setTimeout( ()=> {
           autosaveMarkdownClear();
-
-          // Redirect to the view page for the updated topic
           window.location.href = "<%=req_baseUrl%><%=view_route%>/<%=topic%>";
         }, 700 )
+      })
+      .catch(error => {
+        save_button.disabled = false;             // re-enable on error
+        save_button.style.opacity = "1";          // restore visual
+        document.getElementById("preview").innerHTML = `<p>Save Failed, Try again...  Error:'${error}'`
       })
     }
 
     function cancelWiki() {
-      autosaveMarkdownClear();
-      window.location.href = '<%=req_baseUrl%>/view/<%=topic%>'
+      let cancel_button = document.getElementById("cancel_button");
+      if (!cancel_button) alert( "wtf")
+      cancel_button.disabled = true;                // disable button
+      cancel_button.style.opacity = "0.5";          // grey it visually
+      document.getElementById("preview").innerHTML = `<p>Discarding Changes`
+
+      setTimeout( ()=> {
+        autosaveMarkdownClear();
+        window.location.href = '<%=req_baseUrl%>/view/<%=topic%>'
+      }, 700 );
     }
 
     // Ensure updatePreview() runs once when the page loads
@@ -731,8 +748,8 @@
       #markdown, #preview {
         height: auto; /* Allow height to adjust */
       }
-      #markdown { flex-basis: 75%; }
-      #preview  { flex-basis: 25%; }
+      #markdown { flex-basis: 90%; }
+      #preview  { flex-basis: 10%; }
     }
 
     @media (min-aspect-ratio: 3/2) {
@@ -821,8 +838,8 @@
     </script>
     <input type="file" id="uploadInput" accept="image/*, application/pdf" style="display: none;" />
     <button id="uploadBtn" class="button2">Upload</button>
-    <button class="button2" onclick="cancelWiki()">Cancel</button>
-    <button class="button1" onclick="saveWiki()">Save</button>
+    <button id="cancel_button" class="button2" onclick="cancelWiki()">Cancel</button>
+    <button id="save_button" class="button1" onclick="saveWiki()">Save</button>
   </div>
   <%include "template.global-error-handler.html"%>
 </body>
