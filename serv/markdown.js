@@ -103,7 +103,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           return `<div style="text-align: right; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
         } else if (fence === '```') { // code box
           const inner = escapeHtml( content );
-          return `${optional_name?`<b>${optional_name}</b><br>`:``}<pre style="border: 1px solid #ccc; background: #f6f6fa; padding: 1em; overflow-x: auto;"><code ${optional_name?`class="${optional_name}`:``}">${inner/*.replace(/</g, '&lt;').replace(/>/g, '&gt;')*/.replace(/\n/g, '<intentional newline>')}</code></pre>`;
+          return `${optional_name ? `<b>${optional_name}</b><br>` : ``}<div class="pre-container"><div class="pre-container-scroll-wrapper"><pre><code ${optional_name ? `class="${optional_name}"` : ``}>${inner.replace(/\n/g, '<intentional newline>')}</code></pre><postprocess-prescript></div></div>`;
         }
       }
     );
@@ -307,6 +307,9 @@ function generateMarkdownTOC(markdown) {
     })
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
 
+    // post process <postprocess-prescript>
+    const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()</script>`;
+
     // Convert line breaks (two spaces at the end of a line)
     //markdown = markdown.replace(/\n\s*\n/g, '<br>');
   // close it out
@@ -317,6 +320,7 @@ function generateMarkdownTOC(markdown) {
       .replace(/\n/gm, "<br>\n") // New lines to <br>
       .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
       .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
+      .replace(/<postprocess-prescript>/gm, postprocess_prescript) // postprocess
   }
 
   return markdown

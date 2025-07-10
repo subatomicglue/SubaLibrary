@@ -594,6 +594,7 @@
         }
         .svg-back-button {
           cursor: pointer;
+          touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
           position: absolute;
           top: 10px;
           left: 10px;
@@ -612,6 +613,8 @@
       svgImage.alt = 'Tap me';
       svgImage.classList.add('popup-trigger');
       svgImage.style.cursor = 'pointer';
+      svgImage.style["touch-action"] = "manipulation";    /* Hint to prevent gesture-based zooming */
+
       //svgImage.style.width = '200px';
       //svgImage.style.height = 'auto';
 
@@ -630,7 +633,8 @@
 
       const heading = document.createElement('h2');
       heading.style="text-align: right;";
-      heading.innerHTML = `<img src="${svgImage.src}" alt="[help]" title="[help]"/>${title}`;
+      //heading.innerHTML = `<img src="${svgImage.src}" alt="[help]" title="[help]"/>${title}`;
+      heading.innerHTML = `${title}`;
 
       const paragraph = document.createElement('p');
       paragraph.innerHTML = `
@@ -779,6 +783,8 @@
       font-weight: 600;
       border-radius: 0.50rem;
       margin-left: .3em;
+      cursor: pointer;
+      touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
     }
 
     .button1, .button2, #status {
@@ -834,7 +840,7 @@
     <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
     <script>
-      createSvgPopup("infopopup", "Markdown", `<%include "template.markdown-help.html"%>`)
+      createSvgPopup("infopopup", "Markdown Help", `<%include "template.markdown-help.html"%>`)
     </script>
     <input type="file" id="uploadInput" accept="image/*, application/pdf" style="display: none;" />
     <button id="uploadBtn" class="button2">Upload</button>

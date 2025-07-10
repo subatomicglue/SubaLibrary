@@ -7,6 +7,40 @@ ul ul { padding-left: 0.9rem; } /* works for all nested levels 2-n */
 ol li { margin: 0rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0rem; padding-right: 1rem;}
 ul li { margin: 0.31rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0.5rem; padding-right: 1rem;}
 a { text-decoration: none; color: grey; }
+pre {
+  white-space: pre;
+  margin: 0; padding: 1rem;
+}
+.pre-container {
+  position: relative;
+  overflow: visible; /* container itself does not scroll */
+  border: 1px solid #ccc;
+  background: #f6f6fa;
+  padding: 0rem;
+}
+.pre-container-scroll-wrapper {
+  overflow-x: auto;
+  white-space: pre;
+}
+.pre-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, white);
+  display: none;
+  z-index: 10;
+}
+.pre-container.overflowing::after {
+  display: block;
+}
+.pre-container-scroll-wrapper {
+  scrollbar-gutter: stable both-edges;
+}
+
 .scroll-parent {
   overflow: hidden;
 }
@@ -88,7 +122,7 @@ blockquote {
   color: #555;  /* Soft gray text color */
 }
 
-tt, pre {
+tt, .pre-container {
   background-color: #eeeeee;
   color: #222222;
   font-family: monospace, 'Courier New', Courier;
