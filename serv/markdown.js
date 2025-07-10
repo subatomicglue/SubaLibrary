@@ -308,7 +308,7 @@ function generateMarkdownTOC(markdown) {
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
 
     // post process <postprocess-prescript>
-    const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()</script>`;
+    const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()<\/script>`;
 
     // Convert line breaks (two spaces at the end of a line)
     //markdown = markdown.replace(/\n\s*\n/g, '<br>');
