@@ -37,6 +37,7 @@ table, td {
 .heading-backbutton {
   text-align: center;
   white-space: nowrap;
+  touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
 }
 .heading-left {
   flex: 1;
@@ -135,6 +136,7 @@ h4 .copy-icon,
 h5 .copy-icon,
 h6 .copy-icon {
   cursor: pointer;
+  touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
   margin-left: 0.5em;
   font-size: 0.8em;
   vertical-align: middle;
@@ -221,6 +223,7 @@ td:empty::before {
   font-size: 1rem;
   padding: 4px 8px;
   cursor: pointer;
+  touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
 }
 #searchcontrol #mark-counter {
   font-size: 1rem;
