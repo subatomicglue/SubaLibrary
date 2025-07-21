@@ -221,10 +221,18 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
     logger.info(`[wiki] ${userLogDisplay(req)} ${view_route}/${topic}${version != "" ?`/${version}`:''} NOT FOUND: ${topic}${version}.md`);
     //return res.status(404).send("Topic not found.");
     const editUrl = `${req.baseUrl}${edit_route}/${topic}`;
-    return res.send(`
-      <p>Topic "${topic}" not found.</p>
-      ${isLoggedIn( req ) ? `<p><a href="${editUrl}">Click here</a> to create or edit this topic.</p>` : `<a href="${req.get('Referer')}">Go Back...</a>`}
-    `);
+    if (isLoggedIn( req )) {
+      return res.redirect(`${editUrl}`);
+      //return res.send(`
+      //  <p>Topic "${topic}" not found.</p>
+      //  <p><a href="${editUrl}">Click here</a> to create or edit this topic.</p>
+      //`);
+    } else {
+      return res.send(`
+        <p>Topic "${topic}" not found.</p>
+        <a href="${req.get('Referer')}">Go Back...</a>
+      `);
+    }
   }
 
   let markdown = fs.readFileSync(filePath, "utf8");
@@ -233,13 +241,14 @@ router.get(`${view_route}/:topic?/:version?`, (req, res) => {
   // }
   const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
+    /*
     link_relative_callback: (baseUrl, link_topic) => {
       const link_topic_base = link_topic.replace( /[#?].*$/, '' )
-      //const link_topic_extra = link_topic.replace( /^[^#?]+([#?].*)$/, '$1' )
       const topic = sanitizeTopic( decodeURIComponent( link_topic_base ) )
       const filePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
       return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${link_topic}` : (!fs.existsSync(filePath) && !isLoggedIn( req )) ? '' : `${req.baseUrl}${edit_route}/${link_topic_base}`
     },
+    */
   }), topic, req);
   res.send(html);
 });
