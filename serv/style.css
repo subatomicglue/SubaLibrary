@@ -2,6 +2,12 @@ body { font-family: Arial, sans-serif; padding: 0;}
 html {
   scroll-behavior: smooth;
 }
+/* Disable zoom */
+html, body {
+  touch-action: manipulation;
+  width: 100%;
+  height: 100%;
+}
 ul { list-style-type: disc; padding-left: 1.4rem; }
 ul ul { padding-left: 0.9rem; } /* works for all nested levels 2-n */
 ol li { margin: 0rem 0rem; display: list-item; white-space: <%=WHITESPACE%>; padding-left: 0rem; padding-right: 1rem;}
