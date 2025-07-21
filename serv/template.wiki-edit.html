@@ -281,6 +281,9 @@
           handleFileSelect({ target: { files: [file] } });
       });
 
+      const allowedTypes = ["image/*", "application/pdf", "audio/mpeg", "audio/mp4", "audio/m4a" ];
+      document.getElementById('uploadInput').setAttribute('accept', allowedTypes.join(', ') );
+
       // General file upload handler, supporting images and PDFs
       async function handleFileUpload(file) {
         if (!file) {
@@ -288,11 +291,10 @@
           return null;
         }
 
-        const allowedTypes = ["image/", "application/pdf"];
         const isAllowed = allowedTypes.some((type) => file.type.startsWith(type));
 
         if (!isAllowed) {
-          alert("Please upload an image or PDF.");
+          alert("Please upload an image, PDF, or audio file.");
           return null;
         }
 
@@ -842,7 +844,7 @@
     <script>
       createSvgPopup("infopopup", "Markdown Help", `<%include "template.markdown-help.html"%>`)
     </script>
-    <input type="file" id="uploadInput" accept="image/*, application/pdf" style="display: none;" />
+    <input type="file" id="uploadInput" accept="this will be populated later by javascript" style="display: none;" />
     <button id="uploadBtn" class="button2">Upload</button>
     <button id="cancel_button" class="button2" onclick="cancelWiki()">Cancel</button>
     <button id="save_button" class="button1" onclick="saveWiki()">Save</button>
