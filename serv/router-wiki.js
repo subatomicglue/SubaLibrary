@@ -852,7 +852,7 @@ router.use( uploads_file_serv_url_prefix, (req, res, next) => {
 router.post( "/upload/file", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), uploadFile.single("file"), (req, res) => {
   if (req.file) {
     logger.info(`[wiki] ${userLogDisplay(req)} POST /upload/file starting: '${req.file.filename}'`);
-    const allowedMimes = [ "application/pdf", "audio/mpeg", "audio/m4a", "audio/mp4" ];
+    const allowedMimes = [ "application/pdf", "audio/mpeg", "audio/m4a", "audio/mp4", "audio/x-m4a" ];
     if (!allowedMimes.some((type) => type instanceof RegExp ? type.test(req.file.mimetype) : req.file.mimetype === type )) {
       logger.warn(`[wiki] /upload/file rejected: unsupported mimetype ${req.file.mimetype}`);
       return res.status(415).json({ success: false, message: `Unsupported file type: ${req.file.mimetype}` });

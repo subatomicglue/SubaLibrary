@@ -281,7 +281,7 @@
           handleFileSelect({ target: { files: [file] } });
       });
 
-      const allowedTypes = ["image/*", "application/pdf", "audio/mpeg", "audio/mp4", "audio/m4a" ];
+      const allowedTypes = ["image/*", "application/pdf", "audio/mpeg", "audio/mp4", "audio/m4a", "audio/x-m4a" ];
       document.getElementById('uploadInput').setAttribute('accept', allowedTypes.join(', ') );
 
       // General file upload handler, supporting images and PDFs
@@ -297,7 +297,7 @@
         });
 
         if (!isAllowed) {
-          alert("Please upload an image, PDF, or audio file.");
+          alert(`Please upload a file with type ${allowedTypes.join(', ')}.  Your file has ${file.type}`);
           return null;
         }
 
