@@ -291,7 +291,10 @@
           return null;
         }
 
-        const isAllowed = allowedTypes.some((type) => file.type.startsWith(type));
+        const isAllowed = allowedTypes.some((type) => {
+          const regex = new RegExp(`^${type.replace('*', '.+')}$`);
+          return regex.test(file.type);
+        });
 
         if (!isAllowed) {
           alert("Please upload an image, PDF, or audio file.");
