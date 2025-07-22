@@ -72,7 +72,26 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
     BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
-    USER_LOGOUT: (!isLoggedIn( req )) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+    USER_LOGOUT: (!isLoggedIn( req )) ?
+`<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` :
+`<a id="signin-link" title="[signout]" alt="[signout]" style="color: grey;" href="/logout">&nbsp;<span id="username-span" style="white-space: nowrap; overflow: hidden; display: inline-block; max-width: 11ch; position: relative; vertical-align:bottom">${req.user}<span id="gradient-span" style="content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2rem; background: linear-gradient(to right, transparent, #333);"></span></span></a>
+<script>
+  // current username is constrained by max-width, overflow of that width results in gradient (because elipsis is really wide).
+  // here, we add/remove the gradient based on overflow
+  document.addEventListener("DOMContentLoaded", function() {
+      const usernameSpan = document.getElementById('username-span');
+      const gradientSpan = document.getElementById('gradient-span');
+      // Check if text content has overflowed
+      // Toggle gradient visibility based on overflow
+      const isOverflowing = usernameSpan.scrollWidth > usernameSpan.clientWidth;
+      if (!isOverflowing) {
+          gradientSpan.style.display = 'none';
+      } else {
+          gradientSpan.style.display = 'inline';
+      }
+  });
+<\/script>
+`,
     SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></a>`,
     // REFERRER: getReferrerFromReq( req )
   })
@@ -379,7 +398,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
       ASSETS_MAGIC,
       SCROLL_CLASS: "scroll-child-wiki",
       WHITESPACE: "normal",
-      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      //USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
       req_baseUrl:req.baseUrl,
       topic,
       view_route,
@@ -746,7 +765,7 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
     `, {
       SCROLL_CLASS: "scroll-child-wiki",
       WHITESPACE: "normal",
-      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      //USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
     })
   );
 });

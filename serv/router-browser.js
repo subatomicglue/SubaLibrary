@@ -91,6 +91,10 @@ function getDirectoryContents( rel_dir ) {
   }
 }
 
+function isLoggedIn( req ) {
+  return !(req.user == undefined || req.user == USER_ANON_DISPLAY)
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // endpoints
@@ -231,7 +235,26 @@ router.get('*', (req, res) => {
       USER: `${req.user}`,
       SCROLL_CLASS: "scroll-child-browser",
       WHITESPACE: "nowrap",
-      USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
+      USER_LOGOUT: (!isLoggedIn( req )) ?
+`<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` :
+`<a id="signin-link" title="[signout]" alt="[signout]" style="color: grey;" href="/logout">&nbsp;<span id="username-span" style="white-space: nowrap; overflow: hidden; display: inline-block; max-width: 11ch; position: relative; vertical-align:bottom">${req.user}<span id="gradient-span" style="content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2rem; background: linear-gradient(to right, transparent, #333);"></span></span></a>
+<script>
+  // current username is constrained by max-width, overflow of that width results in gradient (because elipsis is really wide).
+  // here, we add/remove the gradient based on overflow
+  document.addEventListener("DOMContentLoaded", function() {
+      const usernameSpan = document.getElementById('username-span');
+      const gradientSpan = document.getElementById('gradient-span');
+      // Check if text content has overflowed
+      // Toggle gradient visibility based on overflow
+      const isOverflowing = usernameSpan.scrollWidth > usernameSpan.clientWidth;
+      if (!isOverflowing) {
+          gradientSpan.style.display = 'none';
+      } else {
+          gradientSpan.style.display = 'inline';
+      }
+  });
+<\/script>
+`,
       BODY: `
           <ul style="padding: 0; padding-top: 0; margin-top: 0.5em; padding-left: 0.5rem;">
             <!-- <li>${relPath !== '' ? `<a href="${relPath.split('/').slice(0, -1).join('/') || '/'}">⬆️  Go Up</a>` : '<a href="">📁 /</a>'}</li> -->
