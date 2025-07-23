@@ -350,14 +350,13 @@ module.exports.init = init;
 
 
 // guard certain routes
-function guardOnlyAllowHost(allowed_hostname) {
+function guardForProdHostOnly(allowed_hostname) {
   //VERBOSE && logger.info( "guardOnlyAllowHost ===================================================" )
   return (req, res, next) => {
     // detect production / dev mode
     const currentDomain = `${req.get('host')}`;
     const prod_mode = DOMAINS.includes( currentDomain )
     if (!prod_mode) {
-      logger.info( `[auth] guardOnlyAllowHost: host:"${currentDomain}" allowed:${allowed_hostname} prod_mode:${prod_mode}` )
       return next()
     }
     const hostname = req.hostname.toLowerCase();
@@ -369,23 +368,21 @@ function guardOnlyAllowHost(allowed_hostname) {
     next();
   }
 }
-module.exports.guardOnlyAllowHost = guardOnlyAllowHost;
+module.exports.guardForProdHostOnly = guardForProdHostOnly;
 
 // Middleware to redirect anonymous users to www.<domain> while preserving the path
-function guardRedirectForEditOnlySite(editOnlyPrefix, redirectPrefix) {
+function redirectAnonUsersToStaticSite(activeSiteHostname, staticSiteHostname = "www") {
   return (req, res, next) => {
     const currentDomain = req.get('host');
+    const host = req.get('host').replace(/\..*$/, '');
     const prod_mode = DOMAINS.includes(currentDomain); // Check if the domain is in production
 
     const userIsAnonymous = req.user === USER_ANON_DISPLAY || req.user === "";
 
-    // Extract the prefix of the hostname (e.g., www or editonly)
-    const hostnamePrefix = req.hostname.split('.')[0].toLowerCase();
-
-    // If in production mode, user is anonymous, and on the editonly site, redirect to www.<domain> while retaining the path
-    if (prod_mode && userIsAnonymous && hostnamePrefix === editOnlyPrefix) {
+    // If in production mode, user is anonymous, and on the active site, and not static site, redirect to www.<domain> while retaining the path
+    if (prod_mode && userIsAnonymous && (host === activeSiteHostname && activeSiteHostname != staticSiteHostname)) {
       const domainWithoutPrefix = currentDomain.split('.').slice(1).join('.');
-      const redirectHost = `${redirectPrefix}.${domainWithoutPrefix}`;
+      const redirectHost = `${staticSiteHostname}.${domainWithoutPrefix}`;
       const redirectUrl = `https://${redirectHost}${req.originalUrl}`; // Preserve the original path and query string
 
       logger.info(`[auth] Redirecting anonymous user from ${req.hostname} to ${redirectUrl}`);
@@ -395,5 +392,4 @@ function guardRedirectForEditOnlySite(editOnlyPrefix, redirectPrefix) {
     next(); // Allow request if user is logged in or if not in production mode
   }
 }
-module.exports.guardRedirectForEditOnlySite = guardRedirectForEditOnlySite;
-
+module.exports.redirectAnonUsersToStaticSite = redirectAnonUsersToStaticSite;

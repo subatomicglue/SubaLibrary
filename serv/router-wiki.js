@@ -8,7 +8,7 @@ const template = require('./template');
 const { markdownToHtml, htmlToMarkdown } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
 markdownTests();
-const { guardOnlyAllowHost, guardRedirectForEditOnlySite } = require("./router-auth");
+const { guardForProdHostOnly, redirectAnonUsersToStaticSite } = require("./router-auth");
 const { userLogDisplay, getReferrerFromReq } = require("./common")
 
 const {
@@ -220,7 +220,7 @@ function diffWords_toHTML(oldText, newText) {
 
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
-router.get(`${view_route}/:topic?/:version?`, guardRedirectForEditOnlySite(HOSTNAME_FOR_EDITS, 'www'), (req, res) => {
+router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
   //logger.info(`[wiki] ${userLogDisplay(req)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
   const { topic, version, searchterm/*, diff*/ } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
@@ -307,7 +307,7 @@ router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
 
 // SAVE
 // PUT /save   (write page markdown;  req.body: { topic: "TOPICNAME", content: "Markdown content" })
-router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
+router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
   const { topic, content, save_version } = {
     topic: sanitizeTopic( req.body.topic ),
     content: req.body.content,
@@ -370,7 +370,7 @@ router.put("/save", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit
 
 // EDIT
 // GET ${req.baseUrl}${edit_route}/:topic    (edit page)
-router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
+router.get(`${edit_route}/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
   const topic = req.params.topic ? sanitizeTopic( decodeURIComponent( req.params.topic ) ) : undefined;
   if (!topic) {
     logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 400 Missing topic name`);
@@ -414,7 +414,7 @@ router.get(`${edit_route}/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req,
 
 // EDIT
 // GET ${req.baseUrl}${edit_route}/:topic    (edit page)
-router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
+router.get(`${edit_route}2/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
   const topic = req.params.topic ? sanitizeTopic( decodeURIComponent( req.params.topic ) ) : undefined;
   if (!topic) {
     logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 400 Missing topic name`);
@@ -771,7 +771,7 @@ router.get(`${edit_route}2/:topic`, guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req
 });
 
 // GET /markdown/:topic/:version?   (get the page markdown data)
-router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), (req, res) => {
+router.get("/markdown/:topic/:version?", guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
   const { topic, version } = {
     topic: req.params.topic ? sanitizeTopic( decodeURIComponent( `${req.params.topic}` ) ) : undefined,
     version: req.params.version ? `.${sanitizeInt( decodeURIComponent( req.params.version ) )}` : ""
@@ -792,7 +792,7 @@ router.get("/markdown/:topic/:version?", guardOnlyAllowHost(HOSTNAME_FOR_EDITS),
 });
 
 // POST ${req.baseUrl}/preview (submit req.body: { content: <markdown> }, get HTML; used for live preview in edit page)
-router.post("/preview", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
+router.post("/preview", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
   const { content } = req.body; // markdown
   if (!content) {
     logger.error(`[wiki] ${userLogDisplay(req)} /preview 400 Missing content`);
@@ -849,7 +849,7 @@ router.use( uploads_file_serv_url_prefix, (req, res, next) => {
 });
 
 // Route to handle file upload)
-router.post( "/upload/file", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), uploadFile.single("file"), (req, res) => {
+router.post( "/upload/file", guardForProdHostOnly(HOSTNAME_FOR_EDITS), uploadFile.single("file"), (req, res) => {
   if (req.file) {
     logger.info(`[wiki] ${userLogDisplay(req)} POST /upload/file starting: '${req.file.filename}'`);
     const allowedMimes = [ "application/pdf", "audio/mpeg", "audio/m4a", "audio/mp4", "audio/x-m4a" ];
@@ -916,7 +916,7 @@ router.use(uploads_image_serv_url_prefix, (req, res, next) => {
 });
 
 // Route to handle image upload
-router.post( "/upload/image", guardOnlyAllowHost(HOSTNAME_FOR_EDITS), uploadImage.single("file"), (req, res) => {
+router.post( "/upload/image", guardForProdHostOnly(HOSTNAME_FOR_EDITS), uploadImage.single("file"), (req, res) => {
   if (req.file) {
     logger.info(`[wiki] ${userLogDisplay(req)} POST /upload starting: '${req.file.filename}'`);
     const allowedMimes = [ /^image\// ];
