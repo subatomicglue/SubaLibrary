@@ -303,22 +303,22 @@ app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 app.get('/robots.txt', (req, res) => {
   try {
   const host = req.get('host').replace(/\..*$/, '');
-  logger.info( `[robots.txt] host:${host} domain:${req.get('host')}` );
+  logger.info( `[robots.txt] ${userLogDisplay(req)} host:${host} domain:${req.get('host')}` );
   if (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
       // prevent crawlers
-      logger.info( `/robots.txt preventing crawlers not-www:${HOSTNAME_FOR_EDITS != "www"} edit-host:${host === HOSTNAME_FOR_EDITS}` );
+      logger.info( `/robots.txt ${userLogDisplay(req)} preventing crawlers not-www:${HOSTNAME_FOR_EDITS != "www"} edit-host:${host === HOSTNAME_FOR_EDITS}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow: /`);
   } else {
       // everything allowed
-      logger.info( `/robots.txt everything allowed - crawlers allowed host:${host}` );
+      logger.info( `/robots.txt ${userLogDisplay(req)} everything allowed - crawlers allowed host:${host}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow:`);
   }
   } catch (error) {
-    logger.error( "/robots.txt", error );
+    logger.error( `/robots.txt ${userLogDisplay(req)} error:${error}` );
     res.type('text/plain');
     res.send(`User-agent: *
 Disallow:`);
