@@ -370,3 +370,30 @@ function guardOnlyAllowHost(allowed_hostname) {
   }
 }
 module.exports.guardOnlyAllowHost = guardOnlyAllowHost;
+
+// Middleware to redirect anonymous users to www.<domain> while preserving the path
+function guardRedirectForEditOnlySite(editOnlyPrefix, redirectPrefix) {
+  return (req, res, next) => {
+    const currentDomain = req.get('host');
+    const prod_mode = DOMAINS.includes(currentDomain); // Check if the domain is in production
+
+    const userIsAnonymous = req.user === USER_ANON_DISPLAY || req.user === "";
+
+    // Extract the prefix of the hostname (e.g., www or editonly)
+    const hostnamePrefix = req.hostname.split('.')[0].toLowerCase();
+
+    // If in production mode, user is anonymous, and on the editonly site, redirect to www.<domain> while retaining the path
+    if (prod_mode && userIsAnonymous && hostnamePrefix === editOnlyPrefix) {
+      const domainWithoutPrefix = currentDomain.split('.').slice(1).join('.');
+      const redirectHost = `${redirectPrefix}.${domainWithoutPrefix}`;
+      const redirectUrl = `https://${redirectHost}${req.originalUrl}`; // Preserve the original path and query string
+
+      logger.info(`[auth] Redirecting anonymous user from ${req.hostname} to ${redirectUrl}`);
+      return res.redirect(redirectUrl);
+    }
+
+    next(); // Allow request if user is logged in or if not in production mode
+  }
+}
+module.exports.guardRedirectForEditOnlySite = guardRedirectForEditOnlySite;
+

@@ -8,7 +8,7 @@ const template = require('./template');
 const { markdownToHtml, htmlToMarkdown } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
 markdownTests();
-const { guardOnlyAllowHost } = require("./router-auth");
+const { guardOnlyAllowHost, guardRedirectForEditOnlySite } = require("./router-auth");
 const { userLogDisplay, getReferrerFromReq } = require("./common")
 
 const {
@@ -220,7 +220,7 @@ function diffWords_toHTML(oldText, newText) {
 
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
-router.get(`${view_route}/:topic?/:version?`, (req, res) => {
+router.get(`${view_route}/:topic?/:version?`, guardRedirectForEditOnlySite(HOSTNAME_FOR_EDITS, 'www'), (req, res) => {
   //logger.info(`[wiki] ${userLogDisplay(req)} RAW from the URL | topic:${req.params.topic} version:${req.params.version}`);
   const { topic, version, searchterm/*, diff*/ } = {
     topic: sanitizeTopic( decodeURIComponent( req.params.topic ? `${req.params.topic}` : "index" ) ),  // Default to index if no topic provided
