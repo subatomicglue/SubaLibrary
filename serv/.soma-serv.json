@@ -1,9 +1,9 @@
 {
-  "TITLE": "SomaLibrary",
+  "TITLE": "<your name>Wiki",
   "AUTHOR": "<author>",
   "COPYRIGHT": "Copyright (C) <year>-Present by <author>",
-  "SOCIAL_DESCRIPTION": "inside the library of Soma",
-  "SOCIAL_KEYWORDS": "soma library",
+  "SOCIAL_DESCRIPTION": "inside the <your name> Wiki",
+  "SOCIAL_KEYWORDS": "social, wiki, example, things, stuff, hamburgers, flowers, trains, cars",
   "SOCIAL_IMAGE": "library-large.jpg",
   "HTTP_PORT_DEFAULT": 3000,
   "HTTPS_PORT_DEFAULT": 443,
@@ -24,19 +24,25 @@
   "WIKI_ENDPOINT": "wiki",
   "FILE_ENDPOINT": "files",
   "RSS_ENDPOINT": "rss",
+  "USER_PASSCODE_DISPLAY": "",
   "USER_ANON_DISPLAY": "guest",
   "PUBLIC_DIR": "public",
   "LOGS_DIR": "logs",
   "ASSETS_DIR": "assets",
   "WIKI_DIR": "wiki",
+  "WIKI_FILES_DIR": "uploads",
   "TORRENT_DIR": "torrents",
   "CERTS_DIR": "certs",
+  "YOUTUBE_TRANSCRIPTS_DIR": "youtube",
   "CERT_CRT": "cert.pem",
   "CERT_KEY": "privkey.pem",
   "EMAIL": "happyuser@example.com",
   "DOMAINS": [
     "example.com",
     "www.example.com",
+    "librarians.example.com"
+  ],
+  "CERTBOT_DOMAINS": [
     "librarians.example.com"
   ],
   "HOSTED_ZONES": [
@@ -46,5 +52,43 @@
     }
   ],
   "HOSTNAME_FOR_EDITS": "www",
-  "VERBOSE": true
+  "VERBOSE": true,
+  "WIKI_CHANGELOG_TOPICNAME": "ChangeLog",
+  "CUSTOM": [
+    {
+      "endpoint": "/wiki/deploy",
+      "cmd": "./deploy.sh 2>&1",
+      "users": ["happy-user"]
+    },
+    {
+      "endpoint": "/wiki/backup",
+      "cmd": "./backup.sh --noprompt 2>&1",
+      "users": ["happy-user"]
+    },
+    {
+      "endpoint": "/wiki/dyndns",
+      "cmd": "/path/to/dyndns.sh",
+      "users": ["happy-user"]
+    },
+    {
+      "cron": "0 1 * * *",
+      "cmd": "/path/to/dyndns.sh"
+    }
+  ],
+  "MAP_ASSETS_TO_ROOT": [ "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png" ],
+  "PUBLIC_ACCESS": [
+    "^/?$",
+    "^/${WIKI_ENDPOINT}/view/?",
+    "^/${WIKI_ENDPOINT}/?$",
+    "^/${WIKI_ENDPOINT}/preview/",
+    "^/${WIKI_ENDPOINT}/search",
+    "^/${WIKI_ENDPOINT}/uploads/",
+    "^/${ASSETS_MAGIC}/",
+    "^/${RSS_ENDPOINT}",
+    "^/robots.txt"
+  ],
+  "GLOBAL_REDIRECTS": [
+    { "/": "/${WIKI_ENDPOINT}/view" }
+  ],
+  "BLACKLIST_CHECKS": false
 }

@@ -22,6 +22,7 @@ const {
   isPM2,
   USER_ANON_DISPLAY,
   DOMAINS,
+  BLACKLIST_CHECKS,
 } = require('./settings');
 
 let public_routes = []
@@ -103,7 +104,7 @@ function isWhitelisted(req) {
 }
 
 function isBlacklisted(ip) {
-  return false;// return ipRangeCheck(ip, [...dropList]); // slow!
+  return BLACKLIST_CHECKS ? false : ipRangeCheck(ip, [...dropList]); // slow!
 }
 
 function logHelper(prefix, req) {
@@ -341,7 +342,7 @@ function init(l, publicroutes) {
   public_routes = [...publicroutes]
 
   // Call fetch on startup
-  fetchDropList();
+  if (BLACKLIST_CHECKS) fetchDropList();
 }
 
 // Plug into Express
