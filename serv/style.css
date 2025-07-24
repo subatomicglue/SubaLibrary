@@ -69,6 +69,21 @@ table, td {
   flex-direction: column; /* stack vertically */
   padding: 1rem;
 }
+@media screen and (min-aspect-ratio: 16/9)  and (max-height: 32rem) {
+  /* when the aspect ratio meets or exceeds this ratio, or any wider */
+  .heading-container {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+}
+@media screen and (min-aspect-ratio: 16/4)  and (max-height: 32rem) {
+  /* when the aspect ratio meets or exceeds this ratio, or any wider */
+  .heading-container {
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+  }
+}
+
 .heading-row {
   display: flex;
   flex-direction: row; /* preserve horizontal layout of header content */
