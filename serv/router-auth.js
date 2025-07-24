@@ -95,8 +95,6 @@ async function fetchDropList() {
 
   logger.info(`[Blacklist] Combined blocklist has ${dropList.size} total unique entries.`);
 }
-// Check if an IP matches any CIDR in the drop list
-const ipRangeCheck = require('ip-range-check');
 
 function isWhitelisted(req) {
   const ua = req.get('User-Agent') || '';
@@ -104,6 +102,9 @@ function isWhitelisted(req) {
 }
 
 function isBlacklisted(ip) {
+  // Check if an IP matches any CIDR in the drop list
+  const ipRangeCheck = require('ip-range-check');
+
   return BLACKLIST_CHECKS ? false : ipRangeCheck(ip, [...dropList]); // slow!
 }
 
