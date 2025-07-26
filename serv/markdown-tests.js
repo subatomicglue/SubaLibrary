@@ -202,6 +202,24 @@ markdownToHtmlTest( ` - bullet [[link](mytopic#bokbok)]
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
   `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)
 
+htmlToMarkdownTest( `<meta charset='utf-8'><meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-53028a7e-7fff-b49d-b75a-b28cb5b9afa5"><p dir="ltr" style="line-height:1.38;margin-top:12pt;margin-bottom:12pt;"><a href="https://www.perseus.tufts.edu/hopper/morph?l=*%29elwi%2F&amp;la=greek&amp;can=*%29elwi%2F0&amp;prior=le/gwn" style="text-decoration:none;"><span style="font-size:17pt;font-family:Arial,sans-serif;color:#ffffff;background-color:transparent;font-weight:400;font-style:italic;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Ἐλωί</span></a></p>`,
+`
+[*Ἐλωί*](https://www.perseus.tufts.edu/hopper/morph?l=%2A%29elwi%2F&la=greek&can=%2A%29elwi%2F0&prior=le/gwn)
+` )
+
+htmlToMarkdownTest( `<a href="www.website.com">*hello* **bold** __underscore__ * _ ** random *thing * is **things ** yeah</a>`,
+`[*hello* **bold** __underscore__ &ast; &#95; &ast;&ast; random &ast;thing &ast; is &ast;&ast;things &ast;&ast; yeah](www.website.com)` )
+
+htmlToMarkdownTest( `<span style="color:#ffffff">words</span>`,
+  `words`
+)
+htmlToMarkdownTest( `<span style="color:#000000">words</span>`,
+  `words`
+)
+htmlToMarkdownTest( `<span style="color:#555555">words</span>`,
+  `words`
+)
+
 function testSplitTopicAndHash( url, expected ) {
   const VERBOSE = false
   let result = splitTopicAndHash( url );

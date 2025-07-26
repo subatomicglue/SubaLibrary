@@ -417,7 +417,10 @@ function _htmlTreeToMarkdown(tree) {
   function isColor(node) {
     if (node.attributes && node.attributes.style) {
       const colorMatch = node.attributes.style.match(/color:\s*(#[0-9a-fA-F]+)/);
-      if (colorMatch && colorMatch[1] && colorMatch[1] != "#000000" && colorMatch[1] != "#212529" && colorMatch[1] != "#434343") {
+      // when pasting html in, ignore certain colors, normalize to our style in that case
+      //  - white/black/greyscale colors
+      //  - certain other colors that certain apps default to 
+      if (colorMatch && colorMatch[1] && (colorMatch[1].match( /^#([0-9a-fA-F])\1{5}$/ ) == null) && colorMatch[1] != "#212529" && colorMatch[1] != "#434343") {
         return colorMatch[1];
       }
     }
@@ -551,9 +554,53 @@ function _htmlTreeToMarkdown(tree) {
     function sanitizeUrl( url ) {
       return decodeURIGreekOnly( url.replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\*/g,'%2A') )
     }
-    function sanitizeUrlTitle( url ) {
-      return url.replace(/\[/g,'&lbrack;').replace(/\]/g,'&rbrack;').replace(/\*/g,'&ast;')
+    function sanitizeUrlTitle(input) {
+      // The goal here, in URL and IMG titles, is to leave any valid markdown formatting (bold/italic/underscore),
+      // and escape any other occurances of those same characters (*/_) to prevent the higher level markdownToHtml from matching them
+      // Consider TODO: we really only need to escape formatting chars (*/_) that do not have whitespace between them and \S characters... but works well enough for now.
+
+        // Split input into Markdown parts (bold, italics, underscore) and other text
+        const re = /(\*\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*|\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)\*|__(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)__)/g;
+        const parts = input.split(re);
+        // console.log( parts );
+
+        // Function to escape unmatched characters
+        const escapeUnmatchedCharacters = (text) => {
+            return text.replace(/\*/g, '&ast;')
+                      .replace(/_/g, '&#95;');
+        };
+
+        // Process each part, preserving Markdown formatting in recognized patterns
+        return parts.map(part => {
+            // If part matches well-formed Markdown, return it unaltered
+            if (/^(\*\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*|\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)\*|__(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?)__)$/.test(part)) {
+                return part;
+            }
+            // Otherwise, escape unmatched formatting characters
+            return escapeUnmatchedCharacters(part);
+        }).join('');
     }
+    // tests:
+    // function sanitizeUrlTitle_test(markdown, expectedMarkdown) {
+    //   const html = sanitizeUrlTitle( markdown, "/base" )
+    //   if (html != expectedMarkdown) {
+    //     console.log( "[markdown.js] test failed" )
+    //     console.log( "-------markdown-------" )
+    //     console.log( markdown )
+    //     console.log( "-------Generated HTML-------" )
+    //     console.log( `'${html}'` )
+    //     console.log( "-------Expected HTML-------" )
+    //     console.log( `'${expectedMarkdown}'` )
+    //     return false;
+    //   }
+    //   return true;
+    // }
+    // sanitizeUrlTitle_test(
+    //   "test *string* with **bold** and with unmatched * and* _ underscores_ and __double underscores__",
+    //   "test *string* with **bold** and with unmatched &ast; and&ast; &#95; underscores&#95; and __double underscores__" )
+    // sanitizeUrlTitle_test(
+    //   "*hello* **bold** __underscore__ * _ ** random *thing * is **things ** yeah",
+    //   "*hello* **bold** __underscore__ &ast; &#95; &ast;&ast; random &ast;thing &ast; is &ast;&ast;things &ast;&ast; yeah" )
 
     // Handle specific HTML tags
     function getSwitchResult() {
