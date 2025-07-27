@@ -510,7 +510,7 @@ function redirectAnonUsersToStaticSite(activeSiteHostname, staticSiteHostname = 
       const redirectHost = `${staticSiteHostname}.${domainWithoutPrefix}`;
       const redirectUrl = `https://${redirectHost}${req.originalUrl}`; // Preserve the original path and query string
 
-      //logger.info(`[auth] Redirecting anonymous user from ${req.hostname} to ${redirectUrl}`);
+      logger.info(`[auth] REDIRECT anonymous user: ${req.hostname} -> ${redirectUrl}`);
       return res.redirect(redirectUrl);
     }
 
