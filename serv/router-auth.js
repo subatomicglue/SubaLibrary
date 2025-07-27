@@ -236,10 +236,10 @@ function authGuard(req, res, next) {
       }))
     }
 
-    logger.info(`[auth guard] 404 NOT FOUND path:${req.path} (not logged in)`);
+    logger.info(`[auth guard] 404 NOT FOUND ip:${req.ip} -> path:${req.path} (not logged in)`);
     return res.status(404).send("Not Found");
   } catch (error) {
-    logger.info(`[auth guard] ${req.ip} -> req.path:${req.path}, CRASH: ${error}`);
+    logger.info(`[auth guard] ${req.ip} -> path:${req.path}, CRASH: ${error}`);
     logger.info(error)
     return res.status(403).send(`no, go away`);
   }
