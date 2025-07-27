@@ -141,6 +141,13 @@ const SCAN_ATTACK_PATHS = {
 "/public/js/main.js": true,
 "/js/main.js": true,
 };
+const SCAN_ATTACK_IP_BLACKLIST = {};
+function addToScannerBlackList( ip ) {
+  SCAN_ATTACK_IP_BLACKLIST[ip] = true;
+}
+function isBlacklisted_Scanner( ip ) {
+  return SCAN_ATTACK_IP_BLACKLIST[ip] == true;
+}
 
 
 const https = require('https');
@@ -215,9 +222,8 @@ function isWhitelisted(req) {
 
 function isBlacklisted(ip) {
   // Check if an IP matches any CIDR in the drop list
-  const ipRangeCheck = require('ip-range-check');
-
-  return BLACKLIST_CHECKS ? false : ipRangeCheck(ip, [...dropList]); // slow!
+  return isBlacklisted_Scanner( ip ) || 
+    (BLACKLIST_CHECKS ? false : require('ip-range-check')(ip, [...dropList])); // slow!
 }
 
 function logHelper(prefix, req) {
@@ -350,6 +356,7 @@ function authGuard(req, res, next) {
 
     if (req.path == SCAN_ATTACK_PATHS) {
       logger.info(`[auth guard] 404 NOT FOUND ip:${req.ip} -> path:${req.path} (scanner attacker!)`);
+      addToScannerBlackList( req.ip )
     } else {
       logger.info(`[auth guard] 404 NOT FOUND ip:${req.ip} -> path:${req.path} (not logged in)`);
     }
