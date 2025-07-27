@@ -30,7 +30,7 @@ const sec_to_ms = 1000;
 const sec_to_wait = 30;
 const wait_sec_max = 120;
 
-const bullshit_phishing = {
+const SCAN_ATTACK_PATHS = {
 "/.env": true,
 "/phpinfo": true,
 "/_profiler/phpinfo": true,
@@ -348,7 +348,7 @@ function authGuard(req, res, next) {
       }))
     }
 
-    if (req.path == bullshit_phishing) {
+    if (req.path == SCAN_ATTACK_PATHS) {
       logger.info(`[auth guard] 404 NOT FOUND ip:${req.ip} -> path:${req.path} (scanner attacker!)`);
     } else {
       logger.info(`[auth guard] 404 NOT FOUND ip:${req.ip} -> path:${req.path} (not logged in)`);
