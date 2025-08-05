@@ -189,6 +189,7 @@ text<br>
 <p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
 `)
 
+
 markdownToHtmlTest( ` - bullet [[link](mytopic?searchterm=bokbok)]
   `,
   `<ul><li>bullet [<a href="/base/mytopic?searchterm=bokbok">link</a>]</li></ul>
@@ -196,6 +197,38 @@ markdownToHtmlTest( ` - bullet [[link](mytopic?searchterm=bokbok)]
 markdownToHtmlTest( ` - bullet [[link](mytopic#bokbok)]
   `,
   `<ul><li>bullet [<a href="/base/mytopic#bokbok">link</a>]</li></ul>
+  `)
+
+// with preceeding space
+markdownToHtmlTest( ` - bullet
+ - bullet2
+   - bullet3
+   - bullet4
+  `,
+  `<ul><li>bullet</li><li>bullet2<ul><li>bullet3</li><li>bullet4</li></ul></li></ul>
+  `)
+markdownToHtmlTest( ` 1. bullet
+ 2. bullet2
+   a. bullet3
+   b. bullet4
+  `,
+  `<ol type="1" start="1"><li>bullet</li><li>bullet2<ol type="a" start="a"><li>bullet3</li><li>bullet4</li></ol></li></ol>
+  `)
+
+// without preceeding space
+markdownToHtmlTest( `- bullet
+- bullet2
+  - bullet3
+  - bullet4
+  `,
+  `<ul><li>bullet</li><li>bullet2<ul><li>bullet3</li><li>bullet4</li></ul></li></ul>
+  `)
+markdownToHtmlTest( `1. bullet
+2. bullet2
+  a. bullet3
+  b. bullet4
+  `,
+  `<ol type="1" start="1"><li>bullet</li><li>bullet2<ol type="a" start="a"><li>bullet3</li><li>bullet4</li></ol></li></ol>
   `)
 
 

@@ -123,16 +123,19 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   //   2. continuing from 1 above
   function processBulletLists( markdown ) {
     //console.log( `processBulletLists "${markdown}"` )
-    return markdown.replace( /((^ ( *)([-*+]|[0-9]{1,2}\.|[ivxlcdm]+\.|[IVXLCDM]+\.|[a-hj-z]{1,2}\.|[A-HJ-Z]{1,2}\.) +[^\n]+\n?)+)/gm, (markdown) => {
+    // require leading space:  "^ " or dont: "^ ?"
+    return markdown.replace( /((^ ?( *)([-*+]|[0-9]{1,2}\.|[ivxlcdm]+\.|[IVXLCDM]+\.|[a-hj-z]{1,2}\.|[A-HJ-Z]{1,2}\.) +[^\n]+\n?)+)/gm, (markdown) => {
       for (let depth = 6; depth >= 0; --depth) { // Depth levels
         let indent = " ".repeat(depth * 2) + "?"; // Match increasing indentation levels
   
         // unordered lists (-, +, *)
-        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]+${indent})([-+*])[  ]+.*(?:\\n\\2\\3[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
+        // require leading space:  "[  ]${indent}" or dont: "[  ]?${indent}"
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]?${indent})([-+*])[  ]+.*(?:\\n\\2\\3[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
           return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, (match, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
         })
         // numbered lists (1., 2., 3., etc.)
-        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
+        // require leading space:  "[  ]${indent}" or dont: "[  ]?${indent}"
+        markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]?${indent})([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*(?:\\n\\2([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\\.[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
           // type="1"	The list items will be numbered with numbers (default)
           // type="A"	The list items will be numbered with uppercase letters
           // type="a"	The list items will be numbered with lowercase letters
