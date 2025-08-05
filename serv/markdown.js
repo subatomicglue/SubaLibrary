@@ -276,6 +276,7 @@ function generateMarkdownTOC(markdown) {
 
   // formatting of inline elements (only, goes here)
   markdown = markdown
+    .replace(/\u00A0/g, ' ') // Replace all non-breaking spaces (U+00A0) with normal spaces (users should use &nbsp; character)
     .replace(/\*\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*\*/gm, "<b>$1</b>") // **bold**
     .replace(/\*([^*\n\s](?:[^*\n]*?[^*\n\s])?)\*/gm, "<i>$1</i>") // *italic*
     // .replace(/^```\s*[\n]?(.*?)[\n]?```/gms, "<code>$1</code>") // ```code```

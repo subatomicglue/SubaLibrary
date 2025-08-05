@@ -305,12 +305,17 @@ router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
   res.send(html);
 });
 
+// filter things we dont want to land on the filesystem
+function sanitizeMarkdown( markdown ) {
+  return markdown.replace(/\u00A0/g, ' ') // non-breaking spaces aren't allowed.   User can use &nbsp; if they need one.
+}
+
 // SAVE
 // PUT /save   (write page markdown;  req.body: { topic: "TOPICNAME", content: "Markdown content" })
 router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ limit: '50mb' }), (req, res) => {
   const { topic, content, save_version } = {
     topic: sanitizeTopic( req.body.topic ),
-    content: req.body.content,
+    content: sanitizeMarkdown( req.body.content ),
     save_version: req.body.version,
   }
   if (!topic || !content) {
