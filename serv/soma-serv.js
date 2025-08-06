@@ -306,19 +306,19 @@ app.get('/robots.txt', (req, res) => {
   logger.info( `[robots.txt] ${userLogDisplay(req)} host:${host} domain:${req.get('host')}` );
   if (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
       // prevent crawlers
-      logger.info( `/robots.txt ${userLogDisplay(req)} preventing crawlers not-www:${HOSTNAME_FOR_EDITS != "www"} edit-host:${host === HOSTNAME_FOR_EDITS}` );
+      logger.info( ` - preventing crawlers to edit host:  is-not-www:${HOSTNAME_FOR_EDITS !== "www"} and is-edithost:${host === HOSTNAME_FOR_EDITS}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow: /`);
   } else {
       // everything allowed
-      logger.info( `/robots.txt ${userLogDisplay(req)} everything allowed - crawlers allowed host:${host}` );
+      logger.info( ` - everything allowed - crawlers allowed host:${host}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow:`);
   }
   } catch (error) {
-    logger.error( `/robots.txt ${userLogDisplay(req)} error:${error}` );
+    logger.error( ` - error:${error}` );
     res.type('text/plain');
     res.send(`User-agent: *
 Disallow:`);
