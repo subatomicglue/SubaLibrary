@@ -247,7 +247,10 @@ td:empty::before {
   height: 1em;
 }
 
-
+#search {
+  cursor: pointer;
+  touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
+}
 #searchcontrol {
   /* display: flex; */
   /*justify-content: flex-end;*/ /* align contents to the right */
@@ -275,6 +278,9 @@ td:empty::before {
   max-width: 12rem;
 }
 #searchcontrol button {
+  background-color: transparent;
+  border: 0;
+  color: #ffffff;
   font-size: 1rem;
   width: 2rem;
   height: 2rem;

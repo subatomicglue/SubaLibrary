@@ -110,7 +110,7 @@
         }
 
         try {
-          const response = await fetchWithTimeout('<%=REQ_BASEURL%>/<%=SEARCH_URL%>', {
+          const response = await fetchWithTimeout('<%=SEARCH_URL%>', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ searchTerm })

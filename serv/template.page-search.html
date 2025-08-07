@@ -31,6 +31,13 @@
     });
   }
 
+  function saveModePreference() {
+    localStorage.setItem( "search-mode", document.getElementById('search-mode').innerHTML )
+  }
+  function loadModePreference() {
+    document.getElementById('search-mode').innerHTML = localStorage.getItem( "search-mode" ) ? localStorage.getItem( "search-mode" ) : search_mode_init_text
+  }
+
   function getSearchTerm() {
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
@@ -61,6 +68,19 @@
     });
 
     updateCounterDisplay();
+  }
+
+  function isSearching() {
+    const controlDiv = document.getElementById('searchcontrol');
+    return controlDiv.style.display != 'none'
+  }
+  function isSearchModeGlobal() {
+    const searchMode = document.getElementById('search-mode')
+    return searchMode.innerHTML == search_mode_global_text
+  }
+  function isSearchModeLocal() {
+    const searchMode = document.getElementById('search-mode')
+    return searchMode.innerHTML == search_mode_local_text
   }
 
   function updateCounterDisplay() {
@@ -159,6 +179,36 @@
     }
   }
 
+  function focusSearchEditBox() {
+    const searchBox = document.getElementById('search-box');
+    searchBox.focus();  // focus the input box
+    searchBox.select(); // selects all the text
+  }
+
+  const search_mode_init_text = "!!! mode !!!";
+  const search_mode_global_text = "🌎&nbsp;All&nbsp;Pages";
+  const search_mode_local_text = "▼&nbsp;Page";
+  // is meant to be called once on init() to initialize.   keep that in mind.
+  function toggleMode(forcemode=undefined) {
+    const searchMode = document.getElementById('search-mode')
+    if (forcemode) {
+      searchMode.innerHTML = forcemode
+    } else {
+      if (searchMode.innerHTML == search_mode_init_text) {
+        loadModePreference()
+        searchMode.innerHTML = searchMode.innerHTML == search_mode_init_text ? search_mode_local_text : searchMode.innerHTML
+      } else {
+        searchMode.innerHTML = searchMode.innerHTML != search_mode_local_text ? search_mode_local_text : search_mode_global_text;
+      }
+    }
+    saveModePreference();
+    document.getElementById('mark-counter').style.display = searchMode.innerHTML == search_mode_local_text ? 'inline-block' : 'none' 
+    document.getElementById('search-local-prev').style.display = searchMode.innerHTML == search_mode_local_text ? 'inline-block' : 'none' 
+    document.getElementById('search-local-next').style.display = searchMode.innerHTML == search_mode_local_text ? 'inline-block' : 'none'
+    document.getElementById('search-global-enter').style.display = searchMode.innerHTML == search_mode_global_text ? 'inline-block' : 'none'
+    focusSearchEditBox()
+  }
+
   // Add search control UI
   // Helper to clear marks
   function addSearchControl(term) {
@@ -168,21 +218,28 @@
     controlDiv.style.display = 'block';
     controlDiv.innerHTML = `
       <div class="search-inner" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem; width: 100%;">
+        <button id="search-mode" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem;">!!! mode !!!</button>
         <input id="search-box" type="text" value="${term}" autofocus />
         <span id="mark-counter">0/0</span>
-        <button id="search-prev"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_up_24dp_222222_FILL0_wght400_GRAD0_opsz24.svg"/></button>
-        <button id="search-next"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_down_24dp_222222_FILL0_wght400_GRAD0_opsz24.svg"/></button>
-        <button id="search-clear" title="Clear search" style="font-weight: bold; font-size: 1.2rem; cursor: pointer;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/close_small_24dp_222222_FILL0_wght400_GRAD0_opsz24.svg"/></button>
+        <button id="search-local-prev"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_up_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"/></button>
+        <button id="search-local-next"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_down_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"/></button>
+        <button id="search-global-enter" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem;">Search</button>
+        <button id="search-clear" title="Clear search" style="font-weight: bold; font-size: 1.2rem; cursor: pointer;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/close_small_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"/></button>
       </div>
     `;
 
-    document.getElementById('search-prev').addEventListener('click', prevMark);
-    document.getElementById('search-next').addEventListener('click', nextMark);
+    document.getElementById('search-local-prev').addEventListener('click', prevMark);
+    document.getElementById('search-local-next').addEventListener('click', nextMark);
+    document.getElementById('search-global-enter').addEventListener('click', () => {
+      const searchterm = document.getElementById('search-box').value.trim();
+      const newurl = `<%=SEARCH_URL%>${searchterm != '' ? `?searchterm=${searchterm}` : ''}`
+      console.log( newurl )
+      window.location.href = newurl;
+    });
+
+    focusSearchEditBox();
 
     const searchBox = document.getElementById('search-box');
-    searchBox.focus();  // focus the input box
-    searchBox.select(); // selects all the text
-
     searchBox.addEventListener('input', () => {
       const newTerm = searchBox.value.trim();
       if (newTerm === '') {
@@ -201,6 +258,11 @@
     document.getElementById('search-clear').addEventListener('click', () => {
       onCancel();
     });
+
+    // mode toggle
+    const searchMode = document.getElementById('search-mode')
+    toggleMode(); // init mode
+    searchMode.addEventListener('click', () => toggleMode() );
   }
 
   function onCancel() {
@@ -221,36 +283,53 @@
   }
 
 
+
+
   document.addEventListener('DOMContentLoaded', () => {
     const term = getSearchTerm();
     if (term) {
-      markupSearchTerms(term);
-      addSearchControl(term);
-      scrollToMark(0);
+      // pop up search box.
+      search();
+      toggleMode(search_mode_local_text);
     } else {
       restoreScrollPosition(); // if set from previous page navigation, restore it
     }
   });
 
-  document.addEventListener('keydown', function (e) {
+  document.addEventListener('keydown', (e) => {
+    // page handler
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
       e.preventDefault();
 
-      // Optional: open your search modal if you have one
+      // pop up search box.
+      search();
+    }
+
+    // handler active only when searching
+    if (isSearching() && e.key === 'Enter') {
+      if (isSearchModeLocal())
+        nextMark();
+      else
+        document.getElementById('search-global-enter').click();
+    }
+
+    // handler active only when searching
+    if (isSearching() && e.key === 'Escape') {
+      onCancel();
+    }
+  });
+
+  // open the search dialog, or close it if already open.
+  function search() {
+    if (isSearching()) {
+      onCancel();
+    } else {
       const term = getSearchTerm();
       if (term && term != '') markupSearchTerms(term);
       addSearchControl(term);
       if (term && term != '') 
         scrollToMark(0);
     }
-
-    if (e.key === 'Enter') {
-      nextMark();
-    }
-
-    if (e.key === 'Escape') {
-      onCancel();
-    }
-  });
+  }
   /////////////////////////////////////////
 </script>

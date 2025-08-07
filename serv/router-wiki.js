@@ -73,6 +73,8 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
+    REQ_BASEURL: req.baseUrl,
+    SEARCH_URL: `${req.baseUrl}/search`,
     BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: (!isLoggedIn( req )) ?
 `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` :
@@ -94,7 +96,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
   });
 <\/script>
 `,
-    SEARCH: `<a href="${req.baseUrl}/search"><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></a>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></span>`,
     // REFERRER: getReferrerFromReq( req )
   })
 }
@@ -953,7 +955,7 @@ router.get('/search', (req, res) => {
   res.send(template.file( "template.search.html", {
     TITLE: "Search",
     REQ_BASEURL: req.baseUrl,
-    SEARCH_URL: "search",
+    SEARCH_URL: `${req.baseUrl}/search`,
     DESCRIPTION: (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ?
       `Or head over to <a href='${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
     ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_WIKI_SEARCH_BUTTONS ),
@@ -968,7 +970,7 @@ router.get('/search-youtube', (req, res) => {
   res.send(template.file( "template.search.html", {
     TITLE: "Search (YouTube Transcripts)",
     REQ_BASEURL: req.baseUrl,
-    SEARCH_URL: "search-youtube",
+    SEARCH_URL: `${req.baseUrl}/search-youtube`,
     DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
     ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS ),
   }));
@@ -1019,11 +1021,11 @@ router.put('/search', express.json(), (req, res) => {
     // Sort results by score in descending order
     results.sort((a, b) => b.score - a.score);
 
-    console.log( `[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results (topics)` )
+    logger.info( `[search] ${userLogDisplay(req)} "${searchTerm}" ${results.length} results (topics)` )
     // Return the results
     res.json(results);
   } catch (error) {
-    console.log( "ERROR", error )
+    logger.error( `ERROR ${error}` )
     return res.json([]);
   }
 });
@@ -1159,7 +1161,7 @@ router.put('/search-youtube', express.json(), async (req, res) => {
     // sort descending by score
     results.sort((a, b) => b.score - a.score);
 
-    console.log(`[search] ${userLogDisplay(req)} ${JSON.stringify(queryWords)} ${results.length} results (youtube)`);
+    logger.info(`[search] ${userLogDisplay(req)} ${JSON.stringify(queryWords)} ${results.length} results (youtube)`);
 
     res.json(results);
 
