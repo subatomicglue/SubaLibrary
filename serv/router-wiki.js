@@ -955,7 +955,7 @@ router.get('/search', (req, res) => {
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: "search",
     DESCRIPTION: (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ?
-      `Or head over to <a href='${req.baseUrl}/search-youtube'>youtube search</a>` : "",
+      `Or head over to <a href='${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
     ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_WIKI_SEARCH_BUTTONS ),
   }));
 });
@@ -969,7 +969,7 @@ router.get('/search-youtube', (req, res) => {
     TITLE: "Search (YouTube Transcripts)",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: "search-youtube",
-    DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search'>wiki search</a>`,
+    DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
     ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS ),
   }));
 });

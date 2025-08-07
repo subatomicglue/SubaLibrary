@@ -36,8 +36,8 @@
     </style>
 </head>
 <body>
-    <h1><%=TITLE%></h1>
-    <p><%=DESCRIPTION%></p>
+    <h1 id="TITLE"><%=TITLE%></h1>
+    <p id="DESCRIPTION"><%=DESCRIPTION%></p>
     <form id="searchForm">
         <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
         <button id="submitButton" type="submit">Search</button>&nbsp;<span id="buttonContainer"></span>
@@ -48,21 +48,30 @@
       const ADDITIONAL_SEARCH_BUTTONS = <%=ADDITIONAL_SEARCH_BUTTONS%>;
       const searchInput = document.getElementById('searchTerm');
       const buttonContainer = document.getElementById('buttonContainer');
-      function searchTerm() {
+      const DESCRIPTION = "<%=DESCRIPTION%>";
+      const descriptionParagraph = document.getElementById('DESCRIPTION');
+
+      function getSearchTermFromURL() {
         const url = new URL(window.location.href);
         const params = new URLSearchParams(url.search);
         if (params.has('searchterm'))
           return params.get('searchterm'); // Get the value of the searchterm
         return false;
       }
-      function updateExtraButtons() {
+
+      function onSearchTermChange() {
         const searchTerm = searchInput.value.trim();
         buttonContainer.innerHTML = ""; // Clear old buttons
 
         if (!searchTerm) return;
 
+        // update DESCRIPTION
+        descriptionParagraph.innerHTML = DESCRIPTION.replace( /\${searchterm}/g, encodeURIComponent(searchTerm) );
+        console.log( descriptionParagraph.innerHTML );
+
+        // update BUTTONS
         for (const [label, urlTemplate] of Object.entries(ADDITIONAL_SEARCH_BUTTONS)) {
-          const url = urlTemplate.replace("${searchterm}", encodeURIComponent(searchTerm));
+          const url = urlTemplate.replace( /\${searchterm}/g, encodeURIComponent(searchTerm));
           const linkButton = submitButton.cloneNode(true); // Clone the real button
           linkButton.type = "button"; // Avoid submitting the form
           linkButton.textContent = label;
@@ -72,10 +81,11 @@
           buttonContainer.appendChild(linkButton);
         }
       }
-      const st = searchTerm();
+
+      const st = getSearchTermFromURL();
       if (st) document.getElementById('searchTerm').value = st
-      updateExtraButtons();
-      searchInput.addEventListener("input", updateExtraButtons);
+      onSearchTermChange();
+      searchInput.addEventListener("input", onSearchTermChange);
       document.getElementById('searchForm').onsubmit = async function(event) {
         event.preventDefault();
         const submitButton = document.getElementById('submitButton');
