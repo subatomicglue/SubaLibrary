@@ -50,6 +50,16 @@
 
     currentIndex = ((index % marks.length) + marks.length) % marks.length;
     marks[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // set the style on the marks
+    let counter = 0;
+    marks.forEach(mark => {
+      if (counter++ === currentIndex)
+        mark.className = 'selected';
+      else
+        mark.removeAttribute('class');
+    });
+
     updateCounterDisplay();
   }
 
@@ -235,7 +245,6 @@
     }
 
     if (e.key === 'Enter') {
-      console.log( "next")
       nextMark();
     }
 

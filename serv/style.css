@@ -292,3 +292,7 @@ td:empty::before {
   padding: 0;
   vertical-align: middle;
 }
+
+mark.selected {
+  background-color: #00ffff
+}
