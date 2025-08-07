@@ -276,11 +276,19 @@ td:empty::before {
 }
 #searchcontrol button {
   font-size: 1rem;
-  padding: 4px 8px;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
   cursor: pointer;
   touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
 }
 #searchcontrol #mark-counter {
   font-size: 1rem;
   padding: 0.25rem 0 0 0.25rem;  /* top right bottom left */
+}
+.buttonsvg {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  vertical-align: middle;
 }
