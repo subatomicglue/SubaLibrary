@@ -47,7 +47,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
     REQ_BASEURL: req.baseUrl, // view/wiki
-    SEARCH_URL: `https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/${req.baseUrl}/search`,
+    SEARCH_URL: `https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}${req.baseUrl}/search`,
     BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: `<a id="signin-link" style="color: grey;" href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/login">&nbsp;signin</a>`,
     SEARCH: `<span id="search" onclick='search()'><img src="/assets/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></span>`,
