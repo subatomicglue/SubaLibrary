@@ -571,7 +571,9 @@ function _htmlTreeToMarkdown(tree) {
         // Function to escape unmatched characters
         const escapeUnmatchedCharacters = (text) => {
             return text.replace(/\*/g, '&ast;')
-                      .replace(/_/g, '&#95;');
+                      .replace(/_/g, '&#95;')
+                      .replace(/\[/g, '&lbrack;') // we can't have other brackets inside of URL titles [[title]]() doesn't parse!
+                      .replace(/\]/g, '&rbrack;') // we can't have other brackets inside of URL titles [[title]]() doesn't parse!
         };
 
         // Process each part, preserving Markdown formatting in recognized patterns

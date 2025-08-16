@@ -189,6 +189,8 @@ text<br>
 <p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
 `)
 
+htmlToMarkdownTest( `<a href="https://www.google.com" style="text-decoration: none; color: rgb(51, 102, 204); background: none; border-radius: 2px; overflow-wrap: break-word;">[25]</a>`,
+`[&lbrack;25&rbrack;](https://www.google.com)` )
 
 markdownToHtmlTest( ` - bullet [[link](mytopic?searchterm=bokbok)]
   `,
