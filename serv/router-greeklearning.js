@@ -182,7 +182,7 @@ router.get(`/${app_name}`, (req, res) => {
     console.log( `[greek] ${app_name} app` )
     const new_roots = greek_roots
     const headings = Object.keys( new_roots[0] );
-    let str = `|${headings.map( key => ` ${key} |` ).join("")}\n`
+    let str = `<table>${headings.map( key => `<thead>${key}</thead>` ).join("")}\n`
     str +=    `|${Object.keys( new_roots[0] ).map( key => `--------|` ).join("")}\n`
     str +=    `${new_roots.map( r => {return "|" + headings.map( key => ` ${r[key] ? (typeof r[key] == 'object') ? (Array.isArray( r[key] ) ? r[key].join(", ") : JSON.stringify( r[key] )) : r[key] : ''} |` ).join("")} ).join("\n")}\n`
     return res.send(
@@ -246,6 +246,103 @@ router.get(`/${app_name}`, (req, res) => {
     return res.send(generateCatchHTML(err));
   }
 });
+
+app_name = "vocabulary_quiz"
+apps.push( app_name )
+router.get(`/${app_name}`, (req, res) => {
+  const app_name = req.route.path.replace(/^\//, '');
+  try {
+    console.log(`[greek] ${app_name} app`);
+    const new_roots = greek_roots_dedupe;
+
+    // Pick a random root for this quiz
+    const root = new_roots[Math.floor(Math.random() * new_roots.length)];
+
+    // pick 3 random wrong meanings
+    let wrongOptions = [];
+    while (wrongOptions.length < 3) {
+      const randomRoot = new_roots[Math.floor(Math.random() * new_roots.length)];
+      if (randomRoot.meaning !== root.meaning && !wrongOptions.includes(randomRoot.meaning)) {
+        wrongOptions.push(randomRoot.meaning);
+      }
+    }
+
+    // shuffle correct + wrong
+    const options = [root.meaning, ...wrongOptions].sort(() => Math.random() - 0.5);
+
+    // Insert HTML + JS for single-question quiz
+    const BODY = `
+      <h2>Greek Root Quiz</h2>
+      <div id="quiz-container">
+        <p><strong>${root.root}</strong>: What does this root mean? (${root.part_of_speech}, example: ${root.example_words.map( r => `${r}`).join(", ")})</p>
+        ${options.map(opt => `
+          <label>
+            <input type="radio" name="answer" value="${opt}"> ${opt}
+          </label><br>
+        `).join("")}
+      </div>
+      <button id="submit-btn">Submit Answer</button>
+      <div id="result"></div>
+      <div id="next-timer" style="margin-top:10px;"></div>
+      <button id="next-btn" style="display:none; margin-top:10px;">Next Question</button>
+
+      <script>
+        const correctAnswer = "${root.meaning}";
+        const submitBtn = document.getElementById("submit-btn");
+        const resultDiv = document.getElementById("result");
+        const nextTimerDiv = document.getElementById("next-timer");
+        const nextBtn = document.getElementById("next-btn");
+
+        submitBtn.addEventListener("click", () => {
+          const selected = document.querySelector('input[name="answer"]:checked');
+          if (!selected) {
+            resultDiv.innerHTML = "<p>Please select an option!</p>";
+            return;
+          }
+
+          submitBtn.disabled = true; // prevent multiple submits
+
+          if (selected.value === correctAnswer) {
+            resultDiv.innerHTML = "<p style='color:green'>Correct!</p>";
+
+            // start countdown
+            let seconds = 4;
+            nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
+            const countdown = setInterval(() => {
+              seconds--;
+              nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
+              if (seconds <= 0) {
+                clearInterval(countdown);
+                location.reload(); // reload the page for next question
+              }
+            }, 1000);
+
+          } else {
+            resultDiv.innerHTML = "<p style='color:red'>Wrong! Correct answer: " + correctAnswer + "</p>";
+            nextBtn.style.display = "inline-block"; // show manual next button
+          }
+        });
+
+        nextBtn.addEventListener("click", () => {
+          location.reload(); // manually reload for next question
+        });
+      </script>
+    `;
+
+
+    return res.send(
+      template.file("template.page.html", {
+        ...commonPageVars(req, app_name),
+        BODY
+      })
+    );
+
+  } catch (err) {
+    return res.send(generateCatchHTML(err));
+  }
+});
+
+
 
 //////////////////////////////////////////
 
