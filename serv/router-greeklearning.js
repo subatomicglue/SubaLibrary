@@ -333,6 +333,7 @@ router.get(`/${app_name}`, (req, res) => {
     return res.send(
       template.file("template.page.html", {
         ...commonPageVars(req, app_name),
+        TITLE: `${settings.TITLE} - ${app_name}`,
         BODY
       })
     );
