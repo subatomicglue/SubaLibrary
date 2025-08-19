@@ -182,16 +182,15 @@ router.get(`/${app_name}`, (req, res) => {
     console.log( `[greek] ${app_name} app` )
     const new_roots = greek_roots
     const headings = Object.keys( new_roots[0] );
-    let str = `<table>${headings.map( key => `<thead>${key}</thead>` ).join("")}\n`
-    str +=    `|${Object.keys( new_roots[0] ).map( key => `--------|` ).join("")}\n`
-    str +=    `${new_roots.map( r => {return "|" + headings.map( key => ` ${r[key] ? (typeof r[key] == 'object') ? (Array.isArray( r[key] ) ? r[key].join(", ") : JSON.stringify( r[key] )) : r[key] : ''} |` ).join("")} ).join("\n")}\n`
+    let str = `<table>${headings.map( key => `<thead><tr><td>${key}</td></tr></thead>` ).join("")}\n`
+    str +=    `${new_roots.map( r => {return "<tbody><tr>" + headings.map( key => `<td>${r[key] ? (typeof r[key] == 'object') ? (Array.isArray( r[key] ) ? r[key].join(", ") : JSON.stringify( r[key] )) : r[key] : ''}</td>` ).join("")} ).join("\n")}</tr></tbody></table>`
+    // <!-- json: <pre>${JSON.stringify( new_roots )}</pre><br>
+    // markdown: <pre>${str}</pre><br> --></br>
     return res.send(
       template.file( "template.page.html", {
         ...commonPageVars(req, app_name),
         BODY: `
           ${new_roots.length} total:<BR>
-          <!-- json: <pre>${JSON.stringify( new_roots )}</pre><br>
-          markdown: <pre>${str}</pre><br> -->
           ${markdownToHtml( str )}
         `
       })
@@ -255,13 +254,23 @@ router.get(`/${app_name}`, (req, res) => {
     console.log(`[greek] ${app_name} app`);
     const new_roots = greek_roots_dedupe;
 
-    // Pick a random root for this quiz
-    const root = new_roots[Math.floor(Math.random() * new_roots.length)];
+    // get filter from query string
+    const filterPOS = req.query.pos || "all";
+
+    // enumerate all parts of speech for selector
+    const allPOS = [...new Set(new_roots.map(r => r.part_of_speech))];
+
+    // filter roots based on POS
+    const filteredRoots = filterPOS === "all" ? new_roots : new_roots.filter(r => r.part_of_speech === filterPOS);
+    if (filteredRoots.length === 0) filteredRoots.push(...new_roots); // fallback if filter empty
+
+    // Pick a random root
+    const root = filteredRoots[Math.floor(Math.random() * filteredRoots.length)];
 
     // pick 3 random wrong meanings
     let wrongOptions = [];
     while (wrongOptions.length < 3) {
-      const randomRoot = new_roots[Math.floor(Math.random() * new_roots.length)];
+      const randomRoot = filteredRoots[Math.floor(Math.random() * filteredRoots.length)];
       if (root.part_of_speech == randomRoot.part_of_speech && randomRoot.meaning !== root.meaning && !wrongOptions.includes(randomRoot.meaning)) {
         wrongOptions.push(randomRoot.meaning);
       }
@@ -270,9 +279,18 @@ router.get(`/${app_name}`, (req, res) => {
     // shuffle correct + wrong
     const options = [root.meaning, ...wrongOptions].sort(() => Math.random() - 0.5);
 
-    // Insert HTML + JS for single-question quiz
+    // create HTML select for POS filter
+    const posSelector = `
+      <label for="pos-filter">Part of Speech:</label>
+      <select id="pos-filter">
+        <option value="all"${filterPOS === "all" ? " selected" : ""}>All</option>
+        ${allPOS.map(pos => `<option value="${pos}"${filterPOS === pos ? " selected" : ""}>${pos}</option>`).join("")}
+      </select>
+    `;
+
     const BODY = `
       <h2>Greek Root Quiz</h2>
+      ${posSelector}
       <div id="quiz-container">
         <p><strong>${root.root}</strong>: What does this root mean? (${root.part_of_speech}, example: ${root.example_words.map( r => `${r}`).join(", ")})</p>
         ${options.map(opt => `
@@ -292,6 +310,14 @@ router.get(`/${app_name}`, (req, res) => {
         const resultDiv = document.getElementById("result");
         const nextTimerDiv = document.getElementById("next-timer");
         const nextBtn = document.getElementById("next-btn");
+        const posFilter = document.getElementById("pos-filter");
+
+        // handle POS filter change
+        posFilter.addEventListener("change", () => {
+          const newURL = new URL(window.location.href);
+          newURL.searchParams.set("pos", posFilter.value);
+          window.location.href = newURL.href;
+        });
 
         submitBtn.addEventListener("click", () => {
           const selected = document.querySelector('input[name="answer"]:checked');
@@ -300,7 +326,7 @@ router.get(`/${app_name}`, (req, res) => {
             return;
           }
 
-          submitBtn.disabled = true; // prevent multiple submits
+          submitBtn.disabled = true;
 
           if (selected.value === correctAnswer) {
             resultDiv.innerHTML = "<p style='color:green'>Correct!</p>";
@@ -313,22 +339,26 @@ router.get(`/${app_name}`, (req, res) => {
               nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
               if (seconds <= 0) {
                 clearInterval(countdown);
-                location.reload(); // reload the page for next question
+                // preserve filter in URL when reloading
+                const newURL = new URL(window.location.href);
+                newURL.searchParams.set("pos", posFilter.value);
+                window.location.href = newURL.href;
               }
             }, 1000);
 
           } else {
             resultDiv.innerHTML = "<p style='color:red'>Wrong! Correct answer: " + correctAnswer + "</p>";
-            nextBtn.style.display = "inline-block"; // show manual next button
+            nextBtn.style.display = "inline-block";
           }
         });
 
         nextBtn.addEventListener("click", () => {
-          location.reload(); // manually reload for next question
+          const newURL = new URL(window.location.href);
+          newURL.searchParams.set("pos", posFilter.value);
+          window.location.href = newURL.href;
         });
       </script>
     `;
-
 
     return res.send(
       template.file("template.page.html", {
