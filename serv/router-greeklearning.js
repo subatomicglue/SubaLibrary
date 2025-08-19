@@ -262,7 +262,7 @@ router.get(`/${app_name}`, (req, res) => {
     let wrongOptions = [];
     while (wrongOptions.length < 3) {
       const randomRoot = new_roots[Math.floor(Math.random() * new_roots.length)];
-      if (randomRoot.meaning !== root.meaning && !wrongOptions.includes(randomRoot.meaning)) {
+      if (root.part_of_speech == randomRoot.part_of_speech && randomRoot.meaning !== root.meaning && !wrongOptions.includes(randomRoot.meaning)) {
         wrongOptions.push(randomRoot.meaning);
       }
     }
@@ -306,7 +306,7 @@ router.get(`/${app_name}`, (req, res) => {
             resultDiv.innerHTML = "<p style='color:green'>Correct!</p>";
 
             // start countdown
-            let seconds = 4;
+            let seconds = 2;
             nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
             const countdown = setInterval(() => {
               seconds--;
