@@ -151,8 +151,8 @@ router.get(`/`, (req, res) => {
 function commonPageVars(req, app_name, t=new Date() ) {
   return {
     ...settings, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
-    TITLE: `${settings.TITLE} - ${app_name}`,
-    SOCIAL_TITLE: `${settings.TITLE} - ${app_name}`,
+    TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
+    SOCIAL_TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
     BACKBUTTON_IMAGE: `/${settings.ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
