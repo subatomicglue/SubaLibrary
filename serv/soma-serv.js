@@ -336,15 +336,16 @@ Disallow:`);
 ////////////////////////////////////////////////////////////////////////////////
 // register custom config-based system-call endpoints
 ////////////////////////////////////////////////////////////////////////////////
-function runCommand(cmd, req) {
+async function runCommand(cmd, req) {
   const VERBOSE = false
   try {
-    const { execSync } = require('child_process');
+    const execAsync = require('util').promisify( require('child_process').exec )
     logger.info( `[some-serv] ${userLogDisplay(req)} wiki cron exec: "${cmd}"` )
-    const output = execSync(cmd, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10 });
+    const { stdout, stderr } = await execAsync(cmd, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10 });
     VERBOSE && logger.info('[some-serv] Command Output:');
-    VERBOSE && logger.info(output);
-    return output
+    VERBOSE && logger.info("stdout:", stdout);
+    VERBOSE && logger.info("stderr:", stderr);
+    return stdout + `${stderr != "" ? "\n\n----\nstderr:\n----\n" + stderr : ""}`
   } catch (error) {
     logger.error(`[some-serv] ${userLogDisplay(req)} Command failed!`);
     logger.error(`[some-serv] Error message:`, error.message);
@@ -380,8 +381,8 @@ CUSTOM.forEach( r => {
       logger.info( ` - r.users(${r.users}) typeof(${typeof r.users} is array ${Array.isArray( r.users )}) should be 'array'` )
     } else {
       logger.info( `[CUSTOM] ${userLogDisplay()} endpoint ${JSON.stringify( r )}` )
-      app.use(r.endpoint, authUsers(r.users), (req, res, next) => {
-        const result = runCommand(r.cmd, req);
+      app.use(r.endpoint, authUsers(r.users), async (req, res, next) => {
+        const result = await runCommand(r.cmd, req);
         return res.status(200).send( `<a href="javascript:history.back()">&lt; Go Back</a><BR><hr>` + result.replace(/\n/g,"<br>") );
       })
     }
@@ -407,8 +408,8 @@ CUSTOM.forEach( r => {
       //             │ │ │ │ ┌───────────── day of the week (0 - 7) (0 and 7 both represent Sunday)
       //             │ │ │ │ │
       //            '* * * * *'
-      cron.schedule( r.cron, () => {
-        const result = runCommand(r.cmd);
+      cron.schedule( r.cron, async () => {
+        const result = await runCommand(r.cmd);
         logger.info( result );
       });
     }
