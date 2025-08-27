@@ -35,9 +35,73 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
+  # Set up a Redirect from DomainName2 to DomainName, so that SEO isn't split (which would result in SEO penalties)
+  RedirectAllAliasesFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: RedirectAllAliasesToCanonical
+      FunctionConfig:
+        Comment: !Sub "Redirect all subdomains of ${DomainName} to canonical ${DomainName2}"
+        Runtime: cloudfront-js-1.0
+      AutoPublish: true
+      FunctionCode:
+        !Sub |
+          function handler(event) {
+            var request = event.request;
+            var host = request.headers['host'].value.toLowerCase();
+
+            var canonicalRoot = "${DomainName2}".toLowerCase();   // e.g., example.com
+            var alternates = ["${DomainName}".toLowerCase()];   // e.g., exam-ple.com
+
+            // Already on canonical domain? Nothing to do
+            if (host.endsWith(canonicalRoot)) return request;
+
+            // Check if host matches any alternate domain
+            var matchedAlternate = alternates.find(function(a) {
+              return host.endsWith(a);
+            });
+
+            if (!matchedAlternate) {
+              // Host is not canonical or known alternate, leave it alone
+              return request;
+            }
+
+            // Extract subdomain (anything before the alternate root)
+            var subdomain = host.slice(0, host.length - matchedAlternate.length);
+            if (subdomain.endsWith('.')) subdomain = subdomain.slice(0, -1);
+
+            var newHost = subdomain ? (subdomain + '.' + canonicalRoot) : canonicalRoot;
+
+            // Build query string safely
+            var queryString = "";
+            if (Object.keys(request.querystring).length > 0) {
+              for (var param in request.querystring) {
+                  if (request.querystring[param].value !== undefined) {
+                      queryString += encodeURIComponent(param) + '=' + encodeURIComponent(request.querystring[param].value) + '&';
+                  } else {
+                      queryString += encodeURIComponent(param) + '&'; // For parameters without a value
+                  }
+              }
+              // Remove trailing ampersand
+              queryString = queryString.slice(0, -1);
+              queryString = '?' + queryString;
+            }
+
+            return {
+              statusCode: 302,
+              statusDescription: 'Moved Temporarily',
+              //statusCode: 301,
+              //statusDescription: 'Moved Permanently',
+              headers: {
+                'location': { value: 'https://' + newHost + request.uri + queryString }
+              }
+            };
+          }
+
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     DependsOn:
+      - RedirectAllAliasesFunction
       - S3Bucket
     Properties:
       DistributionConfig:
@@ -88,6 +152,11 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: !Ref MyCachePolicy
           ResponseHeadersPolicyId: !Ref MyResponseHeadersPolicy
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt RedirectAllAliasesFunction.FunctionARN
+
+
 
   MyCachePolicy:
     Type: AWS::CloudFront::CachePolicy
