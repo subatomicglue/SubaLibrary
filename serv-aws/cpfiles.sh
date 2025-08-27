@@ -8,6 +8,12 @@ source parameters.sourceme.sh
 # upload dummy file (hello world)
 #aws s3 cp index.html "s3://$BUCKET_NAME/" --cache-control 'no-cache'
 
+# cache-control
+# maxage:
+# 86400 seconds = 1 day (1 × 24 × 60 × 60)
+# 604800 seconds = 7 days (7 × 24 × 60 × 60)
+# 31536000 seconds = 1 year (365 × 24 × 60 × 60)
+
 METADATA_FOR_HTML="--metadata-directive REPLACE --metadata x-amz-meta-referrer-policy=origin-when-cross-origin"
 
 # generate & upload static site
@@ -27,8 +33,11 @@ aws s3 sync ../serv/build/uploads/ "s3://$BUCKET_NAME/wiki/uploads/files/" --cac
 aws s3 cp ../serv/build/rss "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'application/rss+xml'
 
 # torrent (we serve them from /rss endpoint, dont get confused :) )
-aws s3 sync ../serv/build/torrents/ "s3://$BUCKET_NAME/rss/" --cache-control 'max-age=31536000' --include "*.torrent" --content-type 'application/x-bittorrent'
+aws s3 sync ../serv/build/torrents/ "s3://$BUCKET_NAME/rss/" --cache-control 'no-cache' --include "*.torrent" --content-type 'application/x-bittorrent'
 
 # robots
-aws s3 cp ../serv/build/robots.txt "s3://$BUCKET_NAME/" --cache-control 'max-age=31536000' --content-type 'text/plain'
+aws s3 cp ../serv/build/robots.txt "s3://$BUCKET_NAME/" --cache-control 'max-age=86400' --content-type 'text/plain'
+
+# sitemap
+aws s3 cp ../serv/build/sitemap.xml "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'application/xml'
 
