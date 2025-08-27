@@ -31,6 +31,7 @@ const {
   PUBLIC_ACCESS,
   GLOBAL_REDIRECTS,
   HOSTNAME_FOR_EDITS,
+  DOMAINS,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -330,6 +331,28 @@ Disallow:`);
     res.type('text/plain');
     res.send(`User-agent: *
 Disallow:`);
+  }
+});
+
+// Combine into a single sitemap
+app.get("/sitemap.xml", async (req, res) => {
+  res.header("Content-Type", "application/xml");
+  try {
+    const host = req.get('host').replace(/\..*$/, '');
+    logger.info( `[sitemap.xml] ${userLogDisplay(req)} host:${host} domain:${req.get('host')}` );
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const currentDomain = `${req.get('host')}`;
+    const prod_mode = DOMAINS.includes( currentDomain )
+    if (!prod_mode && host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
+      res.send("<url></url>");
+    } else {
+      res.send(await require(`./sitemap.js`).siteMap(baseUrl));
+    }
+  } catch (error) {
+    logger.error( ` - error:${error}` );
+    logger.error( ` - stack:${error.stack}`)
+    res.send("<url></url>");
   }
 });
 

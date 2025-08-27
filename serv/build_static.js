@@ -303,6 +303,12 @@ const robotsTxtPath = path.join(outputDir, "robots.txt")
 syncer.writeFileIfChanged(undefined, robotsTxtPath, `User-agent: *
 Disallow:`)
 
+// write out sitemap.xml
+const sitemapXmlPath = path.join(outputDir, "sitemap.xml")
+require( `./sitemap.js` ).siteMap( "https://" + SETTINGS.DOMAINS[1] ).then( sitemap_xml => {
+  syncer.writeFileIfChanged(undefined, sitemapXmlPath, sitemap_xml )
+})
+
 // write out the rss
 const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")

@@ -47,6 +47,7 @@ const edit_route="/edit"
 const diff_route="/diff"
 const uploads_file_serv_url_prefix = '/uploads/files';
 const uploads_image_serv_url_prefix = '/uploads';
+const regex_match_fullversion_md = /^[^.]+\.md$/;
 
 
 // Ensure wiki directory exists
@@ -989,7 +990,7 @@ router.put('/search', express.json(), (req, res) => {
 
     // Read all markdown files in the directory
     let results = []
-    fs.readdirSync(WIKI_DIR).filter( file => /^[^.]+\.md$/.test(file) ).forEach(file => {
+    fs.readdirSync(WIKI_DIR).filter( file => regex_match_fullversion_md.test(file) ).forEach(file => {
       const filePath = path.join(WIKI_DIR, file);
       const topic = path.basename(file, '.md');
       const content = fs.readFileSync(filePath, 'utf8').toLowerCase();
@@ -1172,6 +1173,54 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 });
 
 
+// Function to generate sitemap entries from wiki files
+async function getSitemapEntries( baseUrl = "", endpoint = "/wiki" ) {
+  //const currentTime = (new Date()).toISOString().slice(0, 10);
+  const fs_async = require( "fs/promises" );
+  const files = await fs_async.readdir(WIKI_DIR);
+
+  // Filter markdowns
+  const mdFiles = files.filter(file => regex_match_fullversion_md.test(file));
+
+  // For each, grab stats concurrently (efficient, non-blocking)
+  let entries = await Promise.all(
+    mdFiles.map(async f => {
+      const stats = await fs_async.stat(path.join(WIKI_DIR, f));
+      return {
+        url: `${baseUrl}/${endpoint}${view_route}/${encodeURIComponent( path.basename(f, ".md") )}`,
+        lastmod: stats.mtime.toISOString().split('.')[0] + 'Z', // last modified
+        priority: 0.5,
+        changefreq: "daily",
+      };
+    })
+  );
+
+  // add / or index
+  try {
+    const stats = await fs_async.stat(path.join(WIKI_DIR, "index.md"));
+    entries = [
+    {
+      url: `${baseUrl}`,
+      lastmod: stats.mtime.toISOString().split('.')[0] + 'Z', // last modified
+      priority: 1.0,
+      changefreq: "daily",
+    },
+    // {
+    //   url: `${baseUrl}/${endpoint}${view_route}`,
+    //   lastmod: stats.mtime.toISOString().split('.')[0] + 'Z', // last modified
+    //   priority: 1.0,
+    //   changefreq: "daily",
+    // },
+    ...entries]
+  } catch (err) {
+    // index.md doesn't have to exist, ok to fail. (we do expect it to exist though, since it's the root landing page)
+    logger.error( "[sitemap.xml] index.md doesn't exist??  weird.   someone should setup their wiki!")
+    logger.error( `${err.stack}` )
+  }
+
+  return entries;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1197,3 +1246,4 @@ function init( l ) {
 // Plug into Express
 module.exports.router = router;
 module.exports.init = init;
+module.exports.getSitemapEntries = getSitemapEntries;
