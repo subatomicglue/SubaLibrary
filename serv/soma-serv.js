@@ -344,7 +344,7 @@ app.get("/sitemap.xml", async (req, res) => {
     const currentDomain = `${req.get('host')}`;
     const prod_mode = DOMAINS.includes( currentDomain )
     logger.info( `[sitemap.xml] ${userLogDisplay(req)} host:${host} domain:${req.get('host')} prod_mode:${prod_mode}` );
-    if (!prod_mode && host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
+    if (prod_mode && host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
       res.send("<url></url>");
     } else {
       res.send(await require(`./sitemap.js`).siteMap(baseUrl));
