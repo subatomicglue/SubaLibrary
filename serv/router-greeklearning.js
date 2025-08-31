@@ -151,7 +151,7 @@ router.get(`/`, (req, res) => {
 function commonPageVars(req, app_name, t=new Date() ) {
   return {
     ...settings, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
-    TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
+    TITLE: `${settings.TITLE}`,
     SOCIAL_TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
@@ -199,6 +199,124 @@ router.get(`/${app_name}`, (req, res) => {
     return res.send(generateCatchHTML(err));
   }
 });
+
+function transliterateGreek(text) {
+  // Normalize text to NFD (decomposed) form to separate accents
+  const normalized = text.normalize('NFD');
+
+  // Mapping of Greek letters to Latin transliteration
+  const greekMap = {
+    'α': 'a', 'ά': 'a', 'ἀ':'a','ἁ':'a','ἄ':'a','ἅ':'a','ἂ':'a','ἃ':'a','ἆ':'a','ἇ':'a',
+    'β': 'b',
+    'γ': 'g',
+    'δ': 'd',
+    'ε': 'e','έ':'e','ἐ':'e','ἑ':'e','ἒ':'e','ἓ':'e','ἔ':'e','ἕ':'e',
+    'ζ': 'z',
+    'η': 'ē','ή':'ē','ἠ':'ē','ἡ':'ē','ἤ':'ē','ἥ':'ē','ἢ':'ē','ἣ':'ē','ἦ':'ē','ἧ':'ē',
+    'θ': 'th',
+    'ι': 'i','ί':'i','ϊ':'i','ΐ':'i','ἰ':'i','ἱ':'i','ἴ':'i','ἵ':'i','ἲ':'i','ἳ':'i','ἶ':'i','ἷ':'i',
+    'κ': 'k',
+    'λ': 'l',
+    'μ': 'm',
+    'ν': 'n',
+    'ξ': 'x',
+    'ο': 'o','ό':'o','ὀ':'o','ὁ':'o','ὂ':'o','ὃ':'o','ὄ':'o','ὅ':'o',
+    'π': 'p',
+    'ρ': 'r','ῤ':'r','ῥ':'r',
+    'σ': 's','ς':'s',
+    'τ': 't',
+    'υ': 'u','ύ':'u','ϋ':'u','ΰ':'u','ὐ':'u','ὑ':'u','ὔ':'u','ὕ':'u','ὒ':'u','ὓ':'u','ὖ':'u','ὗ':'u',
+    'φ': 'ph',
+    'χ': 'ch',
+    'ψ': 'ps',
+    'ω': 'ou','ώ':'ou','ὠ':'ou','ὡ':'ou','ὤ':'ou','ὥ':'ou','ὢ':'ou','ὣ':'ou','ὦ':'ou','ὧ':'ou',
+    // Uppercase equivalents
+    'Α': 'A','Ά':'A','Β':'B','Γ':'G','Δ':'D','Ε':'E','Έ':'E','Ζ':'Z','Η':'Ē','Ή':'Ē','Θ':'Th',
+    'Ι':'I','Ί':'I','Κ':'K','Λ':'L','Μ':'M','Ν':'N','Ξ':'X','Ο':'O','Ό':'O','Π':'P','Ρ':'R',
+    'Σ':'S','Τ':'T','Υ':'Y','Ύ':'Y','Φ':'Ph','Χ':'Ch','Ψ':'Ps','Ω':'Ou','Ώ':'Ou'
+  };
+
+  // Remove diacritics
+  const stripped = normalized.replace(/[\u0300-\u036f]/g, '');
+
+  // Transliterate each character
+  let result = '';
+  for (const char of stripped) {
+    result += greekMap[char] !== undefined ? greekMap[char] : char;
+  }
+  return result;
+}
+
+app_name = "quizzinator5000"
+apps.push( app_name )
+router.get(`/${app_name}`, (req, res) => {
+  const app_name = req.route.path.replace(/^\//, '');
+  try {
+    console.log( `[greek] ${app_name} app` )
+    
+    // let debug = JSON.stringify( greek_roots.map( r => { return { ...r, transliteration: cor.filter( r2 => r2.root == r.root && r2.part_of_speech == r.part_of_speech )[0]?.transliteration }}) )
+    // return res.send( debug )
+
+    let data = ""
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Examples of",
+      questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.example_words.join( ", ") ) }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Transliterate",
+      questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.root ) }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Transliterate Ex",
+      questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.example_words.join( ", "), "answer": transliterateGreek( r.example_words.join(", ") ) }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Nouns",
+      questions: greek_roots_dedupe.filter( r => r.part_of_speech == "noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Verbs",
+      questions: greek_roots_dedupe.filter( r => r.part_of_speech == "verb" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Adjective",
+      questions: greek_roots_dedupe.filter( r => r.part_of_speech == "adjective" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Prefixes",
+      questions: greek_roots_dedupe.filter( r => r.part_of_speech == "prefix" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Word Roots - Proper Noun",
+      questions: greek_roots_dedupe.filter( r => r.part_of_speech == "proper noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Match Stone to Script",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.scroll }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Match Script Letter to Name",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.scroll, "answer": r.name }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Match Stone Letter to Name",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.name }})
+    }) + `</script>`
+
+    return res.send(
+      template.file( "template.page.html", {
+        ...commonPageVars(req, app_name),
+        BODY: template.file( "template.quiz.html", {
+          ...commonPageVars(req, app_name),
+          SCRIPTS: `<%include "${settings.WIKI_DIR}/greek-quizes.json"%>${data}`
+        })
+      })
+    );
+  } catch (err) {
+    return res.send(generateCatchHTML(err));
+  }
+});
+
 
 app_name = "list_all_roots_json"
 apps.push( app_name )
@@ -252,7 +370,7 @@ router.get(`/${app_name}`, (req, res) => {
   const app_name = req.route.path.replace(/^\//, '');
   try {
     console.log(`[greek] ${app_name} app`);
-    const new_roots = greek_roots_dedupe;
+    const new_roots = greek_roots_dedupe; //<----------------------------
 
     // get filter from query string
     const filterPOS = req.query.pos || "all";
@@ -372,6 +490,53 @@ router.get(`/${app_name}`, (req, res) => {
   }
 });
 
+/*
+
+
+
+1. Alphabet Quiz
+
+Goal: letter recognition, name, sound.
+Formats:
+Match sound to letter: play audio (or write “/ph/”), show four letters → φ / π / θ / β.
+
+Identify name: show symbol “ξ” → options: xi / chi / zeta / ksi.
+
+Order game: show scrambled α β δ γ, ask: “Which comes 3rd?”
+
+2. Diphthong & Vowel Length Quiz
+
+Goal: distinguish vowel qualities, short vs. long, diphthongs.
+
+Formats:
+
+Sound recognition (with audio): play sound /ai/ → choose αι / ει / οι / αυ.
+
+Length drill: show “ο” vs “ω” → ask: which is long?
+
+Fill-the-blank: show “λ___γος” with options ο / ω.
+
+Trap questions: e.g. “Which of these is a true diphthong?” (ει, ου, η, ω).
+
+3. Accent Marks Quiz
+
+Goal: train awareness of acute, grave, circumflex, and breathing marks.
+
+Formats:
+
+Identify function: show: ἄνθρωπος → ask: what does the ἄ mark indicate?
+Options: acute accent, rough breathing, circumflex, grave.
+
+Match mark to rule:
+
+Show: ῥ → options: initial rho is aspirated / initial rho is smooth / circumflex accent / iota subscript.
+
+Error spotting: show: ὀίκος → ask: what’s wrong with the accents/breathings?
+
+4. Audio + Accent Reinforcement (advanced)
+
+If you add sound, you can quiz: “How would this accent shift the pitch/stress?” and have user pick the correct audio playback.
+*/
 
 
 //////////////////////////////////////////

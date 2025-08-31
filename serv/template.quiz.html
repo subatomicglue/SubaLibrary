@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>General Quiz</title>
+<style>
+  :root {
+    --bg: #111;
+    --panel: #1b1b1b;
+    --text: #f2f2f2;
+    --muted: #b6b6b6;
+    --accent: #2dd4bf;
+    --danger: #ef4444;
+    --ok: #86efac;
+    --btn: #222;
+    --btn-hover: #2a2a2a;
+    --ring: rgba(45,212,191,.35);
+  }
+  html, body {margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;}
+  .wrap {max-width:900px; margin:0 auto; padding:24px;}
+  header {display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; margin-bottom:16px;}
+  .title {font-weight:700; letter-spacing:.3px;}
+  .meta {display:flex; gap:16px; font-size:.95rem; color:var(--muted);}
+  .card {background:var(--panel); border-radius:14px; padding:20px; box-shadow:0 0 0 1px #000 inset, 0 10px 30px rgba(0,0,0,.35);}
+  .prompt {font-size:clamp(28px,6vw,56px); font-weight:800; text-align:center; margin:10px 0 18px; letter-spacing:.5px;}
+  .subprompt {text-align:center; color:var(--muted); margin-bottom:14px; font-size:.95rem;}
+  .choices {display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;}
+  button.choice {appearance:none; border:1px solid #000; background:var(--btn); color:var(--text); padding:14px 16px; border-radius:12px; font-size:1rem; text-align:left; cursor:pointer; box-shadow:0 0 0 0 transparent,0 6px 16px rgba(0,0,0,.25); transition:transform .05s ease, background .15s ease, box-shadow .15s ease;}
+  button.choice:hover {background:var(--btn-hover);}
+  button.choice:focus {outline:none; box-shadow:0 0 0 3px var(--ring);}
+  button.choice.correct.reveal {border-color:#0f5132; box-shadow:0 0 0 2px rgba(16,185,129,.35) inset;}
+  button.choice.incorrect.reveal {border-color:#6b1414; box-shadow:0 0 0 2px rgba(239,68,68,.35) inset;}
+  .footer {display:flex; align-items:center; justify-content:space-between; margin-top:16px; gap:10px; flex-wrap:wrap;}
+  .feedback {min-height:1.5em; color:var(--muted);}
+  .feedback.ok {color:var(--ok);}
+  .feedback.bad {color:var(--danger);}
+  .controls {display:flex; gap:10px;}
+  .btn {appearance:none; border:1px solid #000; background:var(--btn); color:var(--text); padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;}
+  .btn:hover {background:var(--btn-hover);}
+  .hidden {display:none !important;}
+
+  /* Overlay styles for quiz selection menu */
+  #quizMenu {
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  #quizMenu h2 {color: var(--accent); margin-bottom: 16px;}
+  #quizMenu button {margin: 6px; min-width: 220px;}
+  header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    gap: 12px; 
+    margin-bottom: 16px; 
+  }
+
+  .header-left { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+  }
+
+  #backBtn {
+    display: none; /* initially hidden */
+    padding: 6px 10px;
+    font-weight: bold;
+    width: auto; /* don't fill space */
+    min-width: 32px;
+  }
+    
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="header-left">
+      <button class="btn" id="backBtn">&lt;</button>
+      <div id="title" class="title">General Quiz</div>
+    </div>
+    <div class="meta">
+      <div id="progress">0 / 0</div>
+      <div id="score">Score: 0</div>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="subprompt" id="subprompt">Select the correct answer:</div>
+    <div class="prompt" id="prompt">—</div>
+    <div class="choices" id="choices"></div>
+
+    <div class="footer">
+      <div class="feedback" id="feedback">&nbsp;</div>
+      <div class="controls">
+        <button class="btn hidden" id="nextBtn" type="button">Next ➜</button>
+        <button class="btn" id="restartBtn" type="button">Restart</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ SELECTION OVERLAY -->
+<div id="quizMenu">
+  <h2>Select a Quiz</h2>
+  <div id="quizButtons"></div>
+</div>
+
+<!-- Quiz data embedded -->
+<%=SCRIPTS%>
+
+<script>
+(() => {
+  const $ = sel => document.querySelector(sel);
+
+  function shuffle(arr) {
+    for (let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function sampleDistinct(arr,k,excludeIndex){
+    const idxs=[...arr.keys()].filter(i=>i!==excludeIndex);
+    shuffle(idxs);
+    return idxs.slice(0,k);
+  }
+
+  let DATA=[], ORDER=[], pos=0, score=0, countdownTimer=null;
+  const cfg={promptKey:'question', choiceKey:'answer'};
+
+  function updateMeta(){
+    $('#progress').textContent=`${Math.min(pos+1,ORDER.length)} / ${ORDER.length}`;
+    $('#score').textContent=`Score: ${score}`;
+  }
+
+  function endCountdown(){ if(countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; } }
+
+  function setFeedback(text,kind=''){ const el=$('#feedback'); el.className=`feedback ${kind}`; el.textContent=text||'\u00A0'; }
+
+  function renderQuestion(){
+    endCountdown();
+    $('#nextBtn').classList.add('hidden');
+    setFeedback('');
+
+    if(pos>=ORDER.length){
+      $('#prompt').textContent='Quiz complete!';
+      $('#choices').innerHTML='';
+      setFeedback(`Final score: ${score} / ${ORDER.length}`, 'ok');
+      $('#subprompt').textContent='🎉 Press Restart to try again';
+      return;
+    }
+
+    const qIndex=ORDER[pos], item=DATA[qIndex];
+    $('#prompt').textContent=item[cfg.promptKey]??'—';
+
+    const distractorIdxs=sampleDistinct(DATA,3,qIndex);
+    const choices=shuffle([qIndex,...distractorIdxs].map(i=>({index:i,label:DATA[i][cfg.choiceKey]})));
+
+    const container=$('#choices');
+    container.innerHTML='';
+    choices.forEach(({index,label})=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='choice';
+      btn.textContent=label??'(missing)';
+      btn.addEventListener('click',()=>{
+        [...container.querySelectorAll('button.choice')].forEach(b=>b.disabled=true);
+        choices.forEach(({index:i},k)=>container.children[k].classList.add(i===qIndex?'correct':'incorrect','reveal'));
+        if(index===qIndex){
+          score++; updateMeta();
+          setFeedback('✓ Correct! Next in 1…','ok'); let t=1;
+          countdownTimer=setInterval(()=>{
+            t--; if(t<=0){ endCountdown(); pos++; renderQuestion(); } else { setFeedback(`✓ Correct! Next in ${t}…`,'ok'); }
+          },1000);
+        }else{
+          setFeedback('✗ Wrong. Review and press Next.','bad');
+          $('#nextBtn').classList.remove('hidden');
+        }
+      });
+      container.appendChild(btn);
+    });
+    updateMeta();
+  }
+
+  function restartRun(){ endCountdown(); score=0; ORDER=shuffle([...DATA.keys()]); pos=0; renderQuestion(); }
+
+  // --- NEW: Initialize quiz selection menu ---
+  const menu = $('#quizMenu');
+  const container = $('#quizButtons');
+  const backBtn = $('#backBtn');
+
+  function showQuizMenu() {
+    menu.style.display='flex';
+    backBtn.style.display='none';
+    container.innerHTML='';
+
+    const scripts = document.querySelectorAll('script[type="application/json"]');
+    const quizzes = [];
+    scripts.forEach(s => {
+      try { quizzes.push(JSON.parse(s.textContent)); } catch(e){ }
+    });
+
+    quizzes.forEach((q,i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = q.title;
+      btn.addEventListener('click',()=>{
+        DATA = q.questions;
+        $('#title').textContent = q.title;
+        $('#subprompt').textContent = q.question;
+        if(DATA.length<4){
+          $('#prompt').textContent='Not enough data'; $('#choices').innerHTML='';
+          setFeedback('Need at least 4 items in the dataset.'); $('#progress').textContent=`0 / 0`; $('#score').textContent=`Score: 0`;
+          return;
+        }
+        menu.style.display='none';
+        backBtn.style.display='inline-block';
+        restartRun();
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  backBtn.addEventListener('click', ()=>{
+    showQuizMenu();
+    $('#prompt').textContent='—';
+    $('#choices').innerHTML='';
+    setFeedback('');
+    $('#progress').textContent='0 / 0';
+    $('#score').textContent='Score: 0';
+  });
+
+  $('#nextBtn').addEventListener('click',()=>{ 
+    if(pos>=ORDER.length){ restartRun(); } else { pos++; renderQuestion(); }
+  });
+  $('#restartBtn').addEventListener('click',()=>{ restartRun(); });
+
+  showQuizMenu();
+})();
+</script>
+</body>
+</html>
+
