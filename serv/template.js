@@ -13,9 +13,10 @@ function data( d, vars = {} ) {
     VERBOSE && logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
     return value;
   });
-  d = d.replace(/([\t ]*)<%include\s+(["'`])([^"'`]+)\2\s*%>/g, (match, whitespace, quotetype, filename) => {
+  d = d.replace(/([\t ]*)<%include\s+(["'`])([^"'`]+)\2(?:\s+([a-zA-Z0-9_ ]+))?\s*%>/g, (match, whitespace, quotetype, filename, options) => {
     try {
-      let data2 = fs_readFileSync_cached(filename).replace( /^/gm, whitespace )
+      options = options ? options.split(' ') : []; // check for options like: options.include( "force" ) 
+      let data2 = (options.include( "force" ) ? fs.readFileSync( filename ) : fs_readFileSync_cached(filename)).replace( /^/gm, whitespace )
       let value = data( data2, vars ); // recurse in case there's variables or other includes. 
       VERBOSE && logger.info(`[template] replacing: 'include ${filename}' -> '${value.replace(/^[\n\s]+/m, '').replace(/\n.*/gm, '' ).substring(0, 64)}'`);
       return value; // Read file contents

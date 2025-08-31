@@ -308,7 +308,7 @@ router.get(`/${app_name}`, (req, res) => {
         ...commonPageVars(req, app_name),
         BODY: template.file( "template.quiz.html", {
           ...commonPageVars(req, app_name),
-          SCRIPTS: `<%include "${settings.WIKI_DIR}/greek-quizes.json"%>${data}`
+          SCRIPTS: `<%include "${settings.WIKI_DIR}/greek-quizes.json" force%>${data}`
         })
       })
     );
