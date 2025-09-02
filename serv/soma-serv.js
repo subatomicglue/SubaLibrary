@@ -306,7 +306,14 @@ const rssTorrentMiddleware = require("./router-rss-torrent");
 rssTorrentMiddleware.init( logger );
 app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
 
+// quick status check
+app.get('/status', (req, res) => {
+  // test hung process: block the event loop so the process stops responding but doesn’t exit:
+  //while (true) { /* do nothing, loop forever*/ }
 
+  //logger.info( "[status] pinged..." )
+  res.status(200).send( `ok` )
+})
 
 // robots.txt
 app.get('/robots.txt', (req, res) => {
