@@ -42,9 +42,10 @@ const logger = winston.createLogger({
     rejectionHandlers: [transport, new winston.transports.Console()]
 });
 
-logger.info( "[watchdog.js] Starting SomaServ watchdog" )
+logger.info( `[watchdog.js] Starting SomaServ watchdog ${new Date().toISOString()}` )
 
 function checkService() {
+  console.log(`[watchdog.js] [${new Date().toISOString()}] Checking service...`);
   return new Promise((resolve, reject) => {
     const req = https.get(
       CHECK_URL,
@@ -56,9 +57,24 @@ function checkService() {
       }
     );
 
+    let show_some_motion = 0;
+    let status_handle = setInterval( () => {
+      logger.info( `[watchdog.js] Waiting ${TIMEOUT_MS/1000}s... ${++show_some_motion}` )
+    }, 1000 );
+
     req.setTimeout(TIMEOUT_MS, () => {
-      req.abort();
-      reject(new Error("Request timed out"));
+      clearInterval( status_handle );
+      logger.info(`[watchdog.js] Request timed out... failing in 3 seconds...`);
+      let FAIL_TIMEOUT = 3;
+      let count = FAIL_TIMEOUT;
+      let about_to_fail_interval = setInterval( () => {
+        logger.info( `[watchdog.js] After timeout, and about to fail in... ${--count}` )
+      }, 1000 );
+      setTimeout(() => {
+        clearInterval( about_to_fail_interval );
+        req.destroy();
+        reject(new Error("Request timed out"));
+      }, FAIL_TIMEOUT * 1000)
     });
 
     req.on("error", (err) => reject(err));
