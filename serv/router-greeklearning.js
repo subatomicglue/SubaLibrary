@@ -263,11 +263,11 @@ router.get(`/${app_name}`, (req, res) => {
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.example_words.join( ", ") ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Word Roots - Transliterate",
+      title: "Word Roots - Transliterate Roots",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.root ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Word Roots - Transliterate Ex",
+      title: "Word Roots - Transliterate Root-Examples",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.example_words.join( ", "), "answer": transliterateGreek( r.example_words.join(", ") ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
