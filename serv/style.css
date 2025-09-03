@@ -21,12 +21,12 @@ pre {
   position: relative;
   overflow: visible; /* container itself does not scroll */
   border: 1px solid #ccc;
-  background: #f6f6fa;
+  /* background: #f6f6fa; */
   padding: 0rem;
 }
 .pre-container-scroll-wrapper {
   overflow-x: auto;
-  white-space: pre;
+  /* white-space: pre; */
 }
 .pre-container::after {
   content: "";
@@ -143,9 +143,11 @@ blockquote {
   color: #555;  /* Soft gray text color */
 }
 
-tt, .pre-container {
+pre, tt, .pre-coloring {
   background-color: #eeeeee;
   color: #222222;
+}
+tt {
   font-family: monospace, 'Courier New', Courier;
 }
 

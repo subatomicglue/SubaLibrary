@@ -103,7 +103,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           return `<div style="text-align: right; padding: 1em; margin: 1em 0;"><intentional newline>${inner}<intentional newline></div>`;
         } else if (fence === '```') { // code box
           const inner = escapeHtml( content );
-          return `${optional_name ? `<b>${optional_name}</b><br>` : ``}<div class="pre-container"><div class="pre-container-scroll-wrapper"><pre><code ${optional_name ? `class="${optional_name}"` : ``}>${inner.replace(/\n/g, '<intentional newline>')}</code></pre><postprocess-prescript></div></div>`;
+          return `${optional_name ? `<b>${optional_name}</b><br>` : ``}<div class="pre-container pre-coloring"><div class="pre-container-scroll-wrapper"><pre><code ${optional_name ? `class="${optional_name}"` : ``}>${inner.replace(/\n/g, '<intentional newline>')}</code></pre><postprocess-prescript></div></div>`;
         }
       }
     );
@@ -179,7 +179,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       VERBOSE && nextline && console.log( "[markdown] table: justify:   ", justification )
       VERBOSE && console.log( "[markdown] table: lines", lines )
 
-      let result = "<table class='markdown-table'>"
+      let result = `<div class="pre-container"><div class="pre-container-scroll-wrapper"><table class='markdown-table'>`
       let whichline = 0
       lines.forEach( line => {
         let is_heading = nextline && whichline == 0
@@ -195,7 +195,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
         result += `</tr></${is_heading ? "thead" : "tbody"}>`
         ++whichline
       })
-      result += "</table>"
+      result += "</table><postprocess-prescript></div></div>"
       VERBOSE && console.log( `[markdown] table: html:${result}` )
       return result
     })

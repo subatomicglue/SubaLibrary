@@ -13,21 +13,22 @@ const { userLogDisplay, getReferrerFromReq } = require("./common")
 
 const settings = require('./settings');
 
-let greek_roots
-try {greek_roots = require('./wiki/greek-roots.json')} catch(error) {console.log( "INFO: you may define greek-roots.json with [ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]" )}
+function loadDataJSON( filename = './wiki/greek-roots.json', example = `[ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]` ) {
+  let data = [];
+  try {data = require(filename)} catch(error) {console.log( `INFO: you may define ${filename} with ${example}` )}
+  return data;
+}
 
-function dedupeGreekRoots(arr) {
+function dedupe(arr, key="root") {
   const seen = new Set();
   return arr.filter(entry => {
-    if (seen.has(entry.root)) {
+    if (seen.has(entry[key])) {
       return false; // skip duplicates
     }
-    seen.add(entry.root);
+    seen.add(entry[key]);
     return true;
   });
 }
-
-const greek_roots_dedupe = dedupeGreekRoots(greek_roots);
 
 // Full irregular mi-verbs dictionary with singular + plural
 const irregularMiVerbsFull = {
@@ -133,6 +134,7 @@ function generateFullVerbForms(entry) {
   return forms;
 }
 
+
 let apps = []
 let app_name;
 
@@ -174,31 +176,6 @@ function generateCatchHTML(err){
   `
 }
 
-app_name = "list_all_roots_table"
-apps.push( app_name )
-router.get(`/${app_name}`, (req, res) => {
-  const app_name = req.route.path.replace(/^\//, '');
-  try {
-    console.log( `[greek] ${app_name} app` )
-    const new_roots = greek_roots
-    const headings = Object.keys( new_roots[0] );
-    let str = `<table>${headings.map( key => `<thead><tr><td>${key}</td></tr></thead>` ).join("")}\n`
-    str +=    `${new_roots.map( r => {return "<tbody><tr>" + headings.map( key => `<td>${r[key] ? (typeof r[key] == 'object') ? (Array.isArray( r[key] ) ? r[key].join(", ") : JSON.stringify( r[key] )) : r[key] : ''}</td>` ).join("")} ).join("\n")}</tr></tbody></table>`
-    // <!-- json: <pre>${JSON.stringify( new_roots )}</pre><br>
-    // markdown: <pre>${str}</pre><br> --></br>
-    return res.send(
-      template.file( "template.page.html", {
-        ...commonPageVars(req, app_name),
-        BODY: `
-          ${new_roots.length} total:<BR>
-          ${markdownToHtml( str )}
-        `
-      })
-    );
-  } catch (err) {
-    return res.send(generateCatchHTML(err));
-  }
-});
 
 function transliterateGreek(text) {
   // Normalize text to NFD (decomposed) form to separate accents
@@ -247,15 +224,15 @@ function transliterateGreek(text) {
   return result;
 }
 
-app_name = "quizzinator5000"
+app_name = "quizzes"
 apps.push( app_name )
 router.get(`/${app_name}`, (req, res) => {
   const app_name = req.route.path.replace(/^\//, '');
   try {
-    console.log( `[greek] ${app_name} app` )
-    
-    // let debug = JSON.stringify( greek_roots.map( r => { return { ...r, transliteration: cor.filter( r2 => r2.root == r.root && r2.part_of_speech == r.part_of_speech )[0]?.transliteration }}) )
-    // return res.send( debug )
+    console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
+
+    const greek_roots = loadDataJSON( './wiki/greek-roots.json', "[ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]" )
+    const greek_roots_dedupe = dedupe(greek_roots, "root")
 
     let data = ""
     data += `<script type="application/json">` + JSON.stringify({
@@ -325,7 +302,7 @@ router.get(`/${app_name}`, (req, res) => {
       title: "Knowledge Quiz",
       questions: [
         { "question": "What color is the sky when clear and sunny during noon?", "answer": "blue", "answers": ["blue", "ochre", "cerulean", "black"] },
-        { "question": "Pick Black?", "answer": "blue", "answers": ["black", "blue", "ochre", "cerulean"] },
+        { "question": "Pick Black?", "answer": "blue", "answers": ["black", "blue", "ochre", "cerulean", "red", "purple", "dysentary"] },
         { "question": "Pick Cereulean?", "answer": "blue", "answers": ["cerulean", "blue", "ochre", "black"] },
         { "question": "Pick Ochre?", "answer": "blue", "answers": ["ochre", "blue", "cerulean", "black"] }
       ]
@@ -346,177 +323,90 @@ router.get(`/${app_name}`, (req, res) => {
 });
 
 
-app_name = "list_all_roots_json"
-apps.push( app_name )
-router.get(`/${app_name}`, (req, res) => {
-  const app_name = req.route.path.replace(/^\//, '');
-  try {
-    console.log( `[greek] ${app_name} app` )
-    const new_roots = greek_roots
-    let str = new_roots.map( r => JSON.stringify( r ) ).join(",<BR>");
-    return res.send(
-      template.file( "template.page.html", {
-        ...commonPageVars(req, app_name),
-        BODY: `
-          ${new_roots.length} total:<BR>
-          [<BR>
-          ${str}<BR>
-          ]
-        `
-      })
-    )
-  } catch (err) {
-    return res.send(generateCatchHTML(err));
-  }
-});
+function generateDataEndPoints( gen_name = "roots", gen_key = "root", gen_datafile = './wiki/greek-roots.json' ) {
+  app_name = `list_all_${gen_name}_table`
+  apps.push( app_name )
+  router.get(`/${app_name}`, (req, res) => {
+    const app_name = req.route.path.replace(/^\//, '');
+    try {
+      console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
+      const new_roots = loadDataJSON( gen_datafile, "[ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]" )
 
-app_name = "list_all_roots_brief"
-apps.push( app_name )
-router.get(`/${app_name}`, (req, res) => {
-  const app_name = req.route.path.replace(/^\//, '');
-  try {
-    console.log( `[greek] ${app_name} app` )
-    const new_roots = greek_roots_dedupe
-    let str_roots = new_roots.map( r => r.root ).join(", ");
-    return res.send(
-      template.file( "template.page.html", {
-        ...commonPageVars(req, app_name),
-        BODY: `
-          ${new_roots.length} unique roots:<BR>
-          ${str_roots}
-        `
-      })
-    )
-  } catch (err) {
-    return res.send(generateCatchHTML(err));
-  }
-});
-
-app_name = "vocabulary_quiz"
-apps.push( app_name )
-router.get(`/${app_name}`, (req, res) => {
-  const app_name = req.route.path.replace(/^\//, '');
-  try {
-    console.log(`[greek] ${app_name} app`);
-    const new_roots = greek_roots_dedupe; //<----------------------------
-
-    // get filter from query string
-    const filterPOS = req.query.pos || "all";
-
-    // enumerate all parts of speech for selector
-    const allPOS = [...new Set(new_roots.map(r => r.part_of_speech))];
-
-    // filter roots based on POS
-    const filteredRoots = filterPOS === "all" ? new_roots : new_roots.filter(r => r.part_of_speech === filterPOS);
-    if (filteredRoots.length === 0) filteredRoots.push(...new_roots); // fallback if filter empty
-
-    // Pick a random root
-    const root = filteredRoots[Math.floor(Math.random() * filteredRoots.length)];
-
-    // pick 3 random wrong meanings
-    let wrongOptions = [];
-    while (wrongOptions.length < 3) {
-      const randomRoot = filteredRoots[Math.floor(Math.random() * filteredRoots.length)];
-      if (root.part_of_speech == randomRoot.part_of_speech && randomRoot.meaning !== root.meaning && !wrongOptions.includes(randomRoot.meaning)) {
-        wrongOptions.push(randomRoot.meaning);
+      // just retrieve the table cell data...
+      function cellContents(r, key) {
+        return r[key] ? (typeof r[key] == 'object') ? (Array.isArray( r[key] ) ? r[key].join(", ") : JSON.stringify( r[key] )) : r[key] : ''
       }
+
+      const headings = Object.keys( new_roots[0] );
+      let str = `|${headings.map( key => ` ${key} |` ).join("")}\n`
+      str += `|${headings.map( key => `:-----|` ).join("")}\n`
+      str += `${new_roots.map( r => {return "|" + headings.map( key => ` ${cellContents(r, key).replace(/\|/g,"&vert;")} |` ).join("")} ).join("\n")}\n`
+
+      return res.send(
+        template.file( "template.page.html", {
+          ...commonPageVars(req, app_name),
+          BODY: `
+            ${new_roots.length} total:<BR>
+            ${markdownToHtml( str )}
+          `
+        })
+      );
+    } catch (err) {
+      return res.send(generateCatchHTML(err));
     }
+  });
 
-    // shuffle correct + wrong
-    const options = [root.meaning, ...wrongOptions].sort(() => Math.random() - 0.5);
 
-    // create HTML select for POS filter
-    const posSelector = `
-      <label for="pos-filter">Part of Speech:</label>
-      <select id="pos-filter">
-        <option value="all"${filterPOS === "all" ? " selected" : ""}>All</option>
-        ${allPOS.map(pos => `<option value="${pos}"${filterPOS === pos ? " selected" : ""}>${pos}</option>`).join("")}
-      </select>
-    `;
+  app_name = `list_all_${gen_name}_json`
+  apps.push( app_name )
+  router.get(`/${app_name}`, (req, res) => {
+    const app_name = req.route.path.replace(/^\//, '');
+    try {
+      console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
+      const new_roots = loadDataJSON( gen_datafile, "[ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]" )
+      let str = new_roots.map( r => JSON.stringify( r ) ).join(",<BR>");
+      return res.send(
+        template.file( "template.page.html", {
+          ...commonPageVars(req, app_name),
+          BODY: `
+            ${new_roots.length} total:<BR>
+            [<BR>
+            ${str}<BR>
+            ]
+          `
+        })
+      )
+    } catch (err) {
+      return res.send(generateCatchHTML(err));
+    }
+  });
 
-    const BODY = `
-      <h2>Greek Root Quiz</h2>
-      ${posSelector}
-      <div id="quiz-container">
-        <p><strong>${root.root}</strong>: What does this root mean? (${root.part_of_speech}, example: ${root.example_words.map( r => `${r}`).join(", ")})</p>
-        ${options.map(opt => `
-          <label>
-            <input type="radio" name="answer" value="${opt}"> ${opt}
-          </label><br>
-        `).join("")}
-      </div>
-      <button id="submit-btn">Submit Answer</button>
-      <div id="result"></div>
-      <div id="next-timer" style="margin-top:10px;"></div>
-      <button id="next-btn" style="display:none; margin-top:10px;">Next Question</button>
+  app_name = `list_all_${gen_name}_brief`
+  apps.push( app_name )
+  router.get(`/${app_name}`, (req, res) => {
+    const app_name = req.route.path.replace(/^\//, '');
+    try {
+      console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
+      const new_roots = dedupe( loadDataJSON( gen_datafile, "[ { \"root\": \"ἔχιδν-\" }, { \"root\": \"χρ-\" } ]" ), gen_key );
+      let str_roots = new_roots.map( r => r[gen_key] ).join(", ");
+      return res.send(
+        template.file( "template.page.html", {
+          ...commonPageVars(req, app_name),
+          BODY: `
+            ${new_roots.length} unique entries:<BR>
+            ${str_roots}
+          `
+        })
+      )
+    } catch (err) {
+      return res.send(generateCatchHTML(err));
+    }
+  });
+}
 
-      <script>
-        const correctAnswer = "${root.meaning}";
-        const submitBtn = document.getElementById("submit-btn");
-        const resultDiv = document.getElementById("result");
-        const nextTimerDiv = document.getElementById("next-timer");
-        const nextBtn = document.getElementById("next-btn");
-        const posFilter = document.getElementById("pos-filter");
+generateDataEndPoints( "roots", "root", './wiki/greek-roots.json' );
+generateDataEndPoints( "alpha", "name", './wiki/greek-alpha.json' );
 
-        // handle POS filter change
-        posFilter.addEventListener("change", () => {
-          const newURL = new URL(window.location.href);
-          newURL.searchParams.set("pos", posFilter.value);
-          window.location.href = newURL.href;
-        });
-
-        submitBtn.addEventListener("click", () => {
-          const selected = document.querySelector('input[name="answer"]:checked');
-          if (!selected) {
-            resultDiv.innerHTML = "<p>Please select an option!</p>";
-            return;
-          }
-
-          submitBtn.disabled = true;
-
-          if (selected.value === correctAnswer) {
-            resultDiv.innerHTML = "<p style='color:green'>Correct!</p>";
-
-            // start countdown
-            let seconds = 2;
-            nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
-            const countdown = setInterval(() => {
-              seconds--;
-              nextTimerDiv.innerHTML = "Next question in " + seconds + " seconds...";
-              if (seconds <= 0) {
-                clearInterval(countdown);
-                // preserve filter in URL when reloading
-                const newURL = new URL(window.location.href);
-                newURL.searchParams.set("pos", posFilter.value);
-                window.location.href = newURL.href;
-              }
-            }, 1000);
-
-          } else {
-            resultDiv.innerHTML = "<p style='color:red'>Wrong! Correct answer: " + correctAnswer + "</p>";
-            nextBtn.style.display = "inline-block";
-          }
-        });
-
-        nextBtn.addEventListener("click", () => {
-          const newURL = new URL(window.location.href);
-          newURL.searchParams.set("pos", posFilter.value);
-          window.location.href = newURL.href;
-        });
-      </script>
-    `;
-
-    return res.send(
-      template.file("template.page.html", {
-        ...commonPageVars(req, app_name),
-        BODY
-      })
-    );
-
-  } catch (err) {
-    return res.send(generateCatchHTML(err));
-  }
-});
 
 /*
 

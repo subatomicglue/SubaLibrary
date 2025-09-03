@@ -272,12 +272,6 @@ function resolveVariables( str, dictionary ) {
   })
 }
 
-// GREEK LEARNING MODULE
-const greekMiddleware = require("./router-greeklearning");
-greekMiddleware.init( logger );
-app.use(`/greek`, greekMiddleware.router);
-
-
 // AUTH
 const authMiddleware = require("./router-auth");
 authMiddleware.init( logger, [ ...MAP_ASSETS_TO_ROOT.map( r => `^/${r}` ), ...PUBLIC_ACCESS.map( r => resolveVariables( r, require('./settings') ) ) ] );
@@ -300,6 +294,11 @@ app.use(`/${WIKI_ENDPOINT}`, wikiMiddleware.router);
 const browserMiddleware = require("./router-browser");
 browserMiddleware.init( logger );
 app.use(`/${FILE_ENDPOINT}`, browserMiddleware.router);
+
+// GREEK LEARNING MODULE
+const greekMiddleware = require("./router-greeklearning");
+greekMiddleware.init( logger );
+app.use(`/greek`, greekMiddleware.router);
 
 // torrent RSS
 const rssTorrentMiddleware = require("./router-rss-torrent");
