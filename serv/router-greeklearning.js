@@ -259,15 +259,15 @@ router.get(`/${app_name}`, (req, res) => {
 
     let data = ""
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Word Roots - Examples of",
+      title: "Word Roots - Root to Word",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.example_words.join( ", ") ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Word Roots - Transliterate Roots",
+      title: "Word Roots - Transliterate Root to English",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.root ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Word Roots - Transliterate Root-Examples",
+      title: "Word Roots - Transliterate Root-Words to English",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.example_words.join( ", "), "answer": transliterateGreek( r.example_words.join(", ") ) }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
