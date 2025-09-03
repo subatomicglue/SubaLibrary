@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <!-- <meta name="referrer" content="strict-origin-when-cross-origin"> -->
     <title><%=SOCIAL_TITLE%></title>
     <%include "template.meta.html"%>
@@ -21,9 +19,9 @@
             <!--  Problem:  We use CSS "direction: rtl;" in order to get the left-hand elipsis effect when the path text overflows...
                   - Text like "my/path/to" is strongly LTR, so it doesn’t visually reverse when direction: rtl; is applied.
                   - The leading / character is a "weak" directional character, it follows the direction: rtl hint, flips to the other side.
-                  - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E
+                  - To force the leading / character to be "strongly LTR" also, use a "hidden" leading Unicode control character &#x200E;
             -->
-            <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E<%=PAGE_TITLE%></span>
+            <span dir="ltr" class="heading-left-child left-ellipsis">&#x200E;<%=PAGE_TITLE%></span>
           </div><div class="heading-right">
             <%=SEARCH%>
           </div><div class="heading-right">

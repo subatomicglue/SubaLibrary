@@ -164,7 +164,7 @@ function commonPageVars(req, app_name, t=new Date() ) {
     WHITESPACE: "normal",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: `${req.baseUrl}/search`,
-    SEARCH: `<span id="search" onclick='search()'><img src="/${settings.ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></span>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${settings.ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
     USER_LOGOUT: ``,
   };
 }

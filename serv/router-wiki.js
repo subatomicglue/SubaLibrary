@@ -97,7 +97,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
   });
 <\/script>
 `,
-    SEARCH: `<span id="search" onclick='search()'><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"/ alt="[search]" title="[search]"></span>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
     // REFERRER: getReferrerFromReq( req )
   })
 }
