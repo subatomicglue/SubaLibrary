@@ -41,18 +41,60 @@
   .hidden {display:none !important;}
 
   /* Overlay styles for quiz selection menu */
+  /* Overlay styles for quiz selection menu */
   #quizMenu {
     position: fixed;
     top:0; left:0; right:0; bottom:0;
     background: rgba(0,0,0,.9);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
     z-index: 9999;
   }
-  #quizMenu h2 {color: var(--accent); margin-bottom: 16px;}
-  #quizMenu button {margin: 6px; min-width: 220px;}
+
+  /* Pin the heading at the top */
+  #quizMenu h2 {
+    color: var(--accent);
+    padding: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    text-align: center;
+    background: rgba(0,0,0,0.8);
+    border-bottom: 1px solid #222;
+  }
+
+  /* Scrollable area for quizzes */
+  #quizButtons {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  /* Tile style for each quiz */
+  .quiz-tile {
+    background: var(--panel);
+    border: 1px solid #000;
+    border-radius: 12px;
+    padding: 18px;
+    color: var(--text);
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    transition: background .15s ease, transform .1s ease;
+  }
+
+  .quiz-tile:hover {
+    background: var(--btn-hover);
+    transform: translateY(-2px);
+  }
+
+  .quiz-tile:active {
+    transform: translateY(0);
+  }
+
   header { 
     display: flex; 
     justify-content: space-between; 
@@ -275,25 +317,29 @@
     });
 
     quizzes.forEach((q,i)=>{
-      const btn = document.createElement('button');
-      btn.className = 'btn';
-      btn.textContent = q.title;
-      btn.addEventListener('click',()=>{
-        QUIZ = q;  // store entire quiz's data
-        QUIZ_QUESTIONS = q.questions;  // just the questions data
+      const tile = document.createElement('div');
+      tile.className = 'quiz-tile';
+      tile.textContent = q.title;
+      tile.addEventListener('click',()=>{
+        QUIZ = q;
+        QUIZ_QUESTIONS = q.questions;
         $('#title').textContent = q.title;
         $('#subprompt').textContent = q.question;
-        if(QUIZ_QUESTIONS.length<4){
-          $('#prompt').textContent='Not enough data'; $('#choices').innerHTML='';
-          setFeedback('Need at least 4 items in the dataset.'); $('#progress').textContent=`0 / 0`; $('#score').textContent=`Score: 0`;
+        if(QUIZ_QUESTIONS.length < 4){
+          $('#prompt').textContent='Not enough data';
+          $('#choices').innerHTML='';
+          setFeedback('Need at least 4 items in the dataset.');
+          $('#progress').textContent=`0 / 0`;
+          $('#score').textContent=`Score: 0`;
           return;
         }
         menu.style.display='none';
         backBtn.style.display='inline-block';
         restartRun();
       });
-      container.appendChild(btn);
+      container.appendChild(tile);
     });
+
   }
 
   backBtn.addEventListener('click', ()=>{
