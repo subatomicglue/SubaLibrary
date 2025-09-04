@@ -3,8 +3,6 @@
 // markdownToHtml
 //////////////////////////////////////////////////////////////////////////////////////
 
-const { sanitizeTopic } = require('./sanitizer');
-
 function splitTopicAndHash(input) {
   const parts = input.split("#", 2); // split at the first "#"
   if (parts.length === 2) {
