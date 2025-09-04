@@ -244,3 +244,6 @@ ExecStartPost=/bin/sh -c "echo $(pgrep PM2) > /home/pi/.pm2/pm2.pid"
 WantedBy=multi-user.target
 ```
 
+# Validations
+https://validator.w3.org/
+
