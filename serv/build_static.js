@@ -270,7 +270,6 @@ fs.readdirSync(inputDir).forEach(file => {
 
     // special case: sanitize ChangeLog.md for static consumption
     if (topic == "ChangeLog") {
-      console.log( "=======================")
       markdown = markdown.replace( /\[(v\d+)\]\([^)]+\)/g, '$1' )
     }
 
