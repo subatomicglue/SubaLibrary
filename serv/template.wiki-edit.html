@@ -519,6 +519,15 @@
             let end = textarea.selectionEnd;
             let value = textarea.value;
 
+            // in the selected text
+            // - trim whitespace from the selection before and after the selection (move the start++ if needed,  move the end-- if needed)
+            // - trim anything after \n, since formatting can't go across newlines
+            const original_selected_text = value.slice(start, end);
+            const original_selected_text_leading_ws = (original_selected_text.match(/^[\s\n]+/) || [''])[0].length;
+            const original_selected_text_trailing_was = (original_selected_text.match(/[\s]*\n[\s\S]*$|[\s\n]+$/) || [''])[0].length;
+            start += original_selected_text_leading_ws;
+            end -= original_selected_text_trailing_was;
+
             const before = value.slice(0, start);
             const selected = value.slice(start, end);
             const after = value.slice(end);
