@@ -21,6 +21,7 @@ function makeRSS(base_url, torrent_dir) {
       })
       .sort((a, b) => b.mtime - a.mtime);
 
+  // this is XML, not HTML (link needs a closing tag in XML, where in HTML link has no closing tag - is a void element)
   const items = files.map(({ name, mtime }) => `
     <item>
       <title>${name}</title>

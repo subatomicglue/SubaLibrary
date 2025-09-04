@@ -445,10 +445,10 @@ router.get(`${edit_route}2/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (r
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${TITLE} - Editing ${topic} (natural editor)</title>
-  <!-- <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" /> -->
+  <!-- <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet"> -->
 
   <!-- Load Quill 2.0.3 CSS from CDN -->
   <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">

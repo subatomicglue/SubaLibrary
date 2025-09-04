@@ -54,7 +54,7 @@ function htmlToMarkdownTest(html, expectedMarkdown) {
 
 if (!isBrowser()) {
 
-markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h1>
+markdownToHtmlTest( `# Heading`, `<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 ` )
 markdownToHtmlTest( `**word**`, `<b>word</b>` )
 markdownToHtmlTest( `*word*`,   `<i>word</i>` )
@@ -70,7 +70,7 @@ word
 word
 </div>` )
 markdownToHtmlTest( `### Lorem Ipsum," lorem ipsum [ [Lorem Ipsum](https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2) ]`,
-`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a title="Permalink to this heading" href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h3>
+`<h3 id="Lorem Ipsum, lorem ipsum [ Lorem Ipsum ]">Lorem Ipsum," lorem ipsum [ <a href="https://www.bok.com/reader/urn:cts:hiMan:abc0656.zyx001.1st1K-ghj1:2">Lorem Ipsum</a> ]<a title="Permalink to this heading" href="#Lorem%20Ipsum%2C%20lorem%20ipsum%20%5B%20Lorem%20Ipsum%20%5D"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h3>
 ` )
 markdownToHtmlTest( `[< back](LoremIpsum)`, `<a href="/base/LoremIpsum">< back</a>` )
 
@@ -180,13 +180,13 @@ text
 
 ## Heading 3
 `,
-`<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h1>
+`<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 text<br>
 <ul><li><a href="#Heading">Heading</a><ul><li><a href="#Heading%202%20is%20Heading%202">Heading 2 is Heading 2</a><ul><li><a href="#Heading%202.1">Heading 2.1</a><ul><li><a href="#Heading%202.1.1">Heading 2.1.1</a></li></ul></li></ul></li><li><a href="#Heading%203">Heading 3</a></li></ul></li></ul>
-<p><h2 id="Heading 2 is Heading 2">Heading 2 <a href="/base/some link crap">is Heading 2</a><a title="Permalink to this heading" href="#Heading%202%20is%20Heading%202"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
-<p><h3 id="Heading 2.1">Heading 2.1<a title="Permalink to this heading" href="#Heading%202.1"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h3>
-<p><h4 id="Heading 2.1.1">Heading 2.1.1<a title="Permalink to this heading" href="#Heading%202.1.1"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h4>
-<p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h2>
+<p><h2 id="Heading 2 is Heading 2">Heading 2 <a href="/base/some link crap">is Heading 2</a><a title="Permalink to this heading" href="#Heading%202%20is%20Heading%202"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h2>
+<p><h3 id="Heading 2.1">Heading 2.1<a title="Permalink to this heading" href="#Heading%202.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h3>
+<p><h4 id="Heading 2.1.1">Heading 2.1.1<a title="Permalink to this heading" href="#Heading%202.1.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h4>
+<p><h2 id="Heading 3">Heading 3<a title="Permalink to this heading" href="#Heading%203"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h2>
 `)
 
 htmlToMarkdownTest( `<a href="https://www.google.com" style="text-decoration: none; color: rgb(51, 102, 204); background: none; border-radius: 2px; overflow-wrap: break-word;">[25]</a>`,

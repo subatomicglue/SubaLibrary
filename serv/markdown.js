@@ -272,7 +272,7 @@ function generateMarkdownTOC(markdown) {
     // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"/></a></h${hashes.length}><intentional newline>`
+        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
       })
       .replace(/^------+$/gm, "<hr><intentional newline>")
   }
@@ -290,7 +290,7 @@ function generateMarkdownTOC(markdown) {
     .replace(match_markdown_img, (match, title, url) => { // ![image title](image url)
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
-      return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}"/>`
+      return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}">`
     })
     .replace(match_markdown_link, (match, title, url) => { // [title text](url)
       const VERBOSE=false
