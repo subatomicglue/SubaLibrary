@@ -3,6 +3,8 @@
 // markdownToHtml
 //////////////////////////////////////////////////////////////////////////////////////
 
+const { sanitizeTopic } = require('./sanitizer');
+
 function splitTopicAndHash(input) {
   const parts = input.split("#", 2); // split at the first "#"
   if (parts.length === 2) {
@@ -18,9 +20,10 @@ const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
 const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
 function __sanitizeForHTMLParam(str, options = { is_id: false }) {
   if (options.is_id == true) {
-    str =  str.replace(/\s/g, '%20')
+    str =  str.replace(/[^A-Za-z0-9:-_\.]/g, '-')
   }
-  return str.replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\)/g, "%28").replace(/\(/g, "%29").trim()
+  // %28 for the left parenthesis ( and %29 for the right parenthesis )
+  return str.replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\(/g, "%28").replace(/\)/g, "%29").trim()
 }
 
 // Basic Markdown to HTML conversion using regex, no dependencies,
@@ -73,6 +76,18 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   function escapeTopicForHREF(str) {
     return str
       .replace(/\s/g, '%20')
+  }
+  function escapeRelativeUrl(url) {
+    // ensure it's a string
+    if (typeof url !== "string") return "";
+
+    // preserve leading slash if present
+    const hasLeadingSlash = url.startsWith("/");
+
+    // split, filter out empty (from leading slash), encode, rejoin
+    const parts = url.split("/").filter(Boolean).map(encodeURIComponent);
+
+    return (hasLeadingSlash ? "/" : "") + parts.join("/");
   }
 
   function transformCustomBlocks(markdown) {
@@ -266,7 +281,7 @@ function generateMarkdownTOC(markdown) {
       const level = heading.match(/^(#{1,6})/)[0].length; // Get the level of the heading
       const text = heading.replace(/(^|\n)(#{1,6})\s+(.*?)\s*(\n|$)/, '$3'); // Remove all but the heading text
       //const linkText = text.replace(/\s+/g, '-').toLowerCase(); // Create a slug for the link
-      return ` ${'  '.repeat(level - 1)}- [${sanitizeHeadingForTOC(text)}](#${encodeURIComponent(sanitizeForHTMLParam(text))})`; // Indent based on heading level
+      return ` ${'  '.repeat(level - 1)}- [${sanitizeHeadingForTOC(text)}](#${sanitizeForHTMLParam(text, {is_id:true})})`; // Indent based on heading level
   }).join('\n');
   return toc;
 }
@@ -279,7 +294,7 @@ function generateMarkdownTOC(markdown) {
     // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title, {is_id:true} )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
+        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title, {is_id:true} )}\">${title}<a title="Permalink to this heading" href="#${sanitizeForHTMLParam(title, {is_id: true})}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
       })
       .replace(/^------+$/gm, "<hr><intentional newline>")
   }
@@ -301,7 +316,10 @@ function generateMarkdownTOC(markdown) {
     })
     .replace(match_markdown_link, (match, title, url) => { // topic link: [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url : escapeTopicForHREF( url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : `${options.link_relative_callback( baseUrl, splitTopicAndHash( url )[0] )}${splitTopicAndHash( url )[1] != "" ? `#${splitTopicAndHash( url )[1]}` : ``}` );
+      const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                     // https://blah
+        url.match( /^\// ) ? escapeRelativeUrl( options.link_absolute_callback( baseUrl, url ) ) :                                                                                                                           // /blah
+        url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                          // #blah
+        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}`; // blah#blah
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
