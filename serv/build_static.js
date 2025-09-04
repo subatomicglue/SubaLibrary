@@ -266,14 +266,23 @@ fs.readdirSync(inputDir).forEach(file => {
   if (ext === '.md' && /^[^.]+\.md$/.test(file)) {
     const outputFileName = topic;
     const outputPath = path.join(viewDir, outputFileName);
-    const markdown = fs.readFileSync(fullPath, 'utf-8');
+    let markdown = fs.readFileSync(fullPath, 'utf-8');
+
+    // special case: sanitize ChangeLog.md for static consumption
+    if (topic == "ChangeLog") {
+      console.log( "=======================")
+      markdown = markdown.replace( /\[(v\d+)\]\([^)]+\)/g, '$1' )
+    }
+
     const req = new Req(topic);
     const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )
-    if (topic == "index") // webservers may need there to be a index.html
+
+    // special case: webservers may need there to be a index.html
+    if (topic == "index")
       syncer.writeFileIfChanged( fullPath, outputPath + '.html', html, 'utf-8' )
   }
 
@@ -314,9 +323,6 @@ require( `./sitemap.js` ).siteMap( "https://" + SETTINGS.DOMAINS[1] ).then( site
 const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")
 syncer.writeFileIfChanged( undefined, rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
-
-// sanitize ChangeLog.md for static consumption
-syncer.writeFileIfChanged( undefined, path.join( viewDir, "ChangeLog" ), fs.readFileSync( path.join( inputDir, "ChangeLog.md" ), 'utf8' ).replace( /\[(v\d+)\]\([^)]+\)/g, '$1' ), 'utf8');
 
 // done, delete any differences in the destination dir.
 syncer.close()
