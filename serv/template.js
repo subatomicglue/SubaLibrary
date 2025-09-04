@@ -4,12 +4,11 @@ const { fs_readFileSync_cached } = require('./common');
 
 let logger;
 
-
-
 function data( d, vars = {} ) {
   const VERBOSE = false;
-  d = d.replace(/<%=\s*([^\s%>]+)\s*%>/g, (match, key) => {
-    let value = key in vars ? vars[key] : `!!! ${key} not set !!!`;
+  d = d.replace(/<%=\s*([^\s%>]+)(?:\s+([a-zA-Z0-9_ ]+))?\s*%>/g, (match, key, options) => {
+    options = options ? options.split(' ') : []; // check for options like: options.includes( "force" ) 
+    let value = key in vars ? vars[key] : ((options.includes( "optional" )) ? '' : `!!! ${key} not set !!!`);
     VERBOSE && logger.info(`[template] replacing: '${key}' -> '${value.substring(0, 32)}'`);
     return value;
   });

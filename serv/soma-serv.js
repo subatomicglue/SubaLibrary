@@ -255,6 +255,13 @@ app.use( (req, res, next) => {
   req.canonicalUrlRoot = `${req.protocol}://${CANONICAL_DOMAIN}`;
   req.canonicalUrlDomain = `${CANONICAL_DOMAIN}`;
 
+  // todo: perhaps instead we should compare current URL to canonicalUrl?  rather than hardcode www here?
+  const host = req.get('host').replace(/\..*$/, '');
+  const currentDomain = `${req.get('host')}`;
+  const prod_mode = DOMAINS.includes( currentDomain )
+  req.canonicalHost = (prod_mode && HOSTNAME_FOR_EDITS === "www");
+  req.editHost = (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www");
+
   // also, these exist already, part of express:
   // req.url         // "/hello/world?foo=bar"
   // req.originalUrl // "/api/test"     (even when /path inside a sub router, mounted to /full, gives /full/path)
