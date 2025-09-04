@@ -67,6 +67,10 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   function sanitizeHeadingForTOC(heading) {
     return heading.replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").trim()
   }
+  function escapeTopicForHREF(str) {
+    return str
+      .replace(/\s/g, '%20')
+  }
 
   function transformCustomBlocks(markdown) {
     return markdown.replace(
@@ -287,21 +291,21 @@ function generateMarkdownTOC(markdown) {
       const inner = escapeHtml(content)
       return inner == "" ? "" : `<tt>${inner}</tt>`
     })
-    .replace(match_markdown_img, (match, title, url) => { // ![image title](image url)
+    .replace(match_markdown_img, (match, title, url) => { // img link: ![image title](image url)
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
       return `<img src="${(url.match(/^data:/) || url.match( /^(\/|http)/ )) ? url : `${baseUrl}/${url}`}" alt="${title}" title="${title}">`
     })
-    .replace(match_markdown_link, (match, title, url) => { // [title text](url)
+    .replace(match_markdown_link, (match, title, url) => { // topic link: [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url : url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : `${options.link_relative_callback( baseUrl, splitTopicAndHash( url )[0] )}${splitTopicAndHash( url )[1] != "" ? `#${splitTopicAndHash( url )[1]}` : ``}`;
+      const THEURL = url.match( /^https?/ ) ? url : escapeTopicForHREF( url.match( /^\// ) ? options.link_absolute_callback( baseUrl, url ) : url.match( /^#/ ) ? url : `${options.link_relative_callback( baseUrl, splitTopicAndHash( url )[0] )}${splitTopicAndHash( url )[1] != "" ? `#${splitTopicAndHash( url )[1]}` : ``}` );
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
       else
         return THEURL == "" ? `${title}` : `<a href="${THEURL}">${title}</a>`
     })
-    .replace(/(?<=^|\s)https?:\/\/[^\s<]+[^\s<\.,;](?=\s|\n|$)/g, (url) => { // naked URLs:      https://www.google.com
+    .replace(/(?<=^|\s)https?:\/\/[^\s<]+[^\s<\.,;](?=\s|\n|$)/g, (url) => { // naked URLs:  https://www.google.com
       const VERBOSE = false;
       VERBOSE && console.log("[markdown] naked URL", url);
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
