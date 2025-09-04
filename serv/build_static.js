@@ -316,7 +316,7 @@ const rssPath = path.join(outputDir, "rss")
 syncer.writeFileIfChanged( undefined, rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
 
 // sanitize ChangeLog.md for static consumption
-syncer.writeFileIfChanged( undefined, path.join( viewDir, "ChangeLog.md" ), fs.readFileSync( path.join( inputDir, "ChangeLog.md" ), 'utf8' ).replace( /\[(v\d+)\]\([^)]+\)/g, '$1' ), 'utf8');
+syncer.writeFileIfChanged( undefined, path.join( viewDir, "ChangeLog" ), fs.readFileSync( path.join( inputDir, "ChangeLog.md" ), 'utf8' ).replace( /\[(v\d+)\]\([^)]+\)/g, '$1' ), 'utf8');
 
 // done, delete any differences in the destination dir.
 syncer.close()
