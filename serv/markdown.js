@@ -16,7 +16,10 @@ function splitTopicAndHash(input) {
 
 const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
 const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
-function __sanitizeForHTMLParam(str) {
+function __sanitizeForHTMLParam(str, options = { is_id: false }) {
+  if (options.is_id == true) {
+    str =  str.replace(/\s/g, '%20')
+  }
   return str.replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\)/g, "%28").replace(/\(/g, "%29").trim()
 }
 
@@ -61,8 +64,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   function htmlToText(str) {
     return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ).replace(/<[^>]+?>/g,'')
   }
-  function sanitizeForHTMLParam(str) {
-    return __sanitizeForHTMLParam( htmlToText( str ) )
+  function sanitizeForHTMLParam(str, options = { is_id: false }) {
+    return __sanitizeForHTMLParam( htmlToText( str ), options )
   }
   function sanitizeHeadingForTOC(heading) {
     return heading.replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").trim()
@@ -276,7 +279,7 @@ function generateMarkdownTOC(markdown) {
     // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
       .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
-        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
+        return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title, {is_id:true} )}\">${title}<a title="Permalink to this heading" href="#${encodeURIComponent(sanitizeForHTMLParam(title))}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
       })
       .replace(/^------+$/gm, "<hr><intentional newline>")
   }
