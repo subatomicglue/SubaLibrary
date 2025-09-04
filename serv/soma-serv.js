@@ -32,6 +32,7 @@ const {
   GLOBAL_REDIRECTS,
   HOSTNAME_FOR_EDITS,
   DOMAINS,
+  CANONICAL_DOMAIN,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -250,9 +251,9 @@ app.use(compression());
 
 // populate some variables we'll use.
 app.use( (req, res, next) => {
-  req.canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-  req.canonicalUrlRoot = `${req.protocol}://${req.get('host')}`;
-  req.canonicalUrlDomain = `${req.get('host')}`;
+  req.canonicalUrl = `${req.protocol}://${CANONICAL_DOMAIN}${req.originalUrl}`;
+  req.canonicalUrlRoot = `${req.protocol}://${CANONICAL_DOMAIN}`;
+  req.canonicalUrlDomain = `${CANONICAL_DOMAIN}`;
 
   // also, these exist already, part of express:
   // req.url         // "/hello/world?foo=bar"
