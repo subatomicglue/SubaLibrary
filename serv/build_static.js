@@ -273,7 +273,8 @@ fs.readdirSync(inputDir).forEach(file => {
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )
-    syncer.writeFileIfChanged( fullPath, outputPath + '.html', html, 'utf-8' )
+    if (topic == "index") // webservers may need there to be a index.html
+      syncer.writeFileIfChanged( fullPath, outputPath + '.html', html, 'utf-8' )
   }
 
   // Copy images
@@ -317,7 +318,5 @@ syncer.writeFileIfChanged( undefined, rssPath, makeRSS( `${req.protocol}://${req
 // sanitize ChangeLog.md for static consumption
 syncer.writeFileIfChanged( undefined, path.join( viewDir, "ChangeLog.md" ), fs.readFileSync( path.join( inputDir, "ChangeLog.md" ), 'utf8' ).replace( /\[(v\d+)\]\([^)]+\)/g, '$1' ), 'utf8');
 
-
 // done, delete any differences in the destination dir.
 syncer.close()
-
