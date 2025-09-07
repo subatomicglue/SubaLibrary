@@ -1,10 +1,10 @@
-# soma library - serverless wiki & content system
+# suba library - serverless wiki & content system
 *** work in progress ***
 
 
 ## Features
-- [soma-serv](serv):  wiki & fileserver which you can run inside your home network to serve up your own library.
-- [soma-serv-aws](serv-aws):  serverless wiki & content system built on AWS - *** work in progress ***
+- [serv](serv):  wiki & fileserver which you can run inside your home network to serve up your own library.
+- [serv-aws](serv-aws):  serverless wiki & content system built on AWS - *** work in progress ***
 
 
 # aws info & notes:
