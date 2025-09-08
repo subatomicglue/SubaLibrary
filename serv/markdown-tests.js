@@ -236,6 +236,9 @@ markdownToHtmlTest( `1. bullet
 markdownToHtmlTest( `[title](/path/to/my thing is amazing)`,
   `<a href="/path/to/my%20thing%20is%20amazing">title</a>`
 )
+markdownToHtmlTest( `[title](/path/to/my thing is amazing#test)`,
+  `<a href="/path/to/my%20thing%20is%20amazing#test">title</a>`
+)
 markdownToHtmlTest( `[title](my crazy wiki topic#my bookmark is also crazy)`,
   `<a href="/base/my%20crazy%20wiki%20topic#my-bookmark-is-also-crazy">title</a>`
 )

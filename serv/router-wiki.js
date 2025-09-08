@@ -48,11 +48,18 @@ const diff_route="/diff"
 const uploads_file_serv_url_prefix = '/uploads/files';
 const uploads_image_serv_url_prefix = '/uploads';
 const regex_match_fullversion_md = /^[^.]+\.md$/;
-
+const WIKI_DIR_LATEST = `${WIKI_DIR}`
+const WIKI_DIR_VERSIONED = `${WIKI_DIR}/versioned`
 
 // Ensure wiki directory exists
 if (!fs.existsSync(WIKI_DIR)) {
     fs.mkdirSync(WIKI_DIR, { recursive: true });
+}
+if (!fs.existsSync(WIKI_DIR_LATEST)) {
+    fs.mkdirSync(WIKI_DIR_LATEST, { recursive: true });
+}
+if (!fs.existsSync(WIKI_DIR_VERSIONED)) {
+    fs.mkdirSync(WIKI_DIR_VERSIONED, { recursive: true });
 }
 
 function isLoggedIn( req ) {
@@ -237,7 +244,7 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   //${diff!=""?` diff:${diff}`:``}
   logger.info(`[wiki] ${userLogDisplay(req)} ${view_route}/${topic}${version != "" ?`/${version}`:''}${searchterm!=""?` searchterm:${searchterm}`:``}`);
 
-  const filePath = sanitize( WIKI_DIR, `${topic}${version}.md`).fullPath
+  const filePath = sanitize( version == "" ? WIKI_DIR_LATEST : WIKI_DIR_VERSIONED, `${topic}${version}.md`).fullPath
   if (filePath == "") {
     logger.error(`[wiki] ${userLogDisplay(req)} ${view_route}/ 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
@@ -260,22 +267,9 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
     }
   }
 
-  let markdown = fs.readFileSync(filePath, "utf8");
-  // if (searchterm != "") {
-  //   markdown = markdown.replace( new RegExp( `(${searchterm})`, 'gim' ), "<mark>$1</mark>" )
-  // }
-  const html = wrapWithFrame(markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
-    // get a direct link to edit page, for any relative (topic) link that doesn't exist yet
-    /*
-    link_relative_callback: (baseUrl, link_topic) => {
-      const link_topic_base = link_topic.replace( /[#?].*$/, '' )
-      const topic = sanitizeTopic( decodeURIComponent( link_topic_base ) )
-      const filePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
-      return fs.existsSync(filePath) ? `${req.baseUrl}${view_route}/${link_topic}` : (!fs.existsSync(filePath) && !isLoggedIn( req )) ? '' : `${req.baseUrl}${edit_route}/${link_topic_base}`
-    },
-    */
-  }), topic, req);
-  res.send(html);
+  let markdown = fs.readFileSync( filePath, "utf8" );
+  const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {}), topic, req );
+  res.send( html );
 });
 
 // DIFF
@@ -288,18 +282,18 @@ router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
   };
   logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''}${version_old!=""?`/${version_old}`:``}`);
 
-  const filePath_new = sanitize( WIKI_DIR, `${topic}${version_new}.md`).fullPath
-  const filePath_old = sanitize( WIKI_DIR, `${topic}${version_old}.md`).fullPath
+  const filePath_new = sanitize( WIKI_DIR_VERSIONED, `${topic}${version_new}.md`).fullPath
+  const filePath_old = sanitize( WIKI_DIR_VERSIONED, `${topic}${version_old}.md`).fullPath
   if (filePath_new == "" || filePath_old == "") {
     logger.error(`[wiki] ${userLogDisplay(req)} ${diff_route}/ 403 Forbidden${filePath_new == "" ? ` ${topic}.${version_new}`:""}${filePath_old == "" ? ` ${topic}.${version_old}`:""}`);
     return res.status(403).send(`Forbidden`);
   }
   if (!fs.existsSync(filePath_new)) {
-    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''} NOT FOUND: ${topic}${version_new}.md`);
+    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_new != "" ?`/${version_new}`:''} NOT FOUND: ${filePath_new}.md`);
     return res.status(404).send( "Not found." );
   }
   if (!fs.existsSync(filePath_old)) {
-    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_old != "" ?`/${version_old}`:''} NOT FOUND: ${topic}${version_old}.md`);
+    logger.info(`[wiki] ${userLogDisplay(req)} ${diff_route}/${topic}${version_old != "" ?`/${version_old}`:''} NOT FOUND: ${filePath_old}.md`);
     return res.status(404).send( "Not found." );
   }
 
@@ -340,7 +334,7 @@ router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ lim
   logger.info(`[wiki] ${userLogDisplay(req)} /save ${topic} content (save)`);
 
   // Find the next version number
-  let existing_versions = readdirSync( WIKI_DIR, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
+  let existing_versions = readdirSync( WIKI_DIR_VERSIONED, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
   let version = existing_versions.length == 0 ? 1 : existing_versions.length;
   if (version != undefined && version != save_version) {
     const message = `Your local copy of '${topic}' v${save_version} is older than server's v${version}.  It appears someone saved the same topic you're working on.\n - If you save, it will overwrite a newer version.\n - To be safe: Carefully copy/paste your markdown out to another app, and [cancel] here...`;
@@ -352,7 +346,7 @@ router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ lim
   // logger.error(`[wiki] /save Debugging found:${existing_versions.length} next_version:${version} list:${JSON.stringify( existing_versions )}`);
   // return res.status(403).send(`Debugging found:${existing_versions.length} next_version:${version} list:${JSON.stringify( existing_versions )}`);
 
-  const latestFilePath = sanitize( WIKI_DIR, `${topic}.md`).fullPath
+  const latestFilePath = sanitize( WIKI_DIR_LATEST, `${topic}.md`).fullPath
   if (latestFilePath == "") {
     logger.error(`[wiki] ${userLogDisplay(req)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
@@ -366,7 +360,7 @@ router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ lim
     }
   }
 
-  const versionedFilePath = sanitize( WIKI_DIR, `${topic}.${version}.md`).fullPath
+  const versionedFilePath = sanitize( WIKI_DIR_VERSIONED, `${topic}.${version}.md`).fullPath
   if (versionedFilePath == "") {
     logger.error(`[wiki] ${userLogDisplay(req)} /save 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
@@ -388,7 +382,7 @@ router.get(`${edit_route}/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (re
     return res.status(400).send("Missing topic name.");
   }
 
-  const filePath = sanitize( WIKI_DIR, `${topic}.md` ).fullPath
+  const filePath = sanitize( WIKI_DIR_LATEST, `${topic}.md` ).fullPath
   if (filePath == "") {
     logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 403 Forbidden '${topic}'`);
     return res.status(403).send(`Forbidden`);
@@ -396,7 +390,7 @@ router.get(`${edit_route}/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (re
 
   // Find the next version number (so we can tell the frontend user, their local cache is older than on server)
   // this is the version being edited (n+1), not the last version saved (n)
-  let existing_versions = readdirSync( WIKI_DIR, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
+  let existing_versions = readdirSync( WIKI_DIR_VERSIONED, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
   let version = existing_versions.length == 0 ? 1 : existing_versions.length;  
 
   logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
@@ -422,365 +416,6 @@ router.get(`${edit_route}/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (re
   );
 });
 
-
-// EDIT
-// GET ${req.baseUrl}${edit_route}/:topic    (edit page)
-router.get(`${edit_route}2/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
-  const topic = req.params.topic ? sanitizeTopic( decodeURIComponent( req.params.topic ) ) : undefined;
-  if (!topic) {
-    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 400 Missing topic name`);
-    return res.status(400).send("Missing topic name.");
-  }
-
-  const filePath = sanitize( WIKI_DIR, `${topic}.md` ).fullPath
-  if (filePath == "") {
-    logger.error(`[wiki] ${userLogDisplay(req)} ${edit_route} 403 Forbidden '${topic}'`);
-    return res.status(403).send(`Forbidden`);
-  }
-
-  logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
-  const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
-  const html = markdownToHtml( markdown );
-  //console.log( html )
-  res.send(template.data( `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${TITLE} - Editing ${topic} (natural editor)</title>
-  <!-- <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet"> -->
-
-  <!-- Load Quill 2.0.3 CSS from CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
-  <style>
-    .editor-container, .output-container {
-      background-color: #ffffff;
-      color: #111111;
-      width: 100%;
-      box-sizing: border-box;
-      padding: 1rem;
-    }
-
-    .output-box {
-      border: 1px solid #ccc;
-      padding: 1rem;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      background: #f9f9f9;
-      overflow-x: auto;
-    }
-
-    @media (min-width: 768px) {
-      .output-columns {
-        display: flex;
-        gap: 1rem;
-      }
-      .output-box {
-        flex: 1;
-      }
-    }
-
-    <%include "style.css"%>
-
-    body {
-      background-color: #0D1116;
-      color: #aaaaaa;
-    }
-    .fake-body {
-      background-color: #ffffff;
-      color: #111111;
-    }
-    .markdown, .buttons-tray {
-      width: 90vw; 
-      max-width: 800px; 
-      margin: 20px auto; 
-      padding: 12px;
-    }
-    .buttons-tray {
-      padding-top:0;
-      margin-top:0;
-      text-align:right;
-    }
-    .markdown {
-      height: 66vh; /* Cover top 2/3 of the viewport */
-      max-height: 500px; /* Prevent it from becoming too tall */
-      display: block;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
-      resize: vertical; /* Allow resizing, but only vertically */
-      padding-bottom:0;
-      margin-bottom:0;
-    }
-
-    @media (max-width: 600px) {
-      .markdown {
-        width: 95vw; /* Slightly more width on small screens */
-        height: 60vh; /* Slightly shorter on mobile */
-        font-size: 14px; /* Make text more mobile-friendly */
-      }
-    }
-
-    .button1, .button2 {
-      padding: 0.40em 0.80em;
-      font-size: 1.4em;
-      font-weight: 600;
-      border-radius: 0.50em;
-    }
-
-    .button1 {
-      border: 1px solid #3f944b;
-      background-color: #228736;
-      color: #ffffff;
-      //color: #9A61F8;
-    }
-
-    .button1:hover {
-      border: 1px solid #4fa45b;
-      background-color: #228736;
-      color: #F3F8F3;
-    }
-
-    .button1:disabled,
-    .button1[disabled]{
-      border: 1px solid #3f944b;
-      background-color: #228736;
-      //color: #F3F8F3;
-      color: #8E96a0;
-      //color: #9A61F8;
-    }
-
-    .button2 {
-      border: 1px solid #7E8690;
-      background-color: #22282F;
-      color: #F3F8F3;
-      //color: #9A61F8;
-    }
-
-    .button2:hover {
-      border: 1px solid #8E96a0;
-      background-color: #22282F;
-      color: #FFFFFF;
-    }
-
-    .button2:disabled,
-    .button2[disabled]{
-      border: 1px solid #8E96a0;
-      background-color: #22282F;
-      color: #8E96a0;
-      //color: #9A61F8;
-    }
-  </style>
-</head>
-<body>
-  <h1>Natural Editor: ${topic}</h1>
-  For Simple Editing.  (Reload as <a href="${req.baseUrl}${edit_route}/${topic}">markdown</a> for precise editing)<BR>
-  CAUTION: Dont nuke the formatting!!! This <i>will</i> DESTROY previous formatting.<BR>
-  <!-- Top Section: Quill Editor -->
-  <div class="editor-container">
-    <div id="toolbar">
-      <span class="ql-formats">
-        <button class="ql-bold"></button>
-        <button class="ql-italic"></button>
-        <button class="ql-underline"></button>
-        <button class="ql-code"></button>
-      </span>
-      <span class="ql-formats">
-        <select class="ql-header">
-          <option selected></option>
-          <option value="1"></option>
-          <option value="2"></option>
-        </select>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-list" value="ordered"></button>
-        <button class="ql-list" value="bullet"></button>
-        <button class="ql-blockquote"></button>
-        <button class="ql-indent" value="-1"></button>
-        <button class="ql-indent" value="+1"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-link"></button>
-        <!-- <button class="ql-image"></button> -->
-      </span>
-    </div>
-    <div id="editor" style="height: 300px;"></div>
-  </div>
-  <div class="buttons-tray">
-    <!-- Upload button -->
-    <input type="file" id="uploadInput" accept="image/*" style="display: none;" />
-    <button id="uploadBtn" class="button2" type="file" accept="image/*" >Upload</button>
-    <button class="button2" onclick="window.location.href = '${req.baseUrl}/view/${topic}'">Cancel</button>
-    <button class="button1" onclick="saveWiki()">Save</button><BR>
-  </div>
-
-
-  <!-- Middle Section: Markdown & HTML Preview -->
-  <!-- style="display: none; visibility: hidden" -->
-  <div style="display: none; visibility: hidden" class="output-container output-columns">
-    <div class="output-box">
-      <h3>Markdown Output</h3>
-      <div id="markdown-output"></div>
-    </div>
-    <div class="output-box">
-      <h3>HTML Output</h3>
-      <div id="html-output"></div>
-    </div>
-  </div>
-
-  <h2>Preview:</h2>
-  <div class="fake-body">
-    <div id="html-preview"></div>
-  </div>
-
-  <script>
-    let module = { exports: {} }
-    <%include "markdown.js"%>
-  </script>
-
-  <!-- Load Quill 2.0.3 JS from CDN -->
-  <!-- <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script> -->
-  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.min.js"></script>
-  <script>
-    const quill = new Quill('#editor', {
-      theme: 'snow',
-      modules: {
-        toolbar: '#toolbar'
-      }
-    });
-
-    const markdownOutput = document.getElementById('markdown-output');
-    const htmlOutput = document.getElementById('html-output');
-
-    quill.on('text-change', () => {
-      updatePreview()
-    });
-  </script>
-
-  <script>
-    function initFromMarkdown( markdown ) {
-      const html = markdownToHtml( markdown, {
-        skipYouTubeEmbed: true,
-      });
-      quill.root.innerHTML = html;
-    }
-    function initFromHTML( html ) {
-      quill.clipboard.dangerouslyPasteHTML(html);
-      //quill.root.innerHTML = html;
-    }
-
-    function updatePreview() {
-      const html = quill.root.innerHTML;
-      const markdown = htmlToMarkdown(html);
-      markdownOutput.textContent = markdown; // temporary for debug
-      htmlOutput.textContent = html;         // temporary for debug
-
-      console.log( html )
-
-      fetch("${req.baseUrl}/preview", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ content: markdown }) })
-        .then(res => res.text())
-        .then(html => document.getElementById("html-preview").innerHTML = html);
-    }
-
-    function saveWiki() {
-      const html = quill.root.innerHTML;
-      const markdown = htmlToMarkdown(html);
-
-      fetch("${req.baseUrl}/save", { 
-        method: "PUT", 
-        headers: {"Content-Type": "application/json"}, 
-        body: JSON.stringify({ topic: "${topic}", content: markdown }) 
-      })
-      .then(res => res.json())
-      .then(data => {
-        //alert(\`Msg:'\${data.message}' Ver:'\${data.version}'\`);
-        document.getElementById("preview").innerHTML = \`<p>Msg:'\${data.message}' Ver:'\${data.version}'\`
-        setTimeout( ()=> {
-          // Redirect to the view page for the updated topic
-          window.location.href = "${req.baseUrl}${view_route}/${topic}";
-        }, 1500 );
-      });
-    }
-
-    // Ensure updatePreview() runs once when the page loads
-    document.addEventListener("DOMContentLoaded", () => {
-      initFromHTML( \`${html.replace(/`/g,'\\`')}\` )
-      updatePreview();
-
-      const dropzone = document.getElementById("editor");
-      const uploadBtn = document.getElementById("uploadBtn");
-      const uploadInput = document.getElementById("uploadInput");
-      console.log( "dropzone", dropzone )
-
-      uploadBtn.addEventListener("click", () => {
-        uploadInput.click();
-      });
-
-      // handle the file selection
-      uploadInput.addEventListener("change", handleFileSelect);
-
-      // Handle image file drop
-      dropzone.addEventListener("dragover", (event) => {
-          event.preventDefault(); // Prevent default behavior to allow drop
-      });
-
-      dropzone.addEventListener("drop", (event) => {
-          event.preventDefault();
-          const file = event.dataTransfer.files[0]; // Get the first file
-          handleFileSelect({ target: { files: [file] } });
-      });
-
-      // Function to handle the file selection or drop
-      function handleFileSelect(event) {
-        console.log( "handleFileSelect" )
-        const file = event.target.files[0];
-        if (file && file.type.startsWith("image/")) {
-            const formData = new FormData();
-            formData.append("image", file);
-            console.log( "file", file );
-
-            fetch("${req.baseUrl}/upload", {
-                method: "POST",
-                body: formData,
-            })
-            .then(response => response.json())
-            .then(data => {
-                //console.log( "data.success", data.success )
-                if (data.success) {
-                  setTimeout( () => {
-                    console.log( "setting QUILL", data.imageUrl )
-                    //quill.root.innerHTML += \`<img src="\${data.imageUrl}" title="an image">\`; // Set image URL into textarea
-                    const range = quill.getSelection();
-
-                    setTimeout( () => {
-                      updatePreview()
-                    }, 400 )
-                  }, 400 )
-                } else {
-                  alert("Failed to upload image.");
-                }
-            })
-            .catch(error => {
-              console.error("Error uploading file:", error);
-            });
-        } else {
-          alert("Please upload a valid image.");
-        }
-      }
-    }); // DOMContentLoaded event listener
-  </script>
-</body>
-</html>
-    `, {
-      SCROLL_CLASS: "scroll-child-wiki",
-      WHITESPACE: "normal",
-      //USER_LOGOUT: (req.user == undefined || req.user == USER_ANON_DISPLAY) ? `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` : `<a id="signin-link" style="color: grey;" href="/logout">&nbsp;${req.user}&nbsp;signout</a>`,
-    })
-  );
-});
-
 // GET /markdown/:topic/:version?   (get the page markdown data)
 router.get("/markdown/:topic/:version?", guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
   const { topic, version } = {
@@ -794,7 +429,7 @@ router.get("/markdown/:topic/:version?", guardForProdHostOnly(HOSTNAME_FOR_EDITS
     return res.status(400).send("Missing topic name.");
   }
 
-  const filePath = path.join(WIKI_DIR, `${topic}${version}.md`);
+  const filePath = path.join(version == "" ? WIKI_DIR_LATEST : WIKI_DIR_VERSIONED, `${topic}${version}.md`);
   if (!fs.existsSync(filePath)) {
     return res.status(404).send("Topic not found.");
   }
@@ -814,12 +449,11 @@ router.post("/preview", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({
 
 const multer = require("multer");
 
-
 //////////  filestorage utils //////////////////////////////////////////////////
 const uploadFile = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      if (!fs.existsSync( WIKI_DIR ))
+      if (!fs.existsSync( WIKI_FILES_DIR ))
         fs.mkdirSync(WIKI_FILES_DIR, { recursive: true });
       cb(null, WIKI_FILES_DIR);
     },
@@ -845,7 +479,7 @@ router.use( uploads_file_serv_url_prefix, (req, res, next) => {
   // Absolute path to the requested file
   const requestedPath = path.resolve( WIKI_FILES_DIR, sanitize( WIKI_FILES_DIR, req.path ).fullPath );
 
-  // Ensure the resolved path is still inside the WIKI_DIR
+  // Ensure the resolved path is still inside the WIKI_FILES_DIR
   // no .md files.
   // TODO: use a whitelist maybe...
   if (!requestedPath.startsWith(path.resolve(WIKI_FILES_DIR)) || requestedPath.match( /\.md$/ )) {

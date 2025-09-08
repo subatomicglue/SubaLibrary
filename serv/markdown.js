@@ -314,10 +314,10 @@ function generateMarkdownTOC(markdown) {
     })
     .replace(match_markdown_link, (match, title, url) => { // topic link: [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                     // https://blah
-        url.match( /^\// ) ? escapeRelativeUrl( options.link_absolute_callback( baseUrl, url ) ) :                                                                                                                           // /blah
-        url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                          // #blah
-        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}`; // blah#blah
+      const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                                                                 // https://blah
+        url.match( /^\// ) ? `${escapeRelativeUrl( options.link_absolute_callback( baseUrl, splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}` :  // /blah#heading
+        url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                                                                      // #heading
+        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}`;                       // blah#heading
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
