@@ -304,7 +304,7 @@ browserMiddleware.init( logger );
 app.use(`/${FILE_ENDPOINT}`, browserMiddleware.router);
 
 // GREEK LEARNING MODULE
-const greekMiddleware = require("./router-greeklearning");
+const greekMiddleware = require("./router-quiz");
 greekMiddleware.init( logger );
 app.use(`/greek`, greekMiddleware.router);
 
