@@ -237,7 +237,7 @@ router.get(`/${app_name}`, (req, res) => {
     let data = ""
     data += `<script type="application/json">` + JSON.stringify({
       options: { inorder: true, first_question: 0 },
-      title: "Unit 1",
+      title: "Intro: Breathing Marks",
       questions: [
         { "question": "what accent mark is ἁ", "answers": ["heavy breathing", "smooth breathing", "vocal pitch up", "vocal pitch down"] },
         { "question": "what accent mark is ἀ", "answers": ["smooth breathing", "heavy breathing", "vocal pitch up", "vocal pitch down"] },
@@ -247,7 +247,7 @@ router.get(`/${app_name}`, (req, res) => {
       ]
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      "title": "Greek Dipthong Quiz",
+      "title": "Intro: Dipthongs",
       "question": "Select the correct sound for the dipthong...",
       "questions": [
         {"question":"αι","answer":"like 'eye' (ai)"},
@@ -344,7 +344,6 @@ router.get(`/${app_name}`, (req, res) => {
       title: "Word Roots - Transliterate Root-Words to English",
       questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.example_words.join( ", "), "answer": transliterateGreek( r.example_words.join(", ") ) }})
     }) + `</script>`
-    
 
 
     const protocol = req.protocol;               // 'http' or 'https'
