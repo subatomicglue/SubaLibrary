@@ -51,6 +51,7 @@
       "RECORD_NAME": "example.com."
     }
   ],
+  "HOSTNAME_FOR_STATIC": "www",
   "HOSTNAME_FOR_EDITS": "www",
   "VERBOSE": true,
   "WIKI_CHANGELOG_TOPICNAME": "ChangeLog",

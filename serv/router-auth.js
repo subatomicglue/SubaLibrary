@@ -16,6 +16,7 @@ const {
   USE_HTTPS,
   ALLOW_DOTFILES,
   VERBOSE,
+  HOSTNAME_FOR_STATIC,
   USERS_WHITELIST,
   SECRET_PASSCODE,
   ASSETS_MAGIC,
@@ -983,7 +984,7 @@ function guardForProdHostOnly(allowed_hostname) {
 module.exports.guardForProdHostOnly = guardForProdHostOnly;
 
 // Middleware to redirect anonymous users to www.<domain> while preserving the path
-function redirectAnonUsersToStaticSite(activeSiteHostname, staticSiteHostname = "www") {
+function redirectAnonUsersToStaticSite(activeSiteHostname, staticSiteHostname = HOSTNAME_FOR_STATIC) {
   return (req, res, next) => {
     const currentDomain = req.get('host');
     const host = req.get('host').replace(/\..*$/, '');

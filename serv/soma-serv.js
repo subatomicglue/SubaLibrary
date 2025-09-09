@@ -30,6 +30,7 @@ const {
   MAP_ASSETS_TO_ROOT,
   PUBLIC_ACCESS,
   GLOBAL_REDIRECTS,
+  HOSTNAME_FOR_STATIC,
   HOSTNAME_FOR_EDITS,
   DOMAINS,
   CANONICAL_DOMAIN,
@@ -259,8 +260,9 @@ app.use( (req, res, next) => {
   const host = req.get('host').replace(/\..*$/, '');
   const currentDomain = `${req.get('host')}`;
   const prod_mode = DOMAINS.includes( currentDomain )
-  req.canonicalHost = (prod_mode && HOSTNAME_FOR_EDITS === "www");
-  req.editHost = (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www");
+  req.canonicalHost = (prod_mode && HOSTNAME_FOR_EDITS === HOSTNAME_FOR_STATIC);
+  req.editHost = (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC);
+  req.prodMode = prod_mode;
 
   // also, these exist already, part of express:
   // req.url         // "/hello/world?foo=bar"
@@ -327,9 +329,9 @@ app.get('/robots.txt', (req, res) => {
   try {
   const host = req.get('host').replace(/\..*$/, '');
   logger.info( `[robots.txt] ${userLogDisplay(req)} host:${host} domain:${req.get('host')}` );
-  if (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
+  if (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC) {
       // prevent crawlers
-      logger.info( ` - preventing crawlers to edit host:  is-not-www:${HOSTNAME_FOR_EDITS !== "www"} and is-edithost:${host === HOSTNAME_FOR_EDITS}` );
+      logger.info( ` - preventing crawlers to edit host:  is-not-www:${HOSTNAME_FOR_EDITS !== HOSTNAME_FOR_STATIC} and is-edithost:${host === HOSTNAME_FOR_EDITS}` );
       res.type('text/plain');
       res.send(`User-agent: *
 Disallow: /`);
@@ -358,7 +360,7 @@ app.get("/sitemap.xml", async (req, res) => {
     const currentDomain = `${req.get('host')}`;
     const prod_mode = DOMAINS.includes( currentDomain )
     logger.info( `[sitemap.xml] ${userLogDisplay(req)} host:${host} domain:${req.get('host')} prod_mode:${prod_mode}` );
-    if (prod_mode && host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != "www") {
+    if (prod_mode && host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC) {
       res.send("<url></url>");
     } else {
       res.send(await require(`./sitemap.js`).siteMap(baseUrl));

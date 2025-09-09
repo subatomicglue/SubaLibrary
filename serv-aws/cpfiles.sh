@@ -41,3 +41,8 @@ aws s3 cp ../serv/build/robots.txt "s3://$BUCKET_NAME/" --cache-control 'max-age
 # sitemap
 aws s3 cp ../serv/build/sitemap.xml "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'application/xml'
 
+# active apps
+aws s3 cp ../serv/build/wiki/search "s3://$BUCKET_NAME/wiki/" --cache-control 'no-cache' --content-type 'text/html'
+aws s3 cp ../serv/build/wiki/search-youtube "s3://$BUCKET_NAME/wiki/" --cache-control 'no-cache' --content-type 'text/html'
+aws s3 cp ../serv/build/greek/quizzes "s3://$BUCKET_NAME/greek/quizzes" --cache-control 'no-cache' --content-type 'text/html'
+

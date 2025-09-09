@@ -20,12 +20,14 @@ const inputDir = SETTINGS.WIKI_DIR;
 const outputDir = path.join(__dirname, 'build');
 
 class Req {
-  constructor( topic ) {
-    this.originalUrl = `${this.baseUrl}/view/`+topic//+".html"
+  constructor( topic, baseUrl = "/wiki", subPath = "/view/" ) {
+    this.baseUrl = baseUrl;
+    this.originalUrl = `${this.baseUrl}${subPath}`+topic//+".html"
     this.canonicalUrl = `${this.protocol}://${this.get('host')}${this.originalUrl}`;
     this.canonicalUrlRoot = `${this.protocol}://${this.get('host')}`;
     this.canonicalUrlDomain = `${this.get('host')}`;
     this.user = "---"
+    this.prodMode = true; // running a production URL.
   }
   get(str) { return { host: SETTINGS.DOMAINS[1] }[str] } // assume the first DOMAIN[] is the one
   protocol = "https"
@@ -317,6 +319,22 @@ const sitemapXmlPath = path.join(outputDir, "sitemap.xml")
 require( `./sitemap.js` ).siteMap( "https://" + SETTINGS.DOMAINS[1] ).then( sitemap_xml => {
   syncer.writeFileIfChanged(undefined, sitemapXmlPath, sitemap_xml )
 })
+
+// write out search
+const searchPath = path.join(outputDir, "wiki/search")
+const searchHTML = require( `./router-wiki.js` ).buildPageSearch( new Req("search", "/wiki", "/") )
+syncer.writeFileIfChanged(undefined, searchPath, searchHTML )
+
+// write out search-youtube
+const searchYoutubePath = path.join(outputDir, "wiki/search-youtube")
+const searchYoutubeHTML = require( `./router-wiki.js` ).buildPageSearch( new Req("search-youtube", "/wiki", "/" ) )
+syncer.writeFileIfChanged(undefined, searchYoutubePath, searchYoutubeHTML )
+
+// write out greek/quizzes
+makeDir( path.join(outputDir, "greek") )
+const quizzesPath = path.join(outputDir, "greek/quizzes")
+const quizzesHTML = require( `./router-quiz.js` ).buildPage_quizzes( new Req("quizzes", "/greek", "/" ), "quizzes" )
+syncer.writeFileIfChanged(undefined, quizzesPath, quizzesHTML )
 
 // write out the rss
 const req = new Req("index")

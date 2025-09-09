@@ -30,11 +30,13 @@ const {
   WIKI_DIR,
   WIKI_FILES_DIR,
   USER_ANON_DISPLAY,
+  HOSTNAME_FOR_STATIC,
   HOSTNAME_FOR_EDITS,
   YOUTUBE_TRANSCRIPTS_DIR,
   WIKI_CHANGELOG_TOPICNAME,
   ADDITIONAL_YOUTUBE_SEARCH_BUTTONS,
   ADDITIONAL_WIKI_SEARCH_BUTTONS,
+  DOMAINS,
 } = require('./settings');
 
 const { writeToChangeLog } = require( "./ChangeLog.js" )
@@ -583,19 +585,42 @@ router.post( "/upload/image", guardForProdHostOnly(HOSTNAME_FOR_EDITS), uploadIm
 
 ///////////////////// SEARCH ///////////////////////////////////////////////////
 
+function buildPageSearch( req ) {
+  // if building for static host (www) while edithost is different, search only lives on edithost, so need to qualify what domain...
+  let use_domain = req.prodMode && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC;
+  let optional_domain = (use_domain ? `https://${HOSTNAME_FOR_EDITS}.${DOMAINS[0]}` : "");
+  console.log( "req.baseUrl", req.baseUrl, `${optional_domain}${req.baseUrl}/search` )
+
+  return template.file( "template.search.html", {
+    TITLE: "Search",
+    REQ_BASEURL: req.baseUrl,
+    SEARCH_URL: `${optional_domain}${req.baseUrl}/search`,
+    DESCRIPTION: (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ?
+      `Or head over to <a href='${optional_domain}${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
+    ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_WIKI_SEARCH_BUTTONS ),
+  });
+}
+
+function buildPageYoutubeSearch( req ) {
+  // if building for static host (www) while edithost is different, search only lives on edithost, so need to qualify what domain...
+  let use_domain = req.prodMode && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC;
+  let optional_domain = (use_domain ? `https://${HOSTNAME_FOR_EDITS}.${DOMAINS[0]}` : "");
+
+  return template.file( "template.search.html", {
+    TITLE: "Search (YouTube Transcripts)",
+    REQ_BASEURL: req.baseUrl,
+    SEARCH_URL: `${optional_domain}${req.baseUrl}/search-youtube`,
+    DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${optional_domain}${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
+    ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS ),
+  });
+}
+
 // GET /search: Serve the search page
 router.get('/search', (req, res) => {
   //const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
   logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search`)
 
-  res.send(template.file( "template.search.html", {
-    TITLE: "Search",
-    REQ_BASEURL: req.baseUrl,
-    SEARCH_URL: `${req.baseUrl}/search`,
-    DESCRIPTION: (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ?
-      `Or head over to <a href='${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
-    ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_WIKI_SEARCH_BUTTONS ),
-  }));
+  res.send( buildPageSearch( req ) )
 });
 
 // GET /search-youtube: Serve the search page
@@ -603,13 +628,7 @@ router.get('/search-youtube', (req, res) => {
   //const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
   logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search-youtube`)
 
-  res.send(template.file( "template.search.html", {
-    TITLE: "Search (YouTube Transcripts)",
-    REQ_BASEURL: req.baseUrl,
-    SEARCH_URL: `${req.baseUrl}/search-youtube`,
-    DESCRIPTION: `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
-    ADDITIONAL_SEARCH_BUTTONS: JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS ),
-  }));
+  res.send( buildPageYoutubeSearch( req ) )
 });
 
 // PUT /search: Handle the search request
@@ -882,3 +901,5 @@ function init( l ) {
 module.exports.router = router;
 module.exports.init = init;
 module.exports.getSitemapEntries = getSitemapEntries;
+module.exports.buildPageSearch = buildPageSearch;
+module.exports.buildPageYoutubeSearch = buildPageYoutubeSearch;
