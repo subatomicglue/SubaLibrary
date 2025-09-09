@@ -263,7 +263,7 @@ markdownToHtmlTest( `[title](#my bookmark is crazy)`,
   `<a href="#my-bookmark-is-crazy">title</a>`
 )
 markdownToHtmlTest( `[title](?searchterm=bok#my bookmark is crazy)`,
-  `<a href="/base/?searchterm=bok#my-bookmark-is-crazy">title</a>`
+  `<a href="?searchterm=bok#my-bookmark-is-crazy">title</a>`
 )
 markdownToHtmlTest( `[title](#ref with parens and umlat (Büoenn%29)`,
   `<a href="#ref-with-parens-and-umlat--B-oenn-29">title</a>`

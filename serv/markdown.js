@@ -329,7 +329,7 @@ function generateMarkdownTOC(markdown) {
       const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                                                                                       // https://blah
         url.match( /^\// ) ? `${escapeRelativeUrl( options.link_absolute_callback( baseUrl, baseQueryHash[0] ) )}${baseQueryHash[1] != "" ? `?${baseQueryHash[1]}` : ""}${baseQueryHash[2] != "" ? `#${sanitizeForHTMLParam( baseQueryHash[2], {is_id:true} )}` : ``}` :  // /blah?key=value#heading
         url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                                                                                            // ?key=value#heading
-        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( baseQueryHash[0] ) )}${baseQueryHash[1] != "" ? `?${baseQueryHash[1]}` : ""}${baseQueryHash[2] != "" ? `#${sanitizeForHTMLParam( baseQueryHash[2], {is_id:true} )}` : ``}`;                       // blah?key=value#heading
+        `${baseQueryHash[0] != "" ? options.link_relative_callback( baseUrl, escapeTopicForHREF( baseQueryHash[0] ) ) : ""}${baseQueryHash[1] != "" ? `?${baseQueryHash[1]}` : ""}${baseQueryHash[2] != "" ? `#${sanitizeForHTMLParam( baseQueryHash[2], {is_id:true} )}` : ``}`;                       // blah?key=value#heading
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
