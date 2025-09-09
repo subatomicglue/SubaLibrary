@@ -236,7 +236,6 @@ router.get(`/${app_name}`, (req, res) => {
 
     let data = ""
     data += `<script type="application/json">` + JSON.stringify({
-      options: { inorder: true, first_question: 0 },
       title: "Intro: Breathing Marks",
       questions: [
         { "question": "what accent mark is ἁ", "answers": ["heavy breathing", "smooth breathing", "vocal pitch up", "vocal pitch down"] },
