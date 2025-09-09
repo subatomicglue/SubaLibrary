@@ -1,4 +1,4 @@
-const { markdownToHtml, htmlToMarkdown, splitTopicAndHash } = require('./markdown')
+const { markdownToHtml, htmlToMarkdown, splitTopicQueryHash } = require('./markdown')
 
 // ==================== MARKDOWN TESTING ==============================================================================
 
@@ -233,17 +233,37 @@ markdownToHtmlTest( `1. bullet
   `<ol type="1" start="1"><li>bullet</li><li>bullet2<ol type="a" start="a"><li>bullet3</li><li>bullet4</li></ol></li></ol>
   `)
 
+markdownToHtmlTest( `[title](https://www.google.com/path/to/my thing is amazing?key=value#hash)`,
+  `<a href="https://www.google.com/path/to/my thing is amazing?key=value#hash">title</a>`
+)
+
+markdownToHtmlTest( `https://www.google.com/path/to/thing?key=value#hash`,
+  `<a href="https://www.google.com/path/to/thing?key=value#hash">https://www.google.com/path/to/thing?key=value#hash</a>`
+)
+
 markdownToHtmlTest( `[title](/path/to/my thing is amazing)`,
   `<a href="/path/to/my%20thing%20is%20amazing">title</a>`
 )
 markdownToHtmlTest( `[title](/path/to/my thing is amazing#test)`,
   `<a href="/path/to/my%20thing%20is%20amazing#test">title</a>`
 )
+markdownToHtmlTest( `[title](/path/to/my thing is amazing?searchterm=bok#test)`,
+  `<a href="/path/to/my%20thing%20is%20amazing?searchterm=bok#test">title</a>`
+)
+markdownToHtmlTest( `[title](my crazy wiki topic)`,
+  `<a href="/base/my%20crazy%20wiki%20topic">title</a>`
+)
 markdownToHtmlTest( `[title](my crazy wiki topic#my bookmark is also crazy)`,
   `<a href="/base/my%20crazy%20wiki%20topic#my-bookmark-is-also-crazy">title</a>`
 )
+markdownToHtmlTest( `[title](my crazy wiki topic?searchterm=bok#my bookmark is also crazy)`,
+  `<a href="/base/my%20crazy%20wiki%20topic?searchterm=bok#my-bookmark-is-also-crazy">title</a>`
+)
 markdownToHtmlTest( `[title](#my bookmark is crazy)`,
   `<a href="#my-bookmark-is-crazy">title</a>`
+)
+markdownToHtmlTest( `[title](?searchterm=bok#my bookmark is crazy)`,
+  `<a href="/base/?searchterm=bok#my-bookmark-is-crazy">title</a>`
 )
 markdownToHtmlTest( `[title](#ref with parens and umlat (Büoenn%29)`,
   `<a href="#ref-with-parens-and-umlat--B-oenn-29">title</a>`
@@ -287,25 +307,31 @@ htmlToMarkdownTest( `<span style="color:#555555">words</span>`,
   `words`
 )
 
-function testSplitTopicAndHash( url, expected ) {
+function testSplitTopicQueryHash( url, expected ) {
   const VERBOSE = false
-  let result = splitTopicAndHash( url );
-  if (result[0] == expected[0] && result[1] == expected[1]) {
+  let result = splitTopicQueryHash( url );
+  if (result[0] == expected[0] && result[1] == expected[1] && result[2] == expected[2]) {
     VERBOSE && console.log( "[testSplitTopicAndHash]", url, "is good" )
   } else {
     console.log( "[testSplitTopicAndHash] FAIL:", url );
     console.log( "Expected" )
     console.log( " - Topic:", expected[0] )
-    console.log( " - Hash: ", expected[1] )
+    console.log( " - Query: ", expected[1] )
+    console.log( " - Hash: ", expected[2] )
     console.log( "Result" )
     console.log( " - Topic:", result[0] )
-    console.log( " - Hash: ", result[1] )
+    console.log( " - Query: ", result[1] )
+    console.log( " - Hash: ", result[2] )
   }
 }
 
-testSplitTopicAndHash( "Topic#Hash", ["Topic", "Hash"] )
-testSplitTopicAndHash( "Topic", ["Topic", ""] )
-testSplitTopicAndHash( "#Hash", ["", "Hash"] )
+testSplitTopicQueryHash( "Topic#Hash", ["Topic", "", "Hash"] )
+testSplitTopicQueryHash( "Topic", ["Topic", "", ""] )
+testSplitTopicQueryHash( "#Hash", ["", "", "Hash"] )
+
+testSplitTopicQueryHash( "Topic?searchterm=bok#Hash", ["Topic", "searchterm=bok", "Hash"] )
+testSplitTopicQueryHash( "Topic?searchterm=bok", ["Topic", "searchterm=bok", ""] )
+testSplitTopicQueryHash( "?searchterm=bok#Hash", ["", "searchterm=bok", "Hash"] )
 
 
 } // if (isBrowser())

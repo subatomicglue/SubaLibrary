@@ -3,15 +3,26 @@
 // markdownToHtml
 //////////////////////////////////////////////////////////////////////////////////////
 
-function splitTopicAndHash(input) {
-  const parts = input.split("#", 2); // split at the first "#"
-  if (parts.length === 2) {
-    return [parts[0], parts[1]];
-  } else if (input.startsWith("#")) {
-    return ["", input.slice(1)];
-  } else {
-    return [input, ""];
+function splitTopicQueryHash(input) {
+  let base = input;
+  let query = "";
+  let hash = "";
+
+  // Find '#' first, since hash always comes last
+  const hashIndex = base.indexOf("#");
+  if (hashIndex !== -1) {
+    hash = base.slice(hashIndex+1);    // keep the '#' prefix
+    base = base.slice(0, hashIndex); // trim hash off the rest
   }
+
+  // Now check for '?'
+  const queryIndex = base.indexOf("?");
+  if (queryIndex !== -1) {
+    query = base.slice(queryIndex+1);   // keep the '?' prefix
+    base = base.slice(0, queryIndex); // trim query off the rest
+  }
+
+  return [base, query, hash];
 }
 
 const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
@@ -314,10 +325,11 @@ function generateMarkdownTOC(markdown) {
     })
     .replace(match_markdown_link, (match, title, url) => { // topic link: [title text](url)
       const VERBOSE=false
-      const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                                                                 // https://blah
-        url.match( /^\// ) ? `${escapeRelativeUrl( options.link_absolute_callback( baseUrl, splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}` :  // /blah#heading
-        url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                                                                      // #heading
-        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( splitTopicAndHash( url )[0] ) )}${splitTopicAndHash( url )[1] != "" ? `#${sanitizeForHTMLParam( splitTopicAndHash( url )[1], {is_id:true} )}` : ``}`;                       // blah#heading
+      const baseQueryHash = splitTopicQueryHash( url );
+      const THEURL = url.match( /^https?/ ) ? url :                                                                                                                                                                                                                       // https://blah
+        url.match( /^\// ) ? `${escapeRelativeUrl( options.link_absolute_callback( baseUrl, baseQueryHash[0] ) )}${baseQueryHash[1] != "" ? `?${baseQueryHash[1]}` : ""}${baseQueryHash[2] != "" ? `#${sanitizeForHTMLParam( baseQueryHash[2], {is_id:true} )}` : ``}` :  // /blah?key=value#heading
+        url.match( /^#/ ) ? `#${sanitizeForHTMLParam( url.replace(/^#/,''), {is_id:true} )}` :                                                                                                                                                                            // ?key=value#heading
+        `${options.link_relative_callback( baseUrl, escapeTopicForHREF( baseQueryHash[0] ) )}${baseQueryHash[1] != "" ? `?${baseQueryHash[1]}` : ""}${baseQueryHash[2] != "" ? `#${sanitizeForHTMLParam( baseQueryHash[2], {is_id:true} )}` : ``}`;                       // blah?key=value#heading
       VERBOSE && console.log( "[markdown] link", THEURL )
       if (isYouTubeURL(url) && !options.skipYouTubeEmbed)
         return convertToYouTubeEmbed(url, title)
@@ -818,4 +830,4 @@ function htmlToMarkdown( str ) {
 
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;
-module.exports.splitTopicAndHash = splitTopicAndHash;
+module.exports.splitTopicQueryHash = splitTopicQueryHash;
