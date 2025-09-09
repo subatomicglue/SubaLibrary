@@ -260,6 +260,16 @@ router.get(`/${app_name}`, (req, res) => {
       ]
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
+      title: "Intro: Gamma Combos",
+      question: "what sound does this make",
+      questions: [
+        { "question": "γγ", "answer": "a[ng]er" },
+        { "question": "γκ", "answer": "ba[nk]er" },
+        { "question": "γξ", "answer": "sphi[nx]" },
+        { "question": "γχ", "answer": "lu[nkh]ead" },
+      ]
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
       options: { inorder: true, first_question: 0 },
       title: "Alphabet: In order letters (lowercase)",
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.scroll}`, "answer": arr[(i + 1) % arr.length].scroll }})
