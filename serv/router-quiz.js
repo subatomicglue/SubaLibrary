@@ -298,6 +298,22 @@ router.get(`/${app_name}`, (req, res) => {
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].scroll }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
+      title: "Alphabet: name pronounce (lowercase)",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.scroll}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Alphabet: name pronounce (uppercase)",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.stone}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Alphabet: sound (uppercase)",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.stone} make`, "answer": r.sound }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      title: "Alphabet: sound (lowercase)",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.scroll} make`, "answer": r.sound }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
       options: { inorder: true, first_question: 0 },
       title: "Knowledge Quiz",
       questions: [
