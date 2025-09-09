@@ -257,6 +257,18 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     ]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
+    "title": "Intro: Iota Subscript/Adscript",
+    "question": "Select the correct sound for the Iota Subscript/Adscript...",
+    "questions": [
+      {"question":"ᾳ","answer":"subscript - ah (father)"},
+      {"question":"ῃ","answer":"subscript - ay (day)"},
+      {"question":"ῳ","answer":"subscript - ou (flow)"},
+      {"question":"Αι","answer":"adscript - ah (father)"},
+      {"question":"Ηι","answer":"adscript - ay (day)"},
+      {"question":"Ωι","answer":"adscript - ou (flow)"},
+    ]
+  }) + `</script>`
+  data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Gamma Combos",
     question: "what sound does this make",
     questions: [
@@ -266,6 +278,25 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "γχ", "answer": "lu[nkh]ead" },
     ]
   }) + `</script>`
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Intro: Pronunciation 1",
+    question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["I"]
+  }) + `</script>`
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Intro: Pronunciation 2",
+    question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["II"]
+  }) + `</script>`
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Intro: Pronunciation 3",
+    question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
+  }) + `</script>`
+
+
+
+
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
     title: "Alphabet: In order letters (lowercase)",
