@@ -280,22 +280,27 @@ router.get(`/${app_name}`, (req, res) => {
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.name }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Alphabet: Out of Order (uppercase)",
+      title: "Alphabet: Out of Order letters (uppercase)",
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].stone }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
-      title: "Alphabet: Out of Order (lowercase)",
+      title: "Alphabet: Out of Order letters (lowercase)",
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.scroll}`, "answer": arr[(i + 1) % arr.length].scroll }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
       options: { inorder: true, first_question: 0 },
-      title: "Alphabet: In order (lowercase)",
+      title: "Alphabet: In order letters (lowercase)",
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.scroll}`, "answer": arr[(i + 1) % arr.length].scroll }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
       options: { inorder: true, first_question: 0 },
-      title: "Alphabet: In order (uppercase)",
+      title: "Alphabet: In order letters (uppercase)",
       questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].scroll }})
+    }) + `</script>`
+    data += `<script type="application/json">` + JSON.stringify({
+      options: { inorder: true, first_question: 0 },
+      title: "Alphabet: In order names",
+      questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
     }) + `</script>`
     data += `<script type="application/json">` + JSON.stringify({
       title: "Alphabet: name pronounce (lowercase)",
