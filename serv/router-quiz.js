@@ -370,7 +370,6 @@ router.get(`/${app_name}`, (req, res) => {
   try {
     console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
     const pageHTML = module.exports["buildPage_" + app_name]( req, app_name );
-    console.log( pageHTML )
     return res.send( pageHTML );
   } catch (err) {
     return res.send(generateCatchHTML(err));
