@@ -369,7 +369,9 @@ router.get(`/${app_name}`, (req, res) => {
   const app_name = req.route.path.replace(/^\//, '');
   try {
     console.log( `[greek] ${userLogDisplay(req)} ${req.baseUrl}/${app_name}` )
-    return res.send(  );
+    const pageHTML = module.exports["buildPage_" + app_name]( req, app_name );
+    console.log( pageHTML )
+    return res.send( pageHTML );
   } catch (err) {
     return res.send(generateCatchHTML(err));
   }
