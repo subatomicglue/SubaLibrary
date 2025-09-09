@@ -324,9 +324,14 @@ router.get(`/${app_name}`, (req, res) => {
       ]
     }) + `</script>`
 
+    const protocol = req.protocol;               // 'http' or 'https'
+    const host = req.get('host');                // example.com or example.com:3000
+    const domain = `${protocol}://${host}`;
+    
     return res.send(
       template.file( "template.page.html", {
         ...commonPageVars(req, app_name),
+        CANONICAL_URL_ROOT: domain,
         BODY: template.file( "template.quiz.html", {
           ...commonPageVars(req, app_name),
           SCRIPTS: `<%include "${settings.WIKI_DIR}/greek-quizes.json" force%>${data}`
