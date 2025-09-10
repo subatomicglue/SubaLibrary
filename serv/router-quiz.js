@@ -152,7 +152,7 @@ router.get(`/`, (req, res) => {
 
 
 function commonPageVars(req, app_name, t=new Date() ) {
-  const assets_magic = req.prodMode ? "assets" : settings.ASSETS_MAGIC;
+  const assets_magic = req.staticMode ? "assets" : settings.ASSETS_MAGIC;
 
   return {
     ...settings, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },

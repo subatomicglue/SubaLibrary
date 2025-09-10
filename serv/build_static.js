@@ -28,6 +28,7 @@ class Req {
     this.canonicalUrlDomain = `${this.get('host')}`;
     this.user = "---"
     this.prodMode = true; // running a production URL.
+    this.staticMode = true; // definitely generating static content
   }
   get(str) { return { host: SETTINGS.DOMAINS[1] }[str] } // assume the first DOMAIN[] is the one
   protocol = "https"

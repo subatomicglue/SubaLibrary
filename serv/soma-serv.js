@@ -263,6 +263,7 @@ app.use( (req, res, next) => {
   req.canonicalHost = (prod_mode && HOSTNAME_FOR_EDITS === HOSTNAME_FOR_STATIC);
   req.editHost = (host === HOSTNAME_FOR_EDITS && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC);
   req.prodMode = prod_mode;
+  req.staticMode = false;
 
   // also, these exist already, part of express:
   // req.url         // "/hello/world?foo=bar"

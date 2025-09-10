@@ -589,7 +589,7 @@ function __buildPageSearch( req, title = "Search", endpoint = "search", descript
   // if building for static host (www) while edithost is different, search only lives on edithost, so need to qualify what domain...
   let use_domain = req.prodMode && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC;
   let optional_domain = (use_domain ? `https://${HOSTNAME_FOR_EDITS}.${DOMAINS[0]}` : "");
-  const assets_magic = req.prodMode ? "assets" : ASSETS_MAGIC;
+  const assets_magic = req.staticMode ? "assets" : ASSETS_MAGIC;
 
   return template.file( "template.search.html", {
     TITLE: title,
