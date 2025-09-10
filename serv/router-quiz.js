@@ -260,7 +260,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     ]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    "title": "Intro: Iota Subscript/Adscript",
+    "title": "Intro: Iota Subscript/Adscript (unpronounced)",
     "question": "Select the correct sound for the Iota Subscript/Adscript...",
     "questions": [
       {"question":"ᾳ","answer":"subscript - ah (father)"},
@@ -269,6 +269,18 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       {"question":"Αι","answer":"adscript - ah (father)"},
       {"question":"Ηι","answer":"adscript - ay (day)"},
       {"question":"Ωι","answer":"adscript - ou (flow)"},
+    ]
+  }) + `</script>`
+  data += `<script type="application/json">` + JSON.stringify({
+    "title": "Intro: Iota Subscript/Adscript (pronounced)",
+    "question": "Select the correct sound for the Iota Subscript/Adscript...",
+    "questions": [
+      {"question":"ᾳ","answer":"subscript - eye"},
+      {"question":"ῃ","answer":"subscript - ayee"},
+      {"question":"ῳ","answer":"subscript - oy"},
+      {"question":"Αι","answer":"adscript - eye"},
+      {"question":"Ηι","answer":"adscript - ayee"},
+      {"question":"Ωι","answer":"adscript - oy"},
     ]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
