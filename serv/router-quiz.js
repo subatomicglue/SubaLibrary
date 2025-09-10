@@ -309,9 +309,11 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
   }) + `</script>`
 
-
-
-
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { inorder: true, first_question: 0 },
+    title: "Alphabet: In order letters (name)",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
+  }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
     title: "Alphabet: In order letters (lowercase)",
@@ -322,38 +324,46 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     title: "Alphabet: In order letters (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].scroll }})
   }) + `</script>`
+
   data += `<script type="application/json">` + JSON.stringify({
-    options: { inorder: true, first_question: 0 },
-    title: "Alphabet: In order names",
-    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
+    title: "Alphabet: Letter to sound (name)",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.name} make`, "answer": r.sound }})
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: Match Uppercase to Lowercase",
-    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.scroll }})
+    title: "Alphabet: Letter to sound (lowercase)",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.scroll} make`, "answer": r.sound }})
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: Match Lowercase to Name",
+    title: "Alphabet: Letter to sound (uppercase)",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.stone} make`, "answer": r.sound }})
+  }) + `</script>`
+
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Alphabet: Letter to Name (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.scroll, "answer": r.name }})
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: Match Uppercase to Name",
+    title: "Alphabet: Letter to Name (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.name }})
   }) + `</script>`
+
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: name pronounce (lowercase)",
+    title: "Alphabet: Uppercase to Lowercase",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.scroll }})
+  }) + `</script>`
+
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Alphabet: Letter to Pronunciation (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.scroll}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: name pronounce (uppercase)",
+    title: "Alphabet: Letter to Pronunciation (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.stone}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
   }) + `</script>`
+
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: sound (uppercase)",
-    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.stone} make`, "answer": r.sound }})
-  }) + `</script>`
-  data += `<script type="application/json">` + JSON.stringify({
-    title: "Alphabet: sound (lowercase)",
-    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.scroll} make`, "answer": r.sound }})
+    title: "Alphabet: Out of Order letters (names)",
+    questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Out of Order letters (uppercase)",
