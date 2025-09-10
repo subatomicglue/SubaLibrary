@@ -152,21 +152,24 @@ router.get(`/`, (req, res) => {
 
 
 function commonPageVars(req, app_name, t=new Date() ) {
+  const assets_magic = req.prodMode ? "assets" : settings.ASSETS_MAGIC;
+
   return {
     ...settings, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${settings.TITLE}`,
     SOCIAL_TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
-    BACKBUTTON_IMAGE: `/${settings.ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
+    BACKBUTTON_IMAGE: `/${assets_magic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
     PAGE_TITLE: `<a href="${req.baseUrl}">${req.baseUrl}</a>/<a href="${app_name}">${app_name}</a>`,
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
     WHITESPACE: "normal",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: `${req.baseUrl}/search`,
-    SEARCH: `<span id="search" onclick='search()'><img src="/${settings.ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${assets_magic}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
     USER_LOGOUT: ``,
+    ASSETS_MAGIC: assets_magic
   };
 }
 
