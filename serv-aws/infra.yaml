@@ -183,11 +183,32 @@ Resources:
       ResponseHeadersPolicyConfig:
         Name: ReferrerPolicyHeaderPolicy
         Comment: Adds security headers including Referrer-Policy
+        CorsConfig:
+          AccessControlAllowOrigins:
+            Items:
+              - !Sub "${DomainName}"
+              - !Sub "${DomainName2}"
+              - !Sub "${EditableHostname}.${DomainName}"
+              - !Sub "${EditableHostname}.${DomainName2}"
+              - !Sub "www.${DomainName}"
+              - !Sub "www.${DomainName2}"
+              - !Sub "${StaticHostnameForTesting}.${DomainName}"
+              - !Sub "${StaticHostnameForTesting}.${DomainName2}"
+          AccessControlAllowHeaders:
+            Items:
+              - "*"
+          AccessControlAllowMethods:
+            Items:
+              - GET
+              - POST
+              - OPTIONS
+              - PUT
+          AccessControlAllowCredentials: false   # or true, if you need cookies/Authorization headers
+          OriginOverride: true
         SecurityHeadersConfig:
           ReferrerPolicy:
             Override: true
             ReferrerPolicy: strict-origin-when-cross-origin
-
 
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
