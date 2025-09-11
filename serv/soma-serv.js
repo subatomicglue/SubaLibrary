@@ -265,6 +265,16 @@ app.use( (req, res, next) => {
   req.prodMode = prod_mode;
   req.staticMode = false;
 
+  // CORS - allow www to talk to edithost, etc.
+  const origin = req.headers.origin;
+  const allowedOrigins = DOMAINS.map( r => "https://" + r );
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   // also, these exist already, part of express:
   // req.url         // "/hello/world?foo=bar"
   // req.originalUrl // "/api/test"     (even when /path inside a sub router, mounted to /full, gives /full/path)
