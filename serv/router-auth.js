@@ -33,6 +33,7 @@ const wait_sec_max = 120;
 
 
 const SCAN_ATTACK_PATHS = {
+"/wordpress/": true,
 "/wp-content/plugins/hellopress/wp_filemanager.php": true,
 "/k90.php": true,
 "/uwu2.php": true,
