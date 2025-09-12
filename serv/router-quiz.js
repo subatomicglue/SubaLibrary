@@ -294,17 +294,17 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     ]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Intro: Pronunciation 1",
+    title: "Intro: Pronunciation Drill 1",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["I"]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Intro: Pronunciation 2",
+    title: "Intro: Pronunciation Drill 2",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["II"]
   }) + `</script>`
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Intro: Pronunciation 3",
+    title: "Intro: Pronunciation Drill 3",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
   }) + `</script>`
