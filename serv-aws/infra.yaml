@@ -103,14 +103,22 @@ Resources:
     DependsOn:
       - RedirectAllAliasesFunction
       - S3Bucket
+      - SearchLambdaFunctionURL
+      - SearchApi
     Properties:
       DistributionConfig:
         Origins:
+          # S3 bucket serving static HTML files:
           - DomainName: !Sub "${S3BucketName}.s3.${AWS::Region}.amazonaws.com"
             Id: static-hosting
             S3OriginConfig:
               OriginAccessIdentity: ""
             OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+          # Expose /search-testing
+          - DomainName: !Sub "${SearchApi}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: search-testing
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
         Enabled: "true"
         DefaultRootObject: index.html
         CustomErrorResponses:
@@ -134,15 +142,17 @@ Resources:
           AcmCertificateArn: "arn:aws:acm:us-east-1:244726690758:certificate/8ada54ac-0797-4894-9e7a-5e4d356e005f"
           MinimumProtocolVersion: TLSv1.2_2021
           SslSupportMethod: sni-only
+
+        # default
         DefaultCacheBehavior:
           AllowedMethods:
-            - DELETE
-            - GET
-            - HEAD
-            - OPTIONS
-            - PATCH
-            - POST
-            - PUT
+            - HEAD         # level 1
+            - GET          # level 1  - when modifying, you must match the entire level set...
+            - OPTIONS      # level 2
+            - PUT          # level 3
+            - POST         # level 3
+            - PATCH        # level 3
+            - DELETE       # level 3
           Compress: true
           TargetOriginId: static-hosting
           ForwardedValues:
@@ -156,7 +166,24 @@ Resources:
             - EventType: viewer-request
               FunctionARN: !GetAtt RedirectAllAliasesFunction.FunctionARN
 
-
+        # /search-testing
+        CacheBehaviors:
+          - PathPattern: /search-testing                         # for additional subpaths, use * to allow anything after 
+            TargetOriginId: search-testing
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - HEAD         # level 1
+              - GET          # level 1  - when modifying, you must match the entire level set...
+              - OPTIONS      # level 2
+              - PUT          # level 3
+              - POST         # level 3
+              - PATCH        # level 3
+              - DELETE       # level 3
+            Compress: true
+            ForwardedValues:
+              QueryString: true                                  # allow ?searchterm=textgoeshere
+              Cookies:
+                Forward: none
 
   MyCachePolicy:
     Type: AWS::CloudFront::CachePolicy
@@ -199,10 +226,13 @@ Resources:
               - "*"
           AccessControlAllowMethods:
             Items:
-              - GET
-              - POST
-              - OPTIONS
-              - PUT
+              - HEAD         # level 1
+              - GET          # level 1  - when modifying, you must match the entire level set...
+              - OPTIONS      # level 2
+              - PUT          # level 3
+              - POST         # level 3
+              - PATCH        # level 3
+              - DELETE       # level 3
           AccessControlAllowCredentials: false   # or true, if you need cookies/Authorization headers
           OriginOverride: true
         SecurityHeadersConfig:
@@ -226,6 +256,268 @@ Resources:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::244726690758:distribution/${CloudFrontDistribution}"
 
+  # API Gateway -
+  SearchApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: SearchApi
+      ProtocolType: HTTP
+
+  SearchApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    DependsOn:
+      - SearchLambdaFunction
+      - SearchApi
+    Properties:
+      ApiId: !Ref SearchApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchLambdaFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  SearchApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - SearchApi
+      - SearchApiIntegration
+    Properties:
+      ApiId: !Ref SearchApi
+      RouteKey: "ANY /search-testing"
+      Target: !Sub "integrations/${SearchApiIntegration}"
+
+  SearchApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn:
+      - SearchApi
+    Properties:
+      ApiId: !Ref SearchApi
+      StageName: "$default"
+      AutoDeploy: true
+
+  SearchLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - SearchLambdaFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SearchLambdaFunction
+      Principal: apigateway.amazonaws.com
+
+
+
+  # 1. VPC for Lambda + EFS
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda to EFS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 10.0.0.0/16
+
+  # 2. EFS FileSystem
+  EFSFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      FileSystemTags:
+        - Key: Name
+          Value: search-efs
+      PerformanceMode: generalPurpose
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_30_DAYS
+
+  EFSMountTarget:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SubnetId: !Ref Subnet
+      SecurityGroups: [!Ref SecurityGroup]
+
+  # 3. Lambda Execution Role (S3: RO | EFS: RW)
+  LambdaRolexS3ROxEFSRW:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SearchBucketReadOnlyAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3BucketName}"
+                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+        - PolicyName: EFSAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticfilesystem:ClientMount
+                  - elasticfilesystem:ClientWrite
+                  - elasticfilesystem:ClientRootAccess
+                Resource: !GetAtt EFSFileSystem.Arn
+        - PolicyName: LambdaVPCAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                  - ec2:AssignPrivateIpAddresses
+                  - ec2:UnassignPrivateIpAddresses
+                Resource: "*"
+
+  AuthEFSAcessPoint: # todo:    (will be used later for auth)
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      PosixUser:
+        Gid: 1000
+        Uid: 1000
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: 1000
+          OwnerUid: 1000
+          Permissions: "750"
+        Path: /auth   # expose only the auth data on the EFS volume
+
+  SearchEFSAcessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      PosixUser:
+        Gid: 1000
+        Uid: 1000
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: 1000
+          OwnerUid: 1000
+          Permissions: "750"
+        Path: /search   # expose only the search data on the EFS volume
+
+  # 4. Lambda Function
+  SearchLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - EFSMountTarget   # ensures the mount target is created first
+    Properties:
+      FunctionName: SearchLambdaFunction
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Role: !GetAtt LambdaRolexS3ROxEFSRW.Arn
+      Timeout: 30
+      MemorySize: 1024
+      FileSystemConfigs:
+        - Arn: !GetAtt SearchEFSAcessPoint.Arn
+          LocalMountPath: /mnt/efs
+      VpcConfig:
+        SubnetIds:
+          - !Ref Subnet
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+      Code:
+        ZipFile: |
+          exports.handler = async function(event) {
+            const searchTerm = event.queryStringParameters?.searchterm || "";
+            return {
+              statusCode: 200,
+              headers: { 'Content-Type': 'text/plain' },
+              body: "You searched for: " + searchTerm
+            };
+          }
+      # Code:
+      #   ZipFile: |
+      #     const fs = require('fs');
+
+      #     exports.handler = async function(event) {
+      #       let files;
+      #       try {
+      #         files = fs.readdirSync('/mnt/efs');
+      #       } catch (err) {
+      #         files = [`EFS not mounted: ${err.message}`];
+      #       }
+
+      #       return {
+      #         statusCode: 200,
+      #         headers: { 'Content-Type': 'application/json' },
+      #         body: JSON.stringify({
+      #           msg: "Hello from Lambda",
+      #           path: event.rawPath || event.path || "/",
+      #           efsListing: files
+      #         })
+      #       };
+      #     };
+      # Code:
+      #   ZipFile: |
+      #     const fs = require('fs')
+      #     const AWS = require('aws-sdk')
+      #     const s3 = new AWS.S3()
+      #     const SEARCH_BUCKET = process.env.SEARCH_BUCKET
+      #     const SEARCH_KEY = process.env.SEARCH_KEY
+      #     const EFS_PATH = '/mnt/efs/search_index.json'
+
+      #     exports.handler = async function(event) {
+      #       // Check if file exists in EFS
+      #       let copyNeeded = true
+      #       try {
+      #         const stats = fs.statSync(EFS_PATH)
+      #         copyNeeded = false
+      #       } catch {}
+
+      #       if (copyNeeded) {
+      #         const data = await s3.getObject({Bucket: SEARCH_BUCKET, Key: SEARCH_KEY}).promise()
+      #         fs.writeFileSync(EFS_PATH, data.Body)
+      #       }
+
+      #       return {
+      #         statusCode: 200,
+      #         headers: {'Content-Type': 'text/plain'},
+      #         body: fs.readFileSync(EFS_PATH, 'utf8')
+      #       }
+      #     }
+      Environment:
+        Variables:
+          SEARCH_BUCKET: !Sub "${S3BucketName}"
+          SEARCH_KEY: search_index.json
+
+  # 5. Lambda Function URL
+  SearchLambdaFunctionURL:
+    Type: AWS::Lambda::Url
+    DependsOn:
+      - SearchLambdaFunction
+    Properties:
+      AuthType: NONE
+      TargetFunctionArn: !Ref SearchLambdaFunction
+
 Outputs:
   S3BucketName:
     Description: "The S3 bucket name"
@@ -237,3 +529,10 @@ Outputs:
   CloudFrontDist:
     Value:
       Ref: CloudFrontDistribution
+  # LambdaFunctionURL:
+  #   Description: "Public URL of the Search Lambda"
+  #   Value: !GetAtt SearchLambdaFunctionURL.FunctionUrl
+  LambdaFunctionURL:
+    Description: "Public URL of the Search Lambda"
+    Value: !Sub "${SearchApi}.execute-api.${AWS::Region}.amazonaws.com"
+
