@@ -177,12 +177,11 @@ class SyncToFileSystem {
   }
 }
 
-
 // helper for recursive copy (todo: move this into the syncer?)
-function copyFolder(dir, recurse = true) {
-  const relative_dir = path.basename(dir)
+function copyFolder(indir, outdir, options = { recurse: true }) {
+  const relative_dir = path.basename(indir) // final sourcedir will match the destdir...
   const dirSrc = path.join(__dirname, relative_dir);
-  const assetsDest = path.join(outputDir, relative_dir);
+  const dirDest = path.join(outdir, relative_dir);
 
   if (!fs.existsSync(dirSrc)) {
     console.warn(`⚠️  No dir:'${relative_dir}' found to copy.`);
@@ -194,7 +193,7 @@ function copyFolder(dir, recurse = true) {
       if (!nonDestructive) {
         fs.mkdirSync(dest, { recursive: true });
       }
-      console.log(`📁 Created dir:'${relative_dir}': ${dest}`);
+      console.log(`📁 Created dir: ${dest}`);
     }
 
     fs.readdirSync(src).forEach(item => {
@@ -204,7 +203,7 @@ function copyFolder(dir, recurse = true) {
       const stat = fs.lstatSync(srcPath); // use lstat to detect symlinks
 
       if (stat.isDirectory()) {
-        if (recurse)
+        if (options.recurse)
           copyRecursiveSync(srcPath, destPath);
         //console.log(`📁 Copied dir:'${relative_dir}': ${srcPath} → ${destPath}`);
       } else {
@@ -219,7 +218,7 @@ function copyFolder(dir, recurse = true) {
         const realStat = fs.statSync(realSrcPath);
         if (realStat.isDirectory()) {
           // Handle symlinked directory: recurse instead of copying like a file
-          if (recurse)
+          if (options.recurse)
             copyRecursiveSync(realSrcPath, destPath);
           //console.log(`📁 Copied dir:'${relative_dir}': ${srcPath} → ${destPath}`);
         } else {
@@ -229,7 +228,7 @@ function copyFolder(dir, recurse = true) {
     });
   };
 
-  copyRecursiveSync(dirSrc, assetsDest);
+  copyRecursiveSync(dirSrc, dirDest);
 };
 
 
@@ -259,6 +258,8 @@ const uploadsDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/uploads` );
 makeDir( uploadsDir )
 const viewDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/view` );
 makeDir( viewDir )
+const mdDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/markdown` );
+makeDir( mdDir )
 
 // Convert .md files to .html, copy image files
 fs.readdirSync(inputDir).forEach(file => {
@@ -282,7 +283,8 @@ fs.readdirSync(inputDir).forEach(file => {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
-    syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )
+    syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                // copy the topic html over
+    syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
 
     // special case: webservers may need there to be a index.html
     if (topic == "index")
@@ -298,13 +300,13 @@ fs.readdirSync(inputDir).forEach(file => {
 });
 
 // Copy assets
-copyFolder( SETTINGS.ASSETS_DIR )
+copyFolder( SETTINGS.ASSETS_DIR, outputDir, { recurse: true } )
 
 // Copy torrents
-copyFolder( SETTINGS.TORRENT_DIR, false )
+copyFolder( SETTINGS.TORRENT_DIR, outputDir, { recurse: false } )
 
 // Copy uploads
-copyFolder( SETTINGS.WIKI_FILES_DIR, false )
+copyFolder( SETTINGS.WIKI_FILES_DIR, outputDir, { recurse: false } )
 
 // write out build/serve.sh
 const serveScriptPath = path.join(outputDir, "serve.sh")
