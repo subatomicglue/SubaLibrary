@@ -283,7 +283,7 @@ fs.readdirSync(inputDir).forEach(file => {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
-    syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                // copy the topic html over
+    syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                  // copy the topic html over
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
 
     // special case: webservers may need there to be a index.html
@@ -344,6 +344,11 @@ syncer.writeFileIfChanged(undefined, quizzesPath, quizzesHTML )
 const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")
 syncer.writeFileIfChanged( undefined, rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
+
+// forbidden.html notfound.html
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "forbidden.html"), "403 forbidden" )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "notfound.html"), "404 not found" )
+
 
 // done, delete any differences in the destination dir.
 syncer.close()

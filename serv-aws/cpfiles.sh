@@ -20,6 +20,8 @@ METADATA_FOR_HTML="--metadata-directive REPLACE --metadata x-amz-meta-referrer-p
 cd ../serv && ./build_static.js; cd -
 aws s3 cp ../serv/build/wiki/view/index "s3://$BUCKET_NAME/" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/wiki/view/index.html "s3://$BUCKET_NAME/" --cache-control 'no-cache'   --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/wiki/view/notfound.html "s3://$BUCKET_NAME/" --cache-control 'no-cache'   --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/wiki/view/forbidden.html "s3://$BUCKET_NAME/" --cache-control 'no-cache'   --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/wiki/view/ "s3://$BUCKET_NAME/wiki/view/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/wiki/markdown/ "s3://$BUCKET_NAME/wiki/markdown/" --cache-control 'no-cache' --content-type 'text/plain' $METADATA_FOR_HTML
 

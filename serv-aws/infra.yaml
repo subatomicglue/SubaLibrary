@@ -123,11 +123,11 @@ Resources:
         DefaultRootObject: index.html
         CustomErrorResponses:
           - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponseCode: 404
+            ResponsePagePath: /notfound.html
           - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponseCode: 403
+            ResponsePagePath: /forbidden.html
         HttpVersion: http2
         Aliases:
           - !Sub "${DomainName}"
@@ -166,8 +166,8 @@ Resources:
             - EventType: viewer-request
               FunctionARN: !GetAtt RedirectAllAliasesFunction.FunctionARN
 
-        # /search-testing
         CacheBehaviors:
+          # Expose Lambda REST Endpoint: /search-testing
           - PathPattern: /search-testing                         # for additional subpaths, use * to allow anything after 
             TargetOriginId: search-testing
             ViewerProtocolPolicy: redirect-to-https
