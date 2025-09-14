@@ -160,14 +160,14 @@ Resources:
             ResponsePagePath: /forbidden.html
         HttpVersion: http2
         Aliases:
-          - !Sub "${DomainName}"
           - !Sub "${DomainName2}"
-          - !Sub "${EditableHostname}.${DomainName}"
+          - !Sub "${DomainName}"
           - !Sub "${EditableHostname}.${DomainName2}"
-          - !Sub "www.${DomainName}"
+          - !Sub "${EditableHostname}.${DomainName}"
           - !Sub "www.${DomainName2}"
-          - !Sub "${StaticHostnameForTesting}.${DomainName}"
+          - !Sub "www.${DomainName}"
           - !Sub "${StaticHostnameForTesting}.${DomainName2}"
+          - !Sub "${StaticHostnameForTesting}.${DomainName}"
         ViewerCertificate:
           AcmCertificateArn: "arn:aws:acm:us-east-1:244726690758:certificate/8ada54ac-0797-4894-9e7a-5e4d356e005f"
           MinimumProtocolVersion: TLSv1.2_2021
@@ -243,14 +243,14 @@ Resources:
         CorsConfig:
           AccessControlAllowOrigins:
             Items:
-              - !Sub "${DomainName}"
               - !Sub "${DomainName2}"
-              - !Sub "${EditableHostname}.${DomainName}"
+              - !Sub "${DomainName}"
               - !Sub "${EditableHostname}.${DomainName2}"
-              - !Sub "www.${DomainName}"
+              - !Sub "${EditableHostname}.${DomainName}"
               - !Sub "www.${DomainName2}"
-              - !Sub "${StaticHostnameForTesting}.${DomainName}"
+              - !Sub "www.${DomainName}"
               - !Sub "${StaticHostnameForTesting}.${DomainName2}"
+              - !Sub "${StaticHostnameForTesting}.${DomainName}"
           AccessControlAllowHeaders:
             Items:
               - "*"
