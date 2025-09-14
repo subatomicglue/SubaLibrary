@@ -287,8 +287,8 @@ fs.readdirSync(inputDir).forEach(file => {
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
 
     // special case: webservers may need there to be a index.html
-    if (topic == "index")
-      syncer.writeFileIfChanged( fullPath, outputPath + '.html', html, 'utf-8' )
+    // if (topic == "index")
+    //   syncer.writeFileIfChanged( fullPath, outputPath + '.html', html, 'utf-8' )
   }
 
   // Copy images
@@ -345,9 +345,29 @@ const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")
 syncer.writeFileIfChanged( undefined, rssPath, makeRSS( `${req.protocol}://${req.get('host')}/rss`, SETTINGS.TORRENT_DIR ), "utf8" )
 
-// forbidden.html notfound.html
-syncer.writeFileIfChanged(undefined, path.join(outputDir, "forbidden.html"), "403 forbidden" )
-syncer.writeFileIfChanged(undefined, path.join(outputDir, "notfound.html"), "404 not found" )
+function genRedirectPage(link) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="refresh"   content="0; url=${link}">
+    <meta property="og:url"      content="${link}">
+    <meta property="twitter:url" content="${link}">
+    <title>Redirecting…</title>
+  </head>
+  <body>
+    <p>If you are not redirected, <a href="${link}">click here</a>.</p>
+  </body>
+</html>
+`
+}
+// mechanical stuff
+makeDir( path.join(outputDir, "root/wiki/view") )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/forbidden.html"), "403 forbidden" )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/notfound.html"), "404 not found" )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/view/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
 
 
 // done, delete any differences in the destination dir.
