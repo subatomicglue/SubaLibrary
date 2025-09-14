@@ -6,10 +6,10 @@ Parameters:
     Description: "S3 bucket name"
     Type: String
   DomainName:
-    Description: "domain name"
+    Description: "primary domain name"
     Type: String
   DomainName2:
-    Description: "domain name"
+    Description: "alternative domain name"
     Type: String
   EditableHostname:
     Description: "The Editable Hostname (could be www)"
@@ -41,7 +41,7 @@ Resources:
     Properties:
       Name: RedirectAllAliasesToCanonical
       FunctionConfig:
-        Comment: !Sub "Redirect all subdomains of ${DomainName} to canonical ${DomainName2}"
+        Comment: !Sub "Redirect all subdomains of ${DomainName2} to canonical ${DomainName}"
         Runtime: cloudfront-js-1.0
       AutoPublish: true
       FunctionCode:
@@ -50,11 +50,41 @@ Resources:
             var request = event.request;
             var host = request.headers['host'].value.toLowerCase();
 
-            var canonicalRoot = "${DomainName2}".toLowerCase();   // e.g., example.com
-            var alternates = ["${DomainName}".toLowerCase()];   // e.g., exam-ple.com
+            var canonicalRoot = "${DomainName}".toLowerCase();   // e.g., example.com
+            var alternates = ["${DomainName2}".toLowerCase()];   // e.g., exam-ple.com
 
-            // Already on canonical domain? Nothing to do
-            if (host.endsWith(canonicalRoot)) return request;
+            // Normalize any //'s to /, just in case
+            request.uri = request.uri.replace(/\/+/g, "/");
+
+            // Already on canonical domain....
+            // Apply rule rewrites.
+            if (host.endsWith(canonicalRoot)) {
+              // Define custom redirect/rewrite rules
+              var redirect_rules = {
+                "/wiki/view/index.html": "/wiki/view/index",
+                "/wiki/view/": "/wiki/view/index",
+                "/wiki/view": "/wiki/view/index",
+                "/wiki/index.html": "/wiki/view/index",
+                "/wiki/index": "/wiki/view/index",
+                "/wiki/": "/wiki/view/index",
+                "/wiki": "/wiki/view/index",
+                "/index.html": "/wiki/view/index",
+                "/index": "/wiki/view/index",
+                "/": "/wiki/view/index",
+                "": "/wiki/view/index"   // CloudFront request URIs are always prefixed with /, so "" will likely never occur
+              };
+
+              // Apply custom rules
+              if (redirect_rules[request.uri]) {
+                request.uri = redirect_rules[request.uri];
+              }
+
+              // redirect */ to */index
+              if (request.uri.endsWith('/')) {
+                request.uri += 'index';
+              }
+              return request;
+            }
 
             // Check if host matches any alternate domain
             var matchedAlternate = alternates.find(function(a) {
