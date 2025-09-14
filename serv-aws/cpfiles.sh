@@ -23,8 +23,8 @@ aws s3 sync ../serv/build/wiki/view/ "s3://$BUCKET_NAME/wiki/view/" --cache-cont
 aws s3 sync ../serv/build/wiki/markdown/ "s3://$BUCKET_NAME/wiki/markdown/" --cache-control 'no-cache' --content-type 'text/plain' $METADATA_FOR_HTML
 
 # weird s3 quirk:  /wiki doesn't point to /wiki/index.html, so have to write that index into /wiki as s3 file object
-aws s3 cp ../serv/build/root/wiki/view/index "s3://$BUCKET_NAME/wiki" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
-aws s3 cp ../serv/build/root/wiki/view/index "s3://$BUCKET_NAME/wiki/view" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki/view" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 
 
 # images
