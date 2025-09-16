@@ -244,7 +244,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "what accent mark is ὰ", "answers": ["vocal pitch down", "heavy breathing", "smooth breathing", "vocal pitch up"] },
       { "question": "What two letters always gets heavy breathing?", "answers": ["ῤ ὐ", "ἐ ἠ", "ἀ ὀ", "ῤ ἰ"] },
     ]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     "title": "Intro: Dipthongs",
     "question": "Select the correct sound for the dipthong...",
@@ -258,7 +258,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       {"question":"υι","answer":"roughly 'üi' → 'wee' in later Greek"},
       {"question":"ηυ","answer":"like 'ee-oo' → 'iu' / 'ev' / 'ef' (context)"}
     ]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     "title": "Intro: Iota Subscript/Adscript (unpronounced)",
     "question": "Select the correct sound for the Iota Subscript/Adscript...",
@@ -270,7 +270,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       {"question":"Ηι","answer":"adscript - ay (day)"},
       {"question":"Ωι","answer":"adscript - ou (flow)"},
     ]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     "title": "Intro: Iota Subscript/Adscript (pronounced)",
     "question": "Select the correct sound for the Iota Subscript/Adscript...",
@@ -282,7 +282,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       {"question":"Ηι","answer":"adscript - ayee"},
       {"question":"Ωι","answer":"adscript - oy"},
     ]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Gamma Combos",
     question: "what sound does this make",
@@ -292,60 +292,62 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "γξ", "answer": "sphi[nx]" },
       { "question": "γχ", "answer": "lu[nkh]ead" },
     ]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Pronunciation Drill 1",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["I"]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Pronunciation Drill 2",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["II"]
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Pronunciation Drill 3",
     question: "For these Pronunciation Drills, pronounce any syllable with an accent mark ('`~) with a slight stress",
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
-  }) + `</script>`
+  }) + `</script>` + '\n'
+
+  data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
 
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
     title: "Alphabet: In order letters (name)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
     title: "Alphabet: In order letters (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.scroll}`, "answer": arr[(i + 1) % arr.length].scroll }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
     title: "Alphabet: In order letters (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].scroll }})
-  }) + `</script>`
+  }) + `</script>` + '\n' + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to sound (name)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.name} make`, "answer": r.sound }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to sound (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.scroll} make`, "answer": r.sound }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to sound (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What sound does ${r.stone} make`, "answer": r.sound }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to Name (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.scroll, "answer": r.name }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to Name (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( r => { return { "question": r.stone, "answer": r.name }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Uppercase to Lowercase",
@@ -355,57 +357,57 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to Pronunciation (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.scroll}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Letter to Pronunciation (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `Pronounce ${r.stone}`, "answers": [r.name_pronunciation, ...r.name_pronunciation_wrong.sort(() => Math.random() - 0.5)] }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Out of Order letters (names)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.name}`, "answer": arr[(i + 1) % arr.length].name }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Out of Order letters (uppercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.stone}`, "answer": arr[(i + 1) % arr.length].stone }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Alphabet: Out of Order letters (lowercase)",
     questions: require(`${settings.WIKI_DIR}/greek-alpha.json`).filter( r => true ).map( (r, i, arr) => { return { "question": `What's next after ${r.scroll}`, "answer": arr[(i + 1) % arr.length].scroll }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Nouns",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Verbs",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "verb" ).map( r => { return { "question": r.root, "answer": r.meaning }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Adjective",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "adjective" ).map( r => { return { "question": r.root, "answer": r.meaning }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Prefixes",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "prefix" ).map( r => { return { "question": r.root, "answer": r.meaning }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Proper Noun",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "proper noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Root to Word",
     questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.example_words.join( ", ") ) }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Transliterate Root to English",
     questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.root, "answer": transliterateGreek( r.root ) }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Transliterate Root-Words to English",
     questions: greek_roots_dedupe.filter( r => true ).map( r => { return { "question": r.example_words.join( ", "), "answer": transliterateGreek( r.example_words.join(", ") ) }})
-  }) + `</script>`
+  }) + `</script>` + '\n'
 
 
   const protocol = req.protocol;               // 'http' or 'https'

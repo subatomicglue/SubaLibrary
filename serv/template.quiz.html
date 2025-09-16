@@ -157,10 +157,21 @@
   const $ = sel => document.querySelector(sel);
 
   function shuffle(arr) {
-    for (let i=arr.length-1;i>0;i--){
-      const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];
+    // Make a copy so we don’t mutate the original
+    let a = arr.slice();
+
+    for (let i = a.length - 1; i > 0; i--) {
+      // Generate a secure random integer between 0 and i (inclusive)
+      const randArray = new Uint32Array(1);
+      crypto.getRandomValues(randArray); // stronger randomness
+      //randArray[0] = Math.random()       // less random
+      const j = randArray[0] % (i + 1);
+
+      // Swap
+      [a[i], a[j]] = [a[j], a[i]];
     }
-    return arr;
+
+    return a;
   }
 
   function sampleDistinct(arr,k,excludeIndex){
@@ -202,11 +213,11 @@
     let correctAnswer, choiceLabels;
     
     if(Array.isArray(item.answers)){
-      // NEW STYLE: correct answer is first element
-      correctAnswer = item.answers[0];
+      // MANY ANSWERS:  correct answer is "answer", or, is the first element of "answers"
+      correctAnswer = (item.answer && typeof item.answer == "number") ? item.answers[item.answer] : item.answers[0];
       choiceLabels = shuffle([...item.answers]); // randomize answers
     } else {
-      // OLD STYLE: correct answer is `answer` field
+      // ONE ANSWER: correct answer is `answer` field
       correctAnswer = item[cfg.choiceKey];
       // pick 3 distractors from other questions
       const distractorIdxs = sampleDistinct(QUIZ_QUESTIONS,3,qIndex);
