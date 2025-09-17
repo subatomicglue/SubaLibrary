@@ -228,6 +228,42 @@ function transliterateGreek(text) {
   return result;
 }
 
+
+/**
+ * Declines a noun given its vocab entry and target case/number.
+ * @param {Object} vocabEntry - vocab entry (root, hints, gender, etc.)
+ * @param {String} nounCase - e.g. "NOMINATIVE", "GENITIVE", ...
+ * @param {String} number - "singular" or "plural"
+ * @returns {String} declined form
+ */
+function declineNoun(vocabEntry, nounCase, number) {
+  const decl = vocabEntry.hints.declension; // "first" / "second"
+  let gender = vocabEntry.gender;           // "feminine", "masculine", "neuter"
+
+  // Normalize gender key for 2nd decl masc/fem
+  if (decl === "second" && (gender === "masculine" || gender === "feminine")) {
+    gender = "masculine/feminine";
+  }
+
+  const nounDeclension = require(`${settings.WIKI_DIR}/greek-units.json`)["noun declension"];
+  let table = nounDeclension[decl][gender];
+
+  // Special case: first decl feminine with roots ending in ε,ι,ρ
+  if (decl === "first" && gender === "feminine") {
+    const lastChar = vocabEntry.root.slice(-1);
+    if (["ε", "ι", "ρ"].includes(lastChar)) {
+      table = nounDeclension.first["feminine (ends in ε,ι,ρ)"];
+    }
+  }
+
+  if (!table) {
+    throw new Error(`No declension table for ${decl} ${gender}`);
+  }
+
+  const ending = table[number][nounCase];
+  return vocabEntry.root.replace(/-$/, "") + ending.replace(/^-/, "");
+}
+
 app_name = "quizzes"
 apps.push( app_name )
 module.exports["buildPage_" + app_name] = (req, app_name) => {
@@ -314,9 +350,21 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
   // Unit 1
   data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["quizzes"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
   data += `<script type="application/json">` + JSON.stringify({
-    title: "Unit1: Vocab",
-    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["vocab_stems"].filter( r => r.part_of_speech == "noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+    title: "Unit1: Vocab Meanings",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["vocab_stems"].filter( r => true ).map( r => { return { "question": r.root, "answer": r.meaning }})
   }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Unit1: Vocab Declensions",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["vocab_stems"].filter( r => r.part_of_speech == "noun" || r.part_of_speech == "proper noun" ).map( r => {
+      let cases = ["NOMINATIVE", "GENITIVE", "DATIVE", "ACCUSATIVE", "VOCATIVE"];
+      let c = cases[Math.floor(Math.random() * cases.length)];
+      cases = cases.filter(r => r !== c);
+      let numbers = ["plural","singular"];
+      let number = numbers[Math.floor(Math.random() * numbers.length)];
+      return { "question": `${r.root} (${r.meaning}) is a ${r.hints.declension} declension, ${r.gender} ${r.part_of_speech}, choose the ${c} ${number} case below`, "answers": [ declineNoun( r, c, number ), ...cases.map( c => declineNoun( r, c, number ) ) ] }})
+  }) + `</script>` + '\n'
+
+        
 
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
