@@ -235,6 +235,8 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
   const greek_roots_dedupe = dedupe(greek_roots, "root")
 
   let data = ""
+
+  // Introduction
   data += `<script type="application/json">` + JSON.stringify({
     title: "Intro: Breathing Marks",
     questions: [
@@ -309,7 +311,12 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
   }) + `</script>` + '\n'
 
+  // Unit 1
   data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["quizzes"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
+  data += `<script type="application/json">` + JSON.stringify({
+    title: "Unit1: Vocab",
+    questions: require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["vocab_stems"].filter( r => r.part_of_speech == "noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
+  }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
