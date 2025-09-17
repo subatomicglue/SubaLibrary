@@ -38,7 +38,7 @@
     document.getElementById('search-mode').innerHTML = localStorage.getItem( "search-mode" ) ? localStorage.getItem( "search-mode" ) : search_mode_init_text
   }
 
-  function getSearchTerm() {
+  function getSearchTermFromURL() {
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
     return params.get('searchterm') || '';
@@ -265,6 +265,23 @@
     searchMode.addEventListener('click', () => toggleMode() );
   }
 
+
+  // start the search
+  function onSearch() {
+    // clean up if already up
+    if (isSearching()) {
+      onCancel();
+    }
+
+    // invoke the search box
+    const term = getSearchTermFromURL();
+    if (term && term != '') markupSearchTerms(term);
+    addSearchControl(term);
+    if (term && term != '') 
+      scrollToMark(0);
+  }
+
+  // close the search
   function onCancel() {
     const searchBox = document.getElementById('search-box');
     const controlDiv = document.getElementById('searchcontrol');
@@ -282,11 +299,22 @@
     controlDiv.style.display = 'none';
   }
 
-
+  function getSelectedText() {
+    let text = "";
+    if (window.getSelection) {
+      text = window.getSelection().toString();
+      console.log( "getSelectedText:", text )
+    } else if (document.selection && document.selection.type !== "Control") {
+      // For old IE
+      text = document.selection.createRange().text;
+      console.log( "getSelectedText(IE):", text )
+    }
+    return text;
+  }
 
 
   document.addEventListener('DOMContentLoaded', () => {
-    const term = getSearchTerm();
+    const term = getSearchTermFromURL();
     if (term) {
       // pop up search box.
       search();
@@ -301,8 +329,13 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
       e.preventDefault();
 
-      // pop up search box.
-      search();
+      // if text is selected on the page, update the ?searchterm= queryparam
+      const term = getSelectedText();
+      if (term != "")
+        updateSearchTermInURL(term)
+
+      // pop up search box (it'll use whatever's in the ?searchterm= queryparam)
+      search({ force: true });
     }
 
     // handler active only when searching
@@ -319,16 +352,22 @@
     }
   });
 
-  // open the search dialog, or close it if already open.
-  function search() {
+  // toggle the search dialog, options.force will force open/close
+  function search(options = {}) {
+    if (options.force == false) {
+      onCancel();
+      return;
+    }
+    if (options.force == true) {
+      onSearch();
+      return;
+    }
+
+    // toggle...
     if (isSearching()) {
       onCancel();
     } else {
-      const term = getSearchTerm();
-      if (term && term != '') markupSearchTerms(term);
-      addSearchControl(term);
-      if (term && term != '') 
-        scrollToMark(0);
+      onSearch();
     }
   }
   /////////////////////////////////////////

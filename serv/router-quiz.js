@@ -309,7 +309,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     questions: require(`${settings.WIKI_DIR}/greek-units.json`)["Intro"]["pronunciation"]["III"]
   }) + `</script>` + '\n'
 
-  data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
+  data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["quizzes"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
 
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
