@@ -170,7 +170,7 @@ htmlToMarkdownTest( `<blockquote>hi<blockquote>hi</blockquote></blockquote>`,
 
 markdownToHtmlTest( `# Heading
 text
-<!-- toc -->
+<!-- toc-all -->
 
 ## Heading 2 [is Heading 2](some link crap)
 
@@ -183,6 +183,27 @@ text
 `<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 text<br>
 <ul><li><a href="#Heading">Heading</a><ul><li><a href="#Heading-2-is-Heading-2">Heading 2 is Heading 2</a><ul><li><a href="#Heading-2.1">Heading 2.1</a><ul><li><a href="#Heading-2.1.1">Heading 2.1.1</a></li></ul></li></ul></li><li><a href="#Heading-3">Heading 3</a></li></ul></li></ul>
+<p><h2 id="Heading-2-is-Heading-2">Heading 2 <a href="/base/some%20link%20crap">is Heading 2</a><a title="Permalink to this heading" href="#Heading-2-is-Heading-2"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h2>
+<p><h3 id="Heading-2.1">Heading 2.1<a title="Permalink to this heading" href="#Heading-2.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h3>
+<p><h4 id="Heading-2.1.1">Heading 2.1.1<a title="Permalink to this heading" href="#Heading-2.1.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h4>
+<p><h2 id="Heading-3">Heading 3<a title="Permalink to this heading" href="#Heading-3"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h2>
+`)
+
+markdownToHtmlTest( `# Heading
+text
+<!-- toc -->
+
+## Heading 2 [is Heading 2](some link crap)
+
+### Heading 2.1
+
+#### Heading 2.1.1
+
+## Heading 3
+`,
+`<h1 id="Heading">Heading<a title="Permalink to this heading" href="#Heading"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
+text<br>
+<ul><li><a href="#Heading-2-is-Heading-2">Heading 2 is Heading 2</a><ul><li><a href="#Heading-2.1">Heading 2.1</a><ul><li><a href="#Heading-2.1.1">Heading 2.1.1</a></li></ul></li></ul></li><li><a href="#Heading-3">Heading 3</a></li></ul>
 <p><h2 id="Heading-2-is-Heading-2">Heading 2 <a href="/base/some%20link%20crap">is Heading 2</a><a title="Permalink to this heading" href="#Heading-2-is-Heading-2"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h2>
 <p><h3 id="Heading-2.1">Heading 2.1<a title="Permalink to this heading" href="#Heading-2.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h3>
 <p><h4 id="Heading-2.1.1">Heading 2.1.1<a title="Permalink to this heading" href="#Heading-2.1.1"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h4>
@@ -268,17 +289,17 @@ markdownToHtmlTest( `[title](?searchterm=bok#my bookmark is crazy)`,
 markdownToHtmlTest( `[title](#ref with parens and umlat (Büoenn%29)`,
   `<a href="#ref-with-parens-and-umlat--B-oenn-29">title</a>`
 )
-markdownToHtmlTest( `<!-- toc -->\n# Heading with a paren (Büoenn)\n`,
+markdownToHtmlTest( `<!-- toc-all -->\n# Heading with a paren (Büoenn)\n`,
   `<ul><li><a href="#Heading-with-a-paren--B-oenn-">Heading with a paren (Büoenn)</a></li></ul>
 <h1 id="Heading-with-a-paren--B-oenn-">Heading with a paren (Büoenn)<a title="Permalink to this heading" href="#Heading-with-a-paren--B-oenn-"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 `
 )
-markdownToHtmlTest( `<!-- toc -->\n# Heading with 1:1 a colon\n`,
+markdownToHtmlTest( `<!-- toc-all -->\n# Heading with 1:1 a colon\n`,
   `<ul><li><a href="#Heading-with-1:1-a-colon">Heading with 1:1 a colon</a></li></ul>
 <h1 id="Heading-with-1:1-a-colon">Heading with 1:1 a colon<a title="Permalink to this heading" href="#Heading-with-1:1-a-colon"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 `
 )
-markdownToHtmlTest( `<!-- toc -->\n# Heading with , a comma\n`,
+markdownToHtmlTest( `<!-- toc-all -->\n# Heading with , a comma\n`,
   `<ul><li><a href="#Heading-with---a-comma">Heading with , a comma</a></li></ul>
 <h1 id="Heading-with---a-comma">Heading with , a comma<a title="Permalink to this heading" href="#Heading-with---a-comma"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h1>
 `
