@@ -298,7 +298,7 @@ function generateMarkdownTOC(markdown) {
   // big structure comes first (theyll recurse inside)
   if (!options.inlineFormattingOnly) {
     // markdown to markdown
-    markdown = markdown.replace(/<!--\s+(toc|toc-all)\s+-->([\s\S]*)$/i, (_, cmd, markdown_after_toc) => {  // lambda here also avoids calling generateMarkdownTOC unless we're matching.
+    markdown = markdown.replace(/<!--\s+(toc|toc-all)\s+-->([\s\S]*)$/ig, (_, cmd, markdown_after_toc) => {  // lambda here also avoids calling generateMarkdownTOC unless we're matching.
       return generateMarkdownTOC(cmd == "toc-all" ? markdown : markdown_after_toc) + markdown_after_toc;
     });
 
