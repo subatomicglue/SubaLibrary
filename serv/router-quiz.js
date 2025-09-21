@@ -287,7 +287,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     "title": "Intro: Dipthongs",
     "question": "Select the correct sound for the dipthong...",
     "questions": [
-      {"question":"αι","answer":"like 'eye' (ai)"},
+      {"question":"αι","answer":"like 'eye'"},
       {"question":"ει","answer":"like 'ay' (as in 'bay')"},
       {"question":"οι","answer":"like 'oy' (as in 'boy')"},
       {"question":"υι","answer":"like 'wih' (as in 'wit')"},
