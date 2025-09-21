@@ -288,13 +288,13 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     "question": "Select the correct sound for the dipthong...",
     "questions": [
       {"question":"αι","answer":"like 'eye' (ai)"},
-      {"question":"ει","answer":"like long 'ee' (as in 'see')"},
+      {"question":"ει","answer":"like 'ay' (as in 'bay')"},
       {"question":"οι","answer":"like 'oy' (as in 'boy')"},
-      {"question":"αυ","answer":"like 'ow' (as in 'cow'), before voiced often 'av'"},
-      {"question":"ευ","answer":"like 'eh-oo' → 'eu' / 'ev' / 'ef' (context)"},
-      {"question":"ου","answer":"like 'oo' (as in 'food')"},
-      {"question":"υι","answer":"roughly 'üi' → 'wee' in later Greek"},
-      {"question":"ηυ","answer":"like 'ee-oo' → 'iu' / 'ev' / 'ef' (context)"}
+      {"question":"υι","answer":"like 'wih' (as in 'wit')"},
+      {"question":"αυ","answer":"like 'ow' (as in 'cow')"},
+      {"question":"ευ","answer":"like 'eh-oo'"},
+      {"question":"ηυ","answer":"like 'ee-oo'"},
+      {"question":"ου","answer":"like 'oo' (as in 'food')"}
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
@@ -363,8 +363,6 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       let number = numbers[Math.floor(Math.random() * numbers.length)];
       return { "question": `${r.root} (${r.meaning}) is a ${r.hints.declension} declension, ${r.gender} ${r.part_of_speech}, choose the ${c} ${number} case below`, "answers": [ declineNoun( r, c, number ), ...cases.map( c => declineNoun( r, c, number ) ) ] }})
   }) + `</script>` + '\n'
-
-        
 
   data += `<script type="application/json">` + JSON.stringify({
     options: { inorder: true, first_question: 0 },
