@@ -264,6 +264,43 @@ function declineNoun(vocabEntry, nounCase, number) {
   return vocabEntry.root.replace(/-$/, "") + ending.replace(/^-/, "");
 }
 
+
+// Generate quiz data
+function generateDefiniteArticleQuiz(data) {
+  const quiz = [];
+
+  for (const gender in data) {
+    for (const number in data[gender]) {
+      for (const caseName in data[gender][number]) {
+        const correct = data[gender][number][caseName];
+
+        // Collect *all* possible articles to use as distractors
+        const allArticles = Object.values(data)
+          .flatMap(g => Object.values(g))
+          .flatMap(n => Object.values(n));
+
+        // Filter out duplicates and the correct one
+        const distractors = [...new Set(allArticles)].filter(a => a !== correct);
+
+        // Pick 3 random distractors
+        const wrongAnswers = [];
+        while (wrongAnswers.length < 3 && distractors.length > 0) {
+          const randIndex = Math.floor(Math.random() * distractors.length);
+          wrongAnswers.push(distractors.splice(randIndex, 1)[0]);
+        }
+
+        quiz.push({
+          question: `Give the ${gender} ${number} ${caseName} definite article (the)`,
+          answers: [correct, ...wrongAnswers]
+        });
+      }
+    }
+  }
+
+  return quiz;
+}
+
+
 app_name = "quizzes"
 apps.push( app_name )
 module.exports["buildPage_" + app_name] = (req, app_name) => {
@@ -362,6 +399,12 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       let numbers = ["plural","singular"];
       let number = numbers[Math.floor(Math.random() * numbers.length)];
       return { "question": `${r.root} (${r.meaning}) is a ${r.hints.declension} declension, ${r.gender} ${r.part_of_speech}, choose the ${c} ${number} case below`, "answers": [ declineNoun( r, c, number ), ...cases.map( c => declineNoun( r, c, number ) ) ] }})
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    "options": { "inorder": true, "first_question": 0 },
+    title: "Unit1: THE definite article Declensions",
+    question: "THE definite article",
+    questions: generateDefiniteArticleQuiz( require(`${settings.WIKI_DIR}/greek-units.json`)["definite article declension"] )
   }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
