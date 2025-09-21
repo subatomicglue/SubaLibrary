@@ -290,7 +290,7 @@ function generateDefiniteArticleQuiz(data) {
         }
 
         quiz.push({
-          question: `Give the ${gender} ${number} ${caseName} definite article (the)`,
+          question: `${gender} ${number} ${caseName}`,
           answers: [correct, ...wrongAnswers]
         });
       }
