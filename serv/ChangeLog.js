@@ -73,8 +73,31 @@ function writeToChangeLog( req, line_without_newline ) {
   const utcSeconds = String(utcTimestamp.getSeconds()).padStart(2, '0');
   const formattedLocalDate = `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
   let contents = fs.existsSync( filepath ) ? fs.readFileSync( filepath, 'utf8' ).split('\n').filter(line => line.trim() !== '') : [];
-  contents = [ `[${formattedLocalDate}] [${req.user}](WikiUser-${req.user}) : ${line_without_newline}`, ...contents ];
+  contents = [ `[${formattedLocalDate}] [{{ user:${req.user_id} }}](WikiUser-{{ user:${req.user_id} }}) : ${line_without_newline}`, ...contents ];
   contents = mergeLines(contents); // do some compaction.
   fs.writeFileSync( filepath, contents.join("\n"), 'utf8' );
 }
+
+function testMergeLines( contents, expected_result ) {
+  const result = mergeLines(contents.split( "\n" )).join("\n");
+  if (result != expected_result) {
+    console.log( "TEST FAILS ======================================================" );
+    console.log( "- contents" )
+    console.log( contents )
+    console.log( "- result" )
+    console.log( result )
+    console.log( "- expected_result" )
+    console.log( expected_result )
+  }
+}
+
+testMergeLines( `[2025-09-19 17:31:44] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v46](/wiki/diff/article 1/46/45#diff)
+[2025-09-24 11:54:24] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v45](/wiki/diff/article 1/45/44#diff) [v44](/wiki/diff/article 1/44/43#diff) [v43](/wiki/diff/article 1/43/42#diff) [v42](/wiki/diff/article 1/42/41#diff) [v41](/wiki/diff/article 1/41/40#diff)
+[2025-09-19 17:31:44] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v40](/wiki/diff/article 1/40/39#diff)
+[2025-09-19 17:31:44] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v39](/wiki/diff/article 1/39/38#diff)
+`,
+`[2025-09-24 11:54:24] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v46](/wiki/diff/article 1/46/45#diff) [v45](/wiki/diff/article 1/45/44#diff) [v44](/wiki/diff/article 1/44/43#diff) [v43](/wiki/diff/article 1/43/42#diff) [v42](/wiki/diff/article 1/42/41#diff) [v41](/wiki/diff/article 1/41/40#diff) [v40](/wiki/diff/article 1/40/39#diff) [v39](/wiki/diff/article 1/39/38#diff)
+`
+);
+
 module.exports.writeToChangeLog = writeToChangeLog;

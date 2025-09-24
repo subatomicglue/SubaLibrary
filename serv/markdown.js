@@ -328,6 +328,16 @@ function generateMarkdownTOC(markdown) {
       const inner = escapeHtml(content)
       return inner == "" ? "" : `<tt>${inner}</tt>`
     })
+    .replace( /{{ ([a-z]+):([A-Za-z0-9-_]+) }}/g, (all, vartype, variable) => { // {{ variable_class:variable }}
+      const VERBOSE = false
+      const val = variable_markdown_tag_dataset?.[vartype]?.[variable];
+      VERBOSE && console.log( "variable_markdown_tag_dataset", JSON.stringify( variable_markdown_tag_dataset ) )
+      VERBOSE && console.log( "all", all )
+      VERBOSE && console.log( "vartype", vartype )
+      VERBOSE && console.log( "vartype", variable )
+      VERBOSE && console.log( `val: ${val}` )
+      return val ? val : all;
+    })
     .replace(match_markdown_img, (match, title, url) => { // img link: ![image title](image url)
       const VERBOSE=false
       VERBOSE && console.log( "[markdown] img", url.match( /^\// ) ? url : `${baseUrl}/${url}` )
@@ -355,16 +365,6 @@ function generateMarkdownTOC(markdown) {
         return `<a href="${url}">${url}</a>`;
     })
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
-    .replace( /{{ ([a-z]+):([A-Za-z0-9-_]+) }}/g, (all, vartype, variable) => { // {{ variable_class:variable }}
-      const VERBOSE = false
-      const val = variable_markdown_tag_dataset?.[vartype]?.[variable];
-      VERBOSE && console.log( "variable_markdown_tag_dataset", JSON.stringify( variable_markdown_tag_dataset ) )
-      VERBOSE && console.log( "all", all )
-      VERBOSE && console.log( "vartype", vartype )
-      VERBOSE && console.log( "vartype", variable )
-      VERBOSE && console.log( `val: ${val}` )
-      return val ? val : all;
-    })
 
     // post process <postprocess-prescript>
     const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{/*console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);*/c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()<\/script>`;

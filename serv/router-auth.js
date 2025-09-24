@@ -809,6 +809,7 @@ function authGuard(req, res, next) {
           )
         ) {
           req.user = username;
+          req.user_id = USERS_WHITELIST[username].id;
           //VERBOSE && logger.info( `USE authGuard user/pass accepted user:${req.user}` )
           return next(); // Passcode matches - Proceed to the next middleware
         }

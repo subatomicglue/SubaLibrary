@@ -233,6 +233,13 @@ function diffWords_toHTML(oldText, newText) {
   return result.trim();
 }
 
+// Find the next version number of the wiki .md file
+function findNextVersion( wiki_dir, topic ) {
+  let existing_versions = readdirSync( wiki_dir, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
+  let version = existing_versions.length == 0 ? 1 : existing_versions.length + 1; // they start at 1, so we need N + 1
+  return version
+}
+
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
@@ -338,8 +345,7 @@ router.put("/save", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({ lim
   logger.info(`[wiki] ${userLogDisplay(req)} /save ${topic} content (save)`);
 
   // Find the next version number
-  let existing_versions = readdirSync( WIKI_DIR_VERSIONED, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
-  let version = existing_versions.length == 0 ? 1 : existing_versions.length;
+  let version = findNextVersion( WIKI_DIR_VERSIONED, topic );
   if (version != undefined && version != save_version) {
     const message = `Your local copy of '${topic}' v${save_version} is older than server's v${version}.  It appears someone saved the same topic you're working on.\n - If you save, it will overwrite a newer version.\n - To be safe: Carefully copy/paste your markdown out to another app, and [cancel] here...`;
     logger.error(`[wiki] ${userLogDisplay(req)} /save 409 Conflict.  ${message}`);
@@ -394,8 +400,7 @@ router.get(`${edit_route}/:topic`, guardForProdHostOnly(HOSTNAME_FOR_EDITS), (re
 
   // Find the next version number (so we can tell the frontend user, their local cache is older than on server)
   // this is the version being edited (n+1), not the last version saved (n)
-  let existing_versions = readdirSync( WIKI_DIR_VERSIONED, new RegExp( `^${topic}\\.?[0-9]*\\.md$` ) );
-  let version = existing_versions.length == 0 ? 1 : existing_versions.length;  
+  let version = findNextVersion( WIKI_DIR_VERSIONED, topic );
 
   logger.info(`[wiki] ${userLogDisplay(req)} ${edit_route} ${topic} ${filePath}`);
   const markdown = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : `# ${topic}\n\n\n`;
