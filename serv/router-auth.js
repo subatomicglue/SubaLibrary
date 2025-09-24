@@ -838,8 +838,8 @@ function authGuard(req, res, next) {
       logger.info(`[auth guard] ${req.ip} -> Please Enter Passcode for ${TITLE}.  Path: ${fullUrl}, Referrer:${referrer}`);
       return res.send(template.file( "template.login.html", {
         REFERRER: referrer,
-        ENABLE_USERPASS: true,
-        ENABLE_PASSCODE: SECRET_PASSCODE,
+        ENABLE_USERPASS: "true",
+        ENABLE_PASSCODE: SECRET_PASSCODE != undefined ? "true" : "false",
       }))
     }
 
