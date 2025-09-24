@@ -24,7 +24,7 @@ function isBrowser() {
   return typeof window !== "undefined";
 }
 function markdownToHtmlTest(markdown, expectedHTML) {
-  const html = markdownToHtml( markdown, "/base" )
+  const html = markdownToHtml( markdown, "/base", { userdata: { "testuser": { "id": "12345" } } } )
   if (html != expectedHTML) {
     console.log( "[markdown.js] test failed" )
     console.log( "-------markdown-------" )
@@ -305,6 +305,9 @@ markdownToHtmlTest( `<!-- toc-all -->\n# Heading with , a comma\n`,
 `
 )
 
+markdownToHtmlTest( `{{ user:12345 }}`,
+  `testuser`
+)
 
 
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,

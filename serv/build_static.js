@@ -282,6 +282,7 @@ fs.readdirSync(inputDir).forEach(file => {
     const html = wrapWithFrame( markdownToHtml(markdown, "/wiki/view", {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
+      userdata: SETTINGS.USERS_WHITELIST,
     }), topic, req, syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                  // copy the topic html over
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over

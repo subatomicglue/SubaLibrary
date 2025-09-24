@@ -270,7 +270,9 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   }
 
   let markdown = fs.readFileSync( filePath, "utf8" );
-  const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {}), topic, req );
+  const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
+    userdata: USERS_WHITELIST,
+  }), topic, req );
   res.send( html );
 });
 
@@ -446,7 +448,9 @@ router.post("/preview", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.json({
     logger.error(`[wiki] ${userLogDisplay(req)} /preview 400 Missing content`);
     return res.status(400).send("Missing content.");
   }
-  res.send(markdownToHtml(content, `${req.baseUrl}${view_route}`));
+  res.send(markdownToHtml(content, `${req.baseUrl}${view_route}`, {
+    userdata: USERS_WHITELIST,
+  }));
 });
 
 const multer = require("multer");

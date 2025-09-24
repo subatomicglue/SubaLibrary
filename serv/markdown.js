@@ -38,6 +38,8 @@ function __sanitizeForHTMLParam(str, options = { is_id: false }) {
 // Basic Markdown to HTML conversion using regex, no dependencies,
 // Why not use "marked"? Some nice markup here that "marked" wasn't giving me, easy to customize... 
 // (happy to switch in the future, if someone can reach parity using marked...
+// to support markdown variables like {{ user:12345 }}:
+// - options.userdata = { "happyuser": { "id": "29bacfc0-bb92-4c07-9777-6f832ac1c8c4" }, .... }
 function markdownToHtml(markdown, baseUrl, options = {} ) {
   const options_defaults = {
     link_relative_callback: (baseUrl, url) => `${baseUrl}/${url}`,
@@ -46,6 +48,12 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     inlineFormattingOnly: false,
   }
   options = { ...options_defaults, ...options };
+
+  // populate the variable dataset for markdown tags like: {{ user:12345 }}
+  // variable_markdown_tag_dataset = { user: { 12345: "username" } }
+  const variable_markdown_tag_dataset = {};
+  if (options.userdata) Object.assign( variable_markdown_tag_dataset, { user: Object.fromEntries( Object.keys( options.userdata ).map( r => [options.userdata[r].id, r])) } );
+  false && console.log( JSON.stringify( variable_markdown_tag_dataset ) )
 
   function isYouTubeURL(url) {
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^#]*[?&]t=(\d+)s?)?(?:[^#]*[?&]si=(\S+)?)?$/;
@@ -347,6 +355,16 @@ function generateMarkdownTOC(markdown) {
         return `<a href="${url}">${url}</a>`;
     })
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
+    .replace( /{{ ([a-z]+):([A-Za-z0-9-_]+) }}/g, (all, vartype, variable) => { // {{ variable_class:variable }}
+      const VERBOSE = false
+      const val = variable_markdown_tag_dataset?.[vartype]?.[variable];
+      VERBOSE && console.log( "variable_markdown_tag_dataset", JSON.stringify( variable_markdown_tag_dataset ) )
+      VERBOSE && console.log( "all", all )
+      VERBOSE && console.log( "vartype", vartype )
+      VERBOSE && console.log( "vartype", variable )
+      VERBOSE && console.log( `val: ${val}` )
+      return val ? val : all;
+    })
 
     // post process <postprocess-prescript>
     const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{/*console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);*/c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()<\/script>`;
