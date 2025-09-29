@@ -24,3 +24,5 @@ assets/favicon-128.png
 build
 backup.sh
 deploy.sh
+users-upload.sh
+

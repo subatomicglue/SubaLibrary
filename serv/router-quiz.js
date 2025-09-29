@@ -302,6 +302,480 @@ function generateDefiniteArticleQuiz(data) {
   return quiz;
 }
 
+function blah( data ) {
+
+  // ---------------------
+  // Tokenize sentence
+  // ---------------------
+
+const normalize = s => (typeof s === "string" ? s.normalize("NFC") : s);
+const stripDiacritics = s => normalize(typeof s === "string" ? s.normalize("NFD").replace(/\p{M}/gu, "") : s);
+
+const stripDiacriticsLeaveBreathingMarks = s =>
+  normalize(typeof s === "string"
+    ? s.normalize("NFD").replace(/[\u0300\u0301\u0342\u0345\u0313\u0304]/g, "")
+    : s);
+
+
+// ------------- build lookups -------------
+function buildArticleLookup(data) {
+  const lookup = {};
+  const ads = data["definite article declension"];
+  for (const gender of Object.keys(ads)) {
+    for (const number of Object.keys(ads[gender])) {
+      for (const kase of Object.keys(ads[gender][number])) {
+        const rawForm = ads[gender][number][kase];
+        const form = stripDiacriticsLeaveBreathingMarks(rawForm);
+        if (!lookup[form]) lookup[form] = [];
+        // store [CASE, number, gender]
+        lookup[form].push([kase, number, gender]);
+      }
+    }
+  }
+  return lookup;
+}
+
+function buildNounEndingLookup(data) {
+  const lookup = {};
+  const decls = data["noun declension"];
+  for (const decl of Object.keys(decls)) {
+    for (const rawGender of Object.keys(decls[decl])) {
+      const gBlock = decls[decl][rawGender];
+      // normalize gender labels: "masculine/feminine" => ["masculine","feminine"]
+      let genders = [];
+      if (rawGender.includes("/")) genders = rawGender.split("/").map(x => x.trim());
+      else if (rawGender.includes("(")) genders = [rawGender.replace(/\s*\(.*\)/, "").trim()];
+      else genders = [rawGender];
+
+      // capture rule if present on the block
+      let blockRule = null;
+      if (gBlock && typeof gBlock === "object" && gBlock.rule) {
+        // convert ends_with object into array for easy checking
+        if (gBlock.rule.ends_with) {
+          blockRule = Object.keys(gBlock.rule.ends_with);
+        }
+      }
+
+      for (const number of Object.keys(gBlock)) {
+        if (number === "rule") continue;
+        for (const kase of Object.keys(gBlock[number])) {
+          let rawEnding = gBlock[number][kase];
+          if (!rawEnding) continue;
+          // remove leading "-" if present
+          rawEnding = rawEnding.replace(/^-/, "");
+          const ending = stripDiacriticsLeaveBreathingMarks(rawEnding);
+          for (const gender of genders) {
+            // store [CASE, number, gender, decl, ruleArray|null]
+            if (!lookup[ending]) lookup[ending] = [];
+            lookup[ending].push([kase, number, gender, decl, blockRule]);
+          }
+        }
+      }
+    }
+  }
+
+  return lookup;
+}
+
+  const articleLookup = buildArticleLookup(data);
+  const nounEndingLookup = buildNounEndingLookup(data);
+  console.log( "articleLookup:", JSON.stringify( articleLookup ) );
+  console.log( "nounEndingLookup:", JSON.stringify( nounEndingLookup ) );
+
+  // precompute sorted endings (longest first)
+  const sortedEndings = Object.keys(nounEndingLookup).sort((a,b)=> b.length - a.length);
+
+  // ------------- tokenizing & matching -------------
+  function tokenize(sentence) {
+    return sentence.split(/([\s\.\,\;\:\—\–\?\!]+)/).filter(t => t.length > 0);
+  }
+
+
+  function identifyToken(originalToken) {
+    const tokenForMatch = stripDiacriticsLeaveBreathingMarks( normalize(originalToken.replace(/^[\(\[\{]+|[\)\]\}\.\,\;\:\!\?]+$/g,"")) ); // trim leading/trailing punctuation
+    const matches = [];
+
+    // article exact match
+    const aMatch = articleLookup[tokenForMatch];
+    // console.log( "[identifyToken - article]", tokenForMatch, articleLookup[tokenForMatch] != undefined )
+    if (aMatch) {
+      aMatch.forEach(m => matches.push({ type: "article", "case": m[0], "number": m[1], "gender": m[2] })); // m is [CASE,number,gender]
+    }
+
+    if (originalToken.match( /([\s\.\,\;\:\—\–\?\!]+)/ )) {
+      matches.push( { type: "whitespace" })
+    }
+
+    const vocabs = require(`${settings.WIKI_DIR}/greek-roots.json`).sort( (a1, a2) => a2.root.length - a1.root.length );
+    //console.log( vocabs )
+    let vocab = vocabs.find( r => {
+      let stem = stripDiacriticsLeaveBreathingMarks( r.root )
+      let stem_regex = "^" + stem.replace( /-/, ".*" ) + "$"
+      let stem_ending_regex = "^" + stem.replace( /-/, "" )
+      let ending = tokenForMatch.replace( new RegExp( stem_ending_regex ), "" )
+      // if (tokenForMatch.match( new RegExp( stem_regex ) ))
+      //   console.log( tokenForMatch, stem, stem_regex, undefined != tokenForMatch.match( new RegExp( stem_regex ) ) )
+      let checks_out = (r.part_of_speech.match( /noun$/ ) && nounEndingLookup[ending]) || (!r.part_of_speech.match( /noun$/ ));
+      return checks_out && tokenForMatch.match( new RegExp( stem_regex ) );
+    })
+    if (vocab) {
+      let stem = stripDiacriticsLeaveBreathingMarks( vocab.root ).replace( /-/, "" )
+      let ending = tokenForMatch.replace( new RegExp( "^" + stem ), "" )
+      vocab.ending = ending;
+      matches.push({type:"vocab", stem: stem, ending, vocab: vocab});
+
+      if (vocab && vocab.part_of_speech.match( /noun$/ )) {
+        let pos = nounEndingLookup[vocab.ending];
+        if (pos) {
+          //console.log( "- vocab match: ", vocab.ending, nounEndingLookup[vocab.ending] )
+          let relevant_rules = pos.filter( r => r[3] == vocab.hints.declension ).map( r2 => {
+            matches.push({ type: "noun", "case": r2[0], "number": r2[1], "gender": r2[2], "declension": r2[3] });
+          })
+        }
+      } else {
+        matches.push({ type: vocab.part_of_speech });
+      }
+    }
+
+    // if (matches.length > 0) {
+    //   console.log( "MATCH!", JSON.stringify( matches ) )
+    // }
+    return matches;
+  }
+
+  // ------------- disambiguation using nearby articles -------------
+  /**
+   * Disambiguate noun matches using nearby definite articles.
+   * For each token that is a noun with multiple possible tags,
+   * we keep only those whose gender & number match a nearby article.
+   */
+  function disambiguate(tokensWithMatches) {
+    const result = [];
+    let once = true;
+
+    for (let i = 0; i < tokensWithMatches.length; i++) {
+      const entry = tokensWithMatches[i];
+      const token = entry.token;
+      let matches = entry.matches || [];
+
+      // Separate articles and nouns
+      let articleMatches = matches.filter(m => m.type === "article");
+      let nounMatches = matches.filter(m => m.type === "noun");
+
+      if (articleMatches.length > 0 && nounMatches.length > 0) {
+        nounMatches = []
+      }
+
+      let debug = false;
+      if (token == "ὁ") debug = true;
+      //if (token == "Ὁμηρος") debug = true;
+      //if (token == "Ὁμήρου") debug = true
+      if (token == "ἀδελφὸς") debug = true
+      debug && console.log( "[!!!!!] tokensWithMatches" + (once ? "=================================================" : "-----------------------") ); once = false;
+      debug && tokensWithMatches.forEach( (r,i) => { console.log( "        --", i, JSON.stringify( r ) ) } );
+      debug && console.log( "[!!!!!] entry [", token, "]", JSON.stringify( entry ) )
+      debug && console.log( "[!!!!!]", " - noun matches:", nounMatches.length, ", article matches:", articleMatches.length )
+
+
+      // nouns might match an article before it (some familiar nouns dont have an article, like Homer, or Gymnasium)
+      if (nounMatches.length > 0) {
+        debug && console.log( "[!!!!!] ==== NOUN === (looking for nearest article)", token )
+        // 1️⃣ Find nearest preceding article (look back up to 2 tokens)
+        let nearestArticle = undefined;
+        for (let offset = -2; offset <= 0 && !nearestArticle; offset++) {
+          //debug && console.log( "[!!!!!] offset", offset, (i + offset) )
+          if (0 <= (i + offset)) {
+            const prevEntry = tokensWithMatches[i + offset];
+            debug && console.log( "[!!!!!] checking ->", offset, (i + offset), JSON.stringify( prevEntry ) )
+            const prevArticles = (prevEntry.matches || []).filter(m => m.type === "article");
+            if (prevArticles.length) nearestArticle = prevArticles;
+          }
+        }
+
+        debug && console.log( "[!!!!!] nearestArticle", token, JSON.stringify( nearestArticle ) )
+
+        if (nearestArticle) {
+          // 2️⃣ Build mutually consistent matches: keep only combinations that match number & gender
+          const validNouns = [];
+          const validArticles = [];
+
+          // find tags in common between current noun, and previous article
+          // e.g. "tags":["VOCATIVE","singular","neuter","second"]
+          nounMatches.forEach(nm => {
+            nearestArticle.forEach(a => {
+              if (nm["case"] === a["case"] && nm["number"] === a["number"] && nm["gender"] === a["gender"]) {
+                validNouns.push(nm);
+                validArticles.push(a);
+              }
+            });
+          });
+          debug && console.log( "[!!!!!] validNouns", token, JSON.stringify( validNouns ) )
+          debug && console.log( "[!!!!!] validArticles", token, JSON.stringify( validArticles ) )
+
+          // Deduplicate article matches
+          articleMatches = [...new Map(validArticles.map(a => [a.value + [a["case"],a["number"],a["gender"],a["declension"]].join(","), a])).values()];
+          nounMatches = validNouns;
+        } else {
+          // 3️⃣ No preceding article: assume NOMINATIVE for nouns
+          nounMatches = nounMatches.filter(nm => nm["case"] === "NOMINATIVE");
+          // Also prune articles if any were incorrectly matched
+          articleMatches = [];
+        }
+      }
+
+      // articles should match a noun after it
+      else if (articleMatches.length > 0) {
+        debug && console.log( "[!!!!!]  ==== ARTICLE === (looking for nearest noun)", token )
+        // 1️⃣ Find nearest following noun (look fwd up to 2 tokens)
+        let nearestNoun = undefined;
+        for (let offset = 0; offset <= 2 && !nearestNoun; offset++) {
+          //debug && console.log( "[!!!!!] offset", offset, (i + offset) )
+          if (0 <= (i + offset)) {
+            const prevEntry = tokensWithMatches[i + offset];
+            debug && console.log( "[!!!!!] checking -> ", offset, (i + offset), JSON.stringify( prevEntry ) )
+            const prevNouns = (prevEntry.matches || []).filter(m => m.type === "noun");
+            if (prevNouns.length) nearestNoun = prevNouns;
+          }
+        }
+
+        debug && console.log( "[!!!!!] nearestNoun", token, JSON.stringify( nearestNoun ) )
+
+        if (nearestNoun) {
+          // 2️⃣ Build mutually consistent matches: keep only combinations that match number & gender
+          const validNouns = [];
+          const validArticles = [];
+
+          // find tags in common between current noun, and previous article
+          // e.g. "tags":["VOCATIVE","singular","neuter","second"]
+          articleMatches.forEach(am => {
+            nearestNoun.forEach(n => {
+              if (am["case"] === n["case"] && am["number"] === n["number"] && am["gender"] === n["gender"]) {
+                validNouns.push(am);
+                validArticles.push(n);
+              }
+            });
+          });
+          debug && console.log( "[!!!!!] validNouns", token, JSON.stringify( validNouns ) )
+          debug && console.log( "[!!!!!] validArticles", token, JSON.stringify( validArticles ) )
+
+          // Deduplicate article matches
+          articleMatches = [...new Map(validArticles.map(a => [a.value + [a["case"],a["number"],a["gender"],a["declension"]].join(","), a])).values()];
+          nounMatches = validNouns;
+        } else {
+          // 3️⃣ No preceding article: assume NOMINATIVE for nouns
+          nounMatches = nounMatches.filter(nm => nm.tags[0] === "NOMINATIVE");
+          // Also prune articles if any were incorrectly matched
+          articleMatches = [];
+        }
+      }
+
+      // Combine back
+      const finalMatches = [...articleMatches, ...nounMatches];
+      result.push({ token, matches: finalMatches });
+      debug && console.log( "[!!!!!] result", token, JSON.stringify( result ) )
+    }
+
+    return result;
+  }
+
+  // ------------- bracket by case -------------
+  function bracketByCase(sentence, kase) {
+    const tokens = tokenize( sentence );
+    tokens = tokens.map( r => ({ token: r, stripped: stripDiacriticsLeaveBreathingMarks( r )}))
+    // map tokens to objects that contain matches
+    let tokensWithMatches = tokens.map(tok => ({ token: tok.token, matches: identifyToken(tok.stripped) }));
+
+    // disambiguate nouns by articles
+    tokensWithMatches = disambiguate(tokensWithMatches);
+
+    // produce output using original tokens but bracket those with a match for the target case
+    const output = tokensWithMatches.map(entry => {
+      if ((entry.matches || []).some(m => m.tags[0] === kase)) {
+        return `[${entry.token}]`;
+      }
+      return entry.token;
+    });
+
+    // rejoin
+    return output.join("");
+  }
+
+  // ---------------------
+  // Build quiz
+  // ---------------------
+
+  function buildQuiz(sentences) {
+    const quiz = [];
+    sentences.forEach((s, idx) => {
+      data.cases.forEach(kase => {
+        const question = bracketByCase(s, kase);
+        if (question != s) { // if brackets were added, then we've highlighted a case that we can ask about!
+          console.log( "question", question, "||| s", s )
+          quiz.push({
+            question: bracketByCase(s, kase),
+            answers: [kase, ...data.cases.filter( r => r != kase )],
+          });
+        }
+      });
+    });
+    return quiz;
+  }
+
+  function disambiguate2(tokensWithMatches) {
+    for (let x = 0; x < tokensWithMatches.length; ++x) {
+      let article_word = tokensWithMatches[x];
+      if (article_word.matches == undefined) continue
+      // console.log( "article_word.matches", article_word.matches )
+      const article_matches = article_word.matches.filter( r => r.type == "article" )
+      if (article_matches.length > 0) {
+        // console.log( "dis: ", article_word.token, JSON.stringify( article_matches, null, 2 ))
+
+        // find the next noun
+        for (let x2 = (x+1); x2 < tokensWithMatches.length; ++x2) {
+          let noun_word = tokensWithMatches[x2];
+          // console.log( JSON.stringify( noun_word, null, 2 ) )
+          const noun_matches = noun_word.matches.filter( r => r.type.match( /noun$/ ) )
+          // console.log( JSON.stringify( noun_word.matches, null, 2 ) )
+          if (noun_matches.length > 0) {
+            // get the intersection of both
+            const article_set = new Set(article_matches.map(o => `${o["case"]} ${o["number"]} ${o["gender"]}`));
+            const noun_set = new Set(noun_matches.map(o => `${o["case"]} ${o["number"]} ${o["gender"]}`));
+            const intersection_nouns = noun_matches.filter(o => article_set.has(`${o["case"]} ${o["number"]} ${o["gender"]}`));
+            const intersection_articles = article_matches.filter(o => noun_set.has(`${o["case"]} ${o["number"]} ${o["gender"]}`));
+            if (intersection_articles.length > 0 && intersection_nouns.length > 0) {
+              // console.log( "intersection_nouns", intersection_nouns )
+              // console.log( "intersection_articles", intersection_articles )
+              
+              // console.log( "noun_word", noun_word.matches )
+              // console.log( "article_word", article_word.matches )
+              noun_word.matches = [ ...noun_word.matches.filter( r => !r.type.match( /noun$/ ) ), ...intersection_nouns ];
+              article_word.matches = [ ...article_word.matches.filter( r => r.type != "article" ), ...intersection_articles ];
+            }
+          }
+        }
+      }
+    }
+    return tokensWithMatches;
+  }
+
+  const caseOrder = {
+    NOMINATIVE: 0,
+    GENITIVE: 1,
+    DATIVE: 2,
+    ACCUSATIVE: 3,
+    VOCATIVE: 4
+  };
+
+  // Step 1: Split tokens into groups
+  function groupTokens(tokens, mode = "before") {
+    const groups = [];
+    let currentGroup = [];
+
+    for (const token of tokens) {
+      const hasCase = token.matches.some(m => m.case);
+      if (hasCase) {
+        if (mode === "before") {
+          if (currentGroup.length) {
+            groups.push([...currentGroup, token]);
+            currentGroup = [];
+          } else {
+            groups.push([token]);
+          }
+        } else if (mode === "after") {
+          groups.push([token, ...currentGroup]);
+          currentGroup = [];
+        }
+      } else {
+        currentGroup.push(token);
+      }
+    }
+
+    if (currentGroup.length) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
+  }
+
+
+  // Step 2: Assign sort key to each group
+  function getGroupSortKey(group) {
+    // If group has a case-bearing token, return its order
+    const caseToken = group.find(t => t.matches.some(m => m.case));
+    if (caseToken) {
+      const c = caseToken.matches.find(m => m.case)?.case;
+      return caseOrder[c] ?? 999; // fallback if weird
+    }
+    // If no case at all (like trailing whitespace), push to end
+    return 9999;
+  }
+
+  // Step 3: Sort groups
+  function sortTokensByCase(tokens) {
+    const groups = groupTokens(tokens);
+    groups.sort((a, b) => getGroupSortKey(a) - getGroupSortKey(b));
+    return groups.flat();
+  }
+
+
+  function annotate( sentence ) {
+    const tokens = tokenize( sentence );
+    // map tokens to objects that contain matches
+    let tokensWithMatches = tokens.map(tok => {
+      const ident = identifyToken(tok);
+      return { token: normalize( tok ), token_original: tok, token_stripped: stripDiacriticsLeaveBreathingMarks( tok ), match_vocab: ident.find( r => r.type == "vocab" ), matches: ident.filter( r => r.type != "vocab" ) }
+    });
+
+    // disambiguate nouns by articles
+    tokensWithMatches = disambiguate2(tokensWithMatches);
+    tokensWithMatches = sortTokensByCase( tokensWithMatches );
+
+    // status
+    console.log( "original sentence:     ", sentence )
+    console.log( "reconstructed sentence:", tokensWithMatches.filter( r => r.matches.length > 0 && r.matches[0].type != "whitespace" ).map( r => r.token ).join( " " ) );
+    function renderVocab( r ) {
+      let r2 = r.match_vocab;
+      if (r2) {
+        return `${r2?.stem}${r2?.ending ? "-" + r2?.ending : ''} \"${r2?.vocab.part_of_speech}\" ${r2?.vocab.meaning} ${r2?.vocab.gender != undefined ? r2?.vocab.gender : ''} ${r2?.vocab.hints?.declension != undefined ? r2?.vocab.hints?.declension : ''}`
+      } else
+        return "unknown"
+    }
+    tokensWithMatches.filter( a => (a.matches.length > 0 && a.matches[0].type != "whitespace") || a.matches.length == 0 ).forEach( r => {
+      console.log( ` - ${r.token}\t\t\t(${renderVocab(r)}, ${r.matches.length == 0 ? "unknown" :
+        r.matches.map( r2 => {
+          return r2.type == "whitespace" ? r2.type :
+            `${r2.type} ${r2["case"]} ${r2.gender} ${r2["number"]} ${r2["declension"] ? r2["declension"] : ''}`
+        }).join(" | ")})`
+      )
+    })
+
+    return tokensWithMatches
+  }
+
+  // ---------------------
+  // Example run
+  // ---------------------
+
+  const sentences = [
+    // "ὁ Ὅμηρος τὸν ἄνθρωπον παιδεύει.",
+    // "ὁ Ὁμήρου ἀδελφὸς παιδεύει τὸν ἄνθρωπον.",
+    // "τὸν Ὅμηρον παιδεύει ὁ ἄνθρωπος.",
+    "τὰ τῶν θεῶν δῶρα πέμπει ὁ τοῦ ἀνθρώπου ἀδελφὸς ἐκ τῆς οἰκίας εἰς τὰς νήσους.",
+    "ὁ ἐν τῇ νήσῳ ἄνθρωπος τοὺς ἀδελφοὺς εἰς μάχην πέμπει.",
+    "ὁ ἀδελφὸς ὁ Ὁμήρου βιβλίον ἐκ τῆς ἀγορᾶς εἰς τὴν νῆσον πέμπει.",
+  ];
+
+  console.log( 'annotate', JSON.stringify( annotate(sentences[0]), null, 2 ) );
+  // console.log( 'NOMINATIVE', bracketByCase(sentences[0], 'NOMINATIVE') );
+  // console.log( 'GENETIVE', bracketByCase(sentences[0], 'GENETIVE') );
+  // console.log( 'DATIVE', bracketByCase(sentences[0], 'DATIVE') );
+  // console.log( 'ACCUSATIVE', bracketByCase(sentences[0], 'ACCUSATIVE') );
+  // console.log( 'VOCATIVE', bracketByCase(sentences[0], 'VOCATIVE') );
+  // console.log(JSON.stringify(buildQuiz(sentences), null, 2));
+}
+
+// blah( require(`${settings.WIKI_DIR}/greek-units.json`) )
+
 
 app_name = "quizzes"
 apps.push( app_name )
