@@ -304,3 +304,13 @@ td:empty::before {
 mark.selected {
   background-color: #00ffff
 }
+
+.video-embed {
+  display: block;
+  margin: 0 auto;           /* center horizontally */
+  width: 100%;              /* responsive width */
+  max-height: 315px;        /* cap height */
+  max-width: 560px;        /* cap width */
+  aspect-ratio: 16 / 9;     /* keep 16:9 ratio */
+  border: 0;
+}

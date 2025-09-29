@@ -68,7 +68,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       const videoId = match[1];
       const startTime = match[2];
       VERBOSE && console.log( "videoID", url, videoId, startTime, match.length)
-      let embed = `[<a href="${url}">${title?title:"link"}</a>]<iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}${startTime?`?start=${startTime}`:``}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      let embed = `[<a href="${url}">${title?title:"link"}</a>]<iframe class="video-embed" src="https://www.youtube.com/embed/${videoId}${startTime?`?start=${startTime}`:``}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
       return embed
     }
     return url;
