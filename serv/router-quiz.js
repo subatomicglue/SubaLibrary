@@ -273,7 +273,7 @@ function generateDefiniteArticleQuiz(data) {
     for (const number in data[gender]) {
       for (const caseName in data[gender][number]) {
         const correct = data[gender][number][caseName];
-        console.log( `${gender} ${number} ${caseName} = ${correct}`)
+        //console.log( `${gender} ${number} ${caseName} = ${correct}`)
 
         // Collect *all* possible articles to use as distractors
         const allArticles = Object.values(data)

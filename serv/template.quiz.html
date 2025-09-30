@@ -126,6 +126,37 @@
     text-align: center;
   }
 
+  .sec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Make tiles stretch to fill their grid cell */
+  .quiz-tile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 80px;
+    padding: 18px;
+    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid #000;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    transition: background .15s ease, transform .1s ease;
+  }
+  /* Heading above the grid, not inside the grid */
+  .sec-grid h3 {
+    grid-column: 1 / -1;  /* span entire grid */
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+
+
   
     
 </style>
@@ -340,13 +371,7 @@
     // Render sections
     Object.keys(sections).forEach(secName => {
       const secDiv = document.createElement('div');
-      // secDiv.style.display = 'flex';
-      // secDiv.style.flexDirection = 'column';
-      secDiv.style.marginBottom = '24px';
-
-      secDiv.style.display = 'grid';
-      secDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
-      secDiv.style.gap = '12px';
+      secDiv.classList.add('sec-grid');
 
       const heading = document.createElement('h3');
       heading.textContent = secName;
