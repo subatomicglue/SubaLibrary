@@ -65,6 +65,17 @@
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
   }
+  #quizButtons {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+
+    display: flex;           /* change from grid to flex */
+    flex-direction: column;  /* stack sections vertically */
+    gap: 24px;               /* spacing between sections */
+    text-align: center;
+  }
+
 
   /* Tile style for each quiz */
   .quiz-tile {
@@ -114,6 +125,8 @@
   #quizButtons {
     text-align: center;
   }
+
+  
     
 </style>
 <div class="wrap">
@@ -314,31 +327,58 @@
       try { quizzes.push(JSON.parse(s.textContent)); } catch(e){ }
     });
 
-    quizzes.forEach((q,i)=>{
-      const tile = document.createElement('div');
-      tile.className = 'quiz-tile';
-      tile.textContent = q.title;
-      tile.addEventListener('click',()=>{
-        QUIZ = q;
-        QUIZ_QUESTIONS = q.questions;
-        $('#title').textContent = q.title;
-        $('#subprompt').textContent = q.question;
-        if(QUIZ_QUESTIONS.length < 4){
-          $('#prompt').textContent='Not enough data';
-          $('#choices').innerHTML='';
-          setFeedback('Need at least 4 items in the dataset.');
-          $('#progress').textContent=`0 / 0`;
-          $('#score').textContent=`Score: 0`;
-          return;
-        }
-        menu.style.display='none';
-        backBtn.style.display='inline-block';
-        restartRun();
-      });
-      container.appendChild(tile);
+    // Group quizzes by section
+    const sections = {};    // {sectionName: [quiz1, quiz2, ...]}
+
+    quizzes.forEach(q => {
+      const parts = q.title.split(':');
+      const sec = parts.length > 1 ? parts[0].trim() : "----"
+      sections[sec] = sections[sec] || [];
+      sections[sec].push(q);
     });
 
+    // Render sections
+    Object.keys(sections).forEach(secName => {
+      const secDiv = document.createElement('div');
+      // secDiv.style.display = 'flex';
+      // secDiv.style.flexDirection = 'column';
+      secDiv.style.marginBottom = '24px';
+
+      secDiv.style.display = 'grid';
+      secDiv.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+      secDiv.style.gap = '12px';
+
+      const heading = document.createElement('h3');
+      heading.textContent = secName;
+      heading.style.color = 'var(--accent)';
+      heading.style.marginBottom = '12px';
+      secDiv.appendChild(heading);
+
+      sections[secName].forEach(q => {
+        const tile = document.createElement('div');
+        tile.className = 'quiz-tile';
+        // display text after the colon
+        const titleParts = q.title.split(':');
+        tile.textContent = titleParts.length > 1 ? titleParts.slice(1).join('').trim() : q.title;
+        tile.addEventListener('click', ()=>{ startQuiz(q); });
+        secDiv.appendChild(tile);
+      });
+
+      container.appendChild(secDiv);
+    });
   }
+
+  // helper function to start a quiz
+  function startQuiz(q){
+    QUIZ = q;
+    QUIZ_QUESTIONS = q.questions;
+    $('#title').textContent = q.title;
+    $('#subprompt').textContent = q.questions?.[0]?.question ?? '';
+    menu.style.display='none';
+    backBtn.style.display='inline-block';
+    restartRun();
+  }
+
 
   backBtn.addEventListener('click', ()=>{
     showQuizMenu();
