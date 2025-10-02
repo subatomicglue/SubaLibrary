@@ -1013,6 +1013,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       return { "question": `${r.root} (${r.meaning}) is a ${r.hints.declension} declension, ${r.gender} ${r.part_of_speech}, choose the ${c} ${number} case below`, "answers": [ declineNoun( r, c, number ), ...cases.map( c => declineNoun( r, c, number ) ) ] }})
   }) + `</script>` + '\n'
 
+  // General:
   data += `<script type="application/json">` + JSON.stringify({
     title: "Word Roots - Nouns",
     questions: greek_roots_dedupe.filter( r => r.part_of_speech == "noun" ).map( r => { return { "question": r.root, "answer": r.meaning }})
