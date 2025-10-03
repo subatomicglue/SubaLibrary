@@ -29,7 +29,7 @@ const match_markdown_img = /\!\[([^\[\]]+)\]\(([^\)\n]+)\)/g;
 const match_markdown_link = /\[(?=\S)([^\[\]\n]*(?<=\S))\]\(([^\)\n]*)\)/g;
 function __sanitizeForHTMLParam(str, options = { is_id: false }) {
   if (options.is_id == true) {
-    str =  str.replace(/[^A-Za-z0-9:-_\.]/g, '-')
+    str =  str.trim().replace(/[^A-Za-z0-9\:\-_\.\[\]]/g, '-')
   }
   // %28 for the left parenthesis ( and %29 for the right parenthesis )
   return str.replace(/"/g, '').replace(match_markdown_img, "$1").replace(match_markdown_link, "$1").replace(/\(/g, "%28").replace(/\)/g, "%29").trim()
@@ -287,22 +287,22 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   }
 
   // Table of Contents markdown generator - looks at all markdown headings, and returns a table of contents in markdown
-function generateMarkdownTOC(markdown) {
-  const headings = markdown.match(/(?=^|\n)(#{1,6})\s+(.*?)(\s*#*)(?=\n|$)/gm);
-  if (!headings) {
-      return '';
+  function generateMarkdownTOC(markdown) {
+    const headings = markdown.match(/(?=^|\n)(#{1,6})\s+(.*?)(\s*#*)(?=\n|$)/gm);
+    if (!headings) {
+        return '';
+    }
+
+    // Create a table of contents
+    const toc = headings.map(heading => {
+        const level = heading.match(/^(#{1,6})/)[0].length; // Get the level of the heading
+        const text = heading.replace(/(^|\n)(#{1,6})\s+(.*?)\s*(\n|$)/, '$3'); // Remove all but the heading text
+        //const linkText = text.replace(/\s+/g, '-').toLowerCase(); // Create a slug for the link
+        return ` ${'  '.repeat(level - 1)}- [${sanitizeHeadingForTOC(text)}](#${sanitizeForHTMLParam(text, {is_id:true})})`; // Indent based on heading level
+    }).join('\n');
+    return toc;
   }
-
-  // Create a table of contents
-  const toc = headings.map(heading => {
-      const level = heading.match(/^(#{1,6})/)[0].length; // Get the level of the heading
-      const text = heading.replace(/(^|\n)(#{1,6})\s+(.*?)\s*(\n|$)/, '$3'); // Remove all but the heading text
-      //const linkText = text.replace(/\s+/g, '-').toLowerCase(); // Create a slug for the link
-      return ` ${'  '.repeat(level - 1)}- [${sanitizeHeadingForTOC(text)}](#${sanitizeForHTMLParam(text, {is_id:true})})`; // Indent based on heading level
-  }).join('\n');
-  return toc;
-}
-
+  
   // big structure comes first (theyll recurse inside)
   if (!options.inlineFormattingOnly) {
     // markdown to markdown
@@ -312,7 +312,8 @@ function generateMarkdownTOC(markdown) {
 
     // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
-      .replace(/^(#{1,6}) ([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
+      .replace(/^(#{1,6})\s+([^\n]*)$/gm, (match, hashes, title) => {  // # Heading1-6
+        //console.log( `[debug:]    "${title}" -- "#${sanitizeForHTMLParam(title, {is_id: true})}"` )
         return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title, {is_id:true} )}\">${title}<a title="Permalink to this heading" href="#${sanitizeForHTMLParam(title, {is_id: true})}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
       })
       .replace(/^------+$/gm, "<hr><intentional newline>")
