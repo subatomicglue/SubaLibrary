@@ -374,11 +374,13 @@ function genRedirectPage(link) {
 }
 // mechanical stuff
 makeDir( path.join(outputDir, "root/wiki/view") )
+makeDir( path.join(outputDir, "root/tools") )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/forbidden.html"), "403 forbidden" )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/notfound.html"), "404 not found" )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/view/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/tools/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/tools/index` ) )
 
 
 // done, delete any differences in the destination dir.
