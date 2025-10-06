@@ -341,6 +341,16 @@ const quizzesPath = path.join(outputDir, "greek/quizzes")
 const quizzesHTML = require( `./router-quiz.js` ).buildPage_quizzes( new Req("quizzes", "/greek", "/" ), "quizzes" )
 syncer.writeFileIfChanged(undefined, quizzesPath, quizzesHTML )
 
+// write out tools
+const toolsPath = path.join(outputDir, "tools");
+makeDir( toolsPath )
+syncer.writeFileIfChanged(undefined, path.join(toolsPath,"index"), require( `./router-tools` ).generateListOfTools( new Req("", "/tools", "" ) ) )
+Object.keys( require( `./router-tools` ).toolDescs ).forEach( func => {
+  const toolPath = path.join(toolsPath, func)
+  const req = new Req(`${func}`, `/tools`, "/" );
+  syncer.writeFileIfChanged(undefined, toolPath, require( `./router-tools` ).generateToolPage(req, `${func}`, require( `./router-tools` ).toolDescs[`${func}`] ) )
+})
+
 // write out the rss
 const req = new Req("index")
 const rssPath = path.join(outputDir, "rss")

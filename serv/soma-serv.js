@@ -34,6 +34,7 @@ const {
   HOSTNAME_FOR_EDITS,
   DOMAINS,
   CANONICAL_DOMAIN,
+  TOOLS_ENDPOINT,
 } = require('./settings');
 
 let pm2_currentProcess = undefined;
@@ -325,6 +326,12 @@ app.use(`/greek`, greekMiddleware.router);
 const rssTorrentMiddleware = require("./router-rss-torrent");
 rssTorrentMiddleware.init( logger );
 app.use(`/${RSS_ENDPOINT}`, rssTorrentMiddleware.router);
+
+
+// torrent RSS
+const toolsMiddleware = require("./router-tools");
+toolsMiddleware.init( logger );
+app.use(`/${TOOLS_ENDPOINT}`, toolsMiddleware.router);
 
 // quick status check
 app.get('/status', (req, res) => {
