@@ -48,8 +48,11 @@ function checkService() {
   //console.log(`[watchdog.js] [${new Date().toISOString()}] Checking service...`);
   return new Promise((resolve, reject) => {
     let show_some_motion = 0;
+    let running = false;
     let status_handle  = setInterval( () => {
-        logger.info( `[watchdog.js] Checking service...  Waiting ~${TIMEOUT_MS/1000}s for response... ${++show_some_motion}` )
+      logger.info( `[watchdog.js] Checking service...  Waiting ~${TIMEOUT_MS/1000}s for response... ${++show_some_motion}` )
+      if (!running)
+        clearInterval( status_handle );
     }, 1000 );
 
     const req = https.get(
@@ -62,7 +65,9 @@ function checkService() {
       }
     );
 
+    running = true
     req.setTimeout(TIMEOUT_MS, () => {
+      running = false;
       clearInterval( status_handle );
       logger.info(`[watchdog.js] Request timed out... failing in 3 seconds...`);
       let FAIL_TIMEOUT = 3;
