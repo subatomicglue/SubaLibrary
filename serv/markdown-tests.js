@@ -314,11 +314,83 @@ markdownToHtmlTest( `---
 ---
 `,
   `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
-<blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i><br><br>
-</blockquote>
+<blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i></blockquote>
 </div>
 `)
 
+
+markdownToHtmlTest( `---
+} **III.** some text *is here* 
+} **III.** some text *is here* 
+} **III.** some text *is here* 
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i> <br><b>III.</b> some text <i>is here</i> <br><b>III.</b> some text <i>is here</i></blockquote>
+</div>
+`)
+
+markdownToHtmlTest( `---
+} **III.** some text *is here* 
+}} **III.** some text *is here* 
+}}} **III.** some text *is here* 
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i> <blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i> <blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i></blockquote></blockquote></blockquote>
+</div>
+`)
+
+markdownToHtmlTest( `---
+text
+}}} **III.** some text *is here* 
+text
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+text<blockquote style="border-left-color:transparent;"><blockquote style="border-left-color:transparent;"><blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i></blockquote></blockquote></blockquote>text
+</div>
+`)
+
+markdownToHtmlTest( `---
+**NOTE:** this is a box
+it's a great box
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<b>NOTE:</b> this is a box<br>it's a great box
+</div>
+`)
+
+markdownToHtmlTest( `---
+**NOTE:** this is a box
+
+it's a great box
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<b>NOTE:</b> this is a box<p>it's a great box
+</div>
+`)
+
+markdownToHtmlTest( `---
+- a bullet
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<ul><li>a bullet</li></ul>
+</div>
+`)
+
+markdownToHtmlTest( `---
+- a bullet
+- another bullet
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<ul><li>a bullet</li><li>another bullet</li></ul>
+</div>
+`)
 
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
   `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)

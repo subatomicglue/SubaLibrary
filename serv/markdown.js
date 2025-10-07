@@ -109,15 +109,18 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
 
   function transformCustomBlocks(markdown) {
     //console.log( `transformCustomBlocks (markdown) "${markdown}"` )
-    return markdown.replace(
+    let result = markdown.replace(
       /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)([a-zA-Z]*)\n([\s\S]*?\n)\1$/gm,
       (_, fence, optional_name, content) => {
+        content = content.replace(/\s*\n$/,"") // eat trailing newline to avoid extra unnessesary <br> before the closing </div>
         //console.log( `transformCustomBlocks (content) "${content}"` )
         function recurse(content) {
           //console.log( `transformCustomBlocks (recurse) "${content}"` )
-          content = content.replace(/\n$/,"") // eat trailing newline to avoid extra unnessesary <br> before the closing </div>
           //return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
-          return markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+          let result = markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+          result = result.replace( /<br>\n<p>/gm, '<p>' ).replace( /<br>\n/g, "<br>" ).replace( /<br><(blockquote|ul|ol|div|pre|iframe)/g, "<$1" ) // clean up extra <br> crap that creeps in
+          //console.log( `transformCustomBlocks (recurse result) "${result}"` )
+          return result
         }
         if (fence === '---' || fence === '+--') { // box with border color
           const inner = recurse(content);
@@ -148,7 +151,9 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           return `${optional_name ? `<b>${optional_name}</b><br>` : ``}<div class="pre-container pre-coloring"><div class="pre-container-scroll-wrapper"><pre><code ${optional_name ? `class="${optional_name}"` : ``}>${inner.replace(/\n/g, '<intentional newline>')}</code></pre><postprocess-prescript></div></div>`;
         }
       }
-    );
+    )
+    //console.log( `transformCustomBlocks (result) "${result}"` )
+    return result;
   }
 
   // nested lists
@@ -262,7 +267,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       const reducedLines = lines.reduce((acc, curr) => {
           const prev = acc[acc.length - 1];
           if (prev && prev.level === curr.level) {
-              prev.content += '<BR>' + curr.content; // Merge lines with same level
+              prev.content += '<br>' + curr.content; // Merge lines with same level
           } else {
               acc.push(curr);
           }
@@ -281,7 +286,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
               result += `<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`;
               stack.push(`<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`);
           }
-          result += markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true }) + '\n';
+          //console.log( `processBlockQuotes (content) "${content}"`)
+          result += markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true });
       }
       while (stack.length) {
           result += '</blockquote>';
@@ -380,7 +386,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   // close it out
   if (!options.inlineFormattingOnly) {
     markdown = markdown.replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
-      .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <BR>
+      .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <br>
       .replace(/\n(<intentional newline><\/div>)/gm, "$1") // clean up spurious newline after certain blocks
       .replace(/\n/gm, "<br>\n") // New lines to <br>
       .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
