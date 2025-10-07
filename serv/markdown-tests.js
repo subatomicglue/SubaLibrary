@@ -392,6 +392,29 @@ markdownToHtmlTest( `---
 </div>
 `)
 
+markdownToHtmlTest( `other words
+
+> words.
+`,
+  `other words<br>
+<p><blockquote>words.</blockquote>
+`)
+
+markdownToHtmlTest( `other words
+> words.
+`,
+  `other words<br>
+<blockquote>words.</blockquote>
+`)
+
+markdownToHtmlTest( `> words
+> more words
+`,
+  `<blockquote>words<br>more words</blockquote>
+`)
+
+
+
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
   `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)
 
