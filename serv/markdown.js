@@ -108,13 +108,16 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   }
 
   function transformCustomBlocks(markdown) {
+    //console.log( `transformCustomBlocks (markdown) "${markdown}"` )
     return markdown.replace(
       /^(===|\+==|=\+=|==\+|---|\+--|-\+-|--\+|>>>|}}}|```)([a-zA-Z]*)\n([\s\S]*?\n)\1$/gm,
       (_, fence, optional_name, content) => {
-        //console.log( `transformCustomBlocks "${content}"` )
+        //console.log( `transformCustomBlocks (content) "${content}"` )
         function recurse(content) {
-          //return markdownToHtml(fence === '```' ? escapeHtml( content ) : content, baseUrl, options);
-          return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+          //console.log( `transformCustomBlocks (recurse) "${content}"` )
+          content = content.replace(/\n$/,"") // eat trailing newline to avoid extra unnessesary <br> before the closing </div>
+          //return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+          return markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
         }
         if (fence === '---' || fence === '+--') { // box with border color
           const inner = recurse(content);
@@ -243,8 +246,10 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   // blockquote >, >>, >>> (or }, }}, }}} for invisible)
   // multiline
   function processBlockQuotes( markdown ) {
+    //console.log( `processBlockQuotes (markdown) "${markdown}"`)
     return markdown.replace(/(^([>}]+)[^\S\r\n]?.*?(?:\n[>}]+[^\S\r\n]?.*)*)(?=\n(?![^>}])|$)/gm, (match, fullBlock, marker) => {
       const markerChar = marker[0]; // either '>' or '}'
+      //console.log( `processBlockQuotes (markerChar) "${markerChar}"`)
 
       // Map lines to { level, content }
       const lines = match.trim().split('\n').map(line => {

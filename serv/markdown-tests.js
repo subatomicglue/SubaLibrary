@@ -309,6 +309,16 @@ markdownToHtmlTest( `{{ user:12345 }}`,
   `testuser`
 )
 
+markdownToHtmlTest( `---
+} **III.** some text *is here* 
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+<blockquote style="border-left-color:transparent;"><b>III.</b> some text <i>is here</i><br><br>
+</blockquote>
+</div>
+`)
+
 
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
   `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)
