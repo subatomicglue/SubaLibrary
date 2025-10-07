@@ -413,6 +413,16 @@ markdownToHtmlTest( `> words
   `<blockquote>words<br>more words</blockquote>
 `)
 
+markdownToHtmlTest( `---
+words words words words
+
+... words are words
+---
+`,
+  `<div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
+words words words words<p>... words are words
+</div>
+`)
 
 
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,

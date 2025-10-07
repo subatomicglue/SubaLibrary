@@ -118,7 +118,8 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           //console.log( `transformCustomBlocks (recurse) "${content}"` )
           //return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
           let result = markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
-          result = result.replace( /<br>\n<p>/gm, '<p>' ).replace( /<br>\n/g, "<br>" ).replace( /<br><(blockquote|ul|ol|div|pre|iframe)/g, "<$1" ) // clean up extra <br> crap that creeps in
+          //console.log( `transformCustomBlocks (recurse result pre) "${result}"` )
+          result = result.replace( /<br>\n<p>/gm, '<p>' ).replace( /<br>\n/g, "<br>" ).replace( /(<br>|\n)(<\/?)(blockquote|ul|ol|div|pre|iframe)/gm, "$2$3" ) // clean up extra <br> crap that creeps in
           //console.log( `transformCustomBlocks (recurse result) "${result}"` )
           return result
         }
