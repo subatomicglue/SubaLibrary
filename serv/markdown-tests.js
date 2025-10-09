@@ -424,6 +424,14 @@ words words words words<p>... words are words
 </div>
 `)
 
+// test these side-scrolling containers.
+// sometimes the script gets matched for a markdown hyperlink,
+// if not run once only at the end of the markdown->html conversion
+markdownToHtmlTest( `\`\`\`
+...a really really really really really really really really really wide code block will side-scroll in narrow browsers (e.g. on mobile).
+\`\`\``,
+`<div class="pre-container pre-coloring"><div class="pre-container-scroll-wrapper"><pre><code >...a really really really really really really really really really wide code block will side-scroll in narrow browsers (e.g. on mobile).</code></pre><script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{c.classList[s.scrollWidth > s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()</script></div></div>` );
+
 
 htmlToMarkdownTest( `<a href="https://mylink.com/thing?param=*&param2=*" title="*" alt="*">*</a>`,
   `[&ast;](https://mylink.com/thing?param=%2A&param2=%2A)`)

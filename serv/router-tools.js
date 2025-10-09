@@ -106,7 +106,7 @@ router.get('/', (req, res) => {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // register tools as router endpoints
-createTool( "youtubeTranscriptCleanup", "copy/paste transcription from youtube" );
+createTool( "youtubeTranscriptCleanup", "Copy/paste a transcription from YouTube.  Hit Submit to clean it up" );
 ///////////////////////////////////////////////////////////////////////////////////////
 
 

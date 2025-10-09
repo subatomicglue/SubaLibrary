@@ -13,6 +13,9 @@
     let needsAnotherPreview = false; // Flag to indicate if another update is needed
     let lastMarkdownValue = ""; // Variable to track the last value
     let previewDebounceTimer;
+    let undoManager = undefined;
+    let applyFormat = undefined;
+    window.preventzoom = true;
 
     // for autoscroll of the preview
     function createMirrorDiv(textarea, id = "markdown-mirror") {
@@ -155,6 +158,13 @@
     let markdown_version_on_server = <%=markdown_version%>;
     let markdown_version = <%=markdown_version%>;
 
+    function status( msg, timeout ) {
+      document.getElementById('status').innerHTML = msg;
+      setTimeout( () => {
+        document.getElementById('status').textContent = '';
+      }, timeout)
+    }
+
     ////////////////////////// autosave into localStorage ////////////////
     const LS_KEY = `editor-autosave_<%=topic%>`;
     function autosaveMarkdownRestored() {
@@ -163,14 +173,13 @@
       if (autosave_item !== null) {
         markdown_version = autosave_item.version ? autosave_item.version : 0;
         document.getElementById('markdown').value = autosave_item.content ? autosave_item.content : autosave_item;
-        document.getElementById('status').innerHTML = `<span style="color: #ffaa00"><b>restored v${autosave_item.version}</b></span>`;
+        status( `<span style="color: #ffaa00"><b>restored v${autosave_item.version}</b></span>`, 5000 );
         setTimeout( () => {
-          if (markdown_version < markdown_version_on_server)
+          if (markdown_version < markdown_version_on_server) {
+            undoManager.clear(); // can't restore saved undo history, when the text has changed (diffs wont line up)
             alert( `Your local autosave (${markdown_version}) appears out of date with the server version (${markdown_version_on_server}).\n - If you save, it will overwrite a newer version.\n - To be safe: Carefully copy/paste your markdown out to another app, and [cancel] here...` )
+          }
         }, 1000)
-        setTimeout( () => {
-          document.getElementById('status').textContent = '';
-        }, 5000)
         return true;
       }
       return false;
@@ -188,14 +197,11 @@
 
       //console.log( LS_KEY, autosave_item )
       localStorage.setItem(LS_KEY, JSON.stringify( autosave_item ));
-      document.getElementById('status').innerHTML = '<span style="color: #aaff00"><b>autosaved...</b></span>';
-      setTimeout( () => {
-        document.getElementById('status').textContent = '';
-      }, 1000)
+      status( '<span style="color: #aaff00"><b>autosaved...</b></span>', 1000 )
     }
     function autosaveMarkdownClear() {
       localStorage.removeItem(LS_KEY);
-      document.getElementById('status').textContent = '';
+      status( '', 0 );
     }
     const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 700);
     ////////////////////////// autosave into localStorage ////////////////
@@ -223,6 +229,8 @@
           return null
         }
 
+        undoManager.clear();
+
         setTimeout( ()=> {
           autosaveMarkdownClear();
           window.location.href = "<%=req_baseUrl%><%=view_route%>/<%=topic%>";
@@ -241,6 +249,7 @@
       cancel_button.disabled = true;                // disable button
       cancel_button.style.opacity = "0.5";          // grey it visually
       document.getElementById("preview").innerHTML = `<p>Discarding Changes`
+      undoManager.clear();
 
       setTimeout( ()=> {
         autosaveMarkdownClear();
@@ -250,6 +259,7 @@
 
     // Ensure updatePreview() runs once when the page loads
     document.addEventListener("DOMContentLoaded", async () => {
+      document.getElementById('markdown').focus() // focus the textarea editor
       autosaveMarkdownRestored();
 
       debouncedUpdatePreview();
@@ -330,10 +340,10 @@
           if (fileUrl) {
             setTimeout(() => {
               const textarea = document.getElementById("markdown");
-              const startPos = textarea.selectionStart;
-              const endPos = textarea.selectionEnd;
-              const before = textarea.value.substring(0, startPos);
-              const after = textarea.value.substring(endPos);
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const before = textarea.value.substring(0, start);
+              const after = textarea.value.substring(end);
 
               let insertText;
               if (file.type.startsWith("image/")) {
@@ -344,10 +354,10 @@
                 insertText = `[file](${fileUrl})`;
               }
 
+              // insert the new file link
               textarea.value = before + insertText + after;
-
-              const newPos = startPos + insertText.length;
-              textarea.selectionStart = textarea.selectionEnd = newPos;
+              textarea.selectionStart = textarea.selectionEnd = start + insertText.length;
+              undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
 
               debouncedUpdatePreview();
             }, 400);
@@ -482,13 +492,15 @@
           }
 
           function insertMarkdown(markdown) {
-            const selectionStart = textarea.selectionStart;
-            const selectionEnd = textarea.selectionEnd;
-            const textBefore = textarea.value.substring(0, selectionStart);
-            const textAfter = textarea.value.substring(selectionEnd);
+            const start = textarea.selectionStart;
+            const end   = textarea.selectionEnd;
+            const textBefore = textarea.value.substring(0, start);
+            const textAfter  = textarea.value.substring(end);
 
+            // perform the change
             textarea.value = textBefore + markdown + textAfter;
-            textarea.selectionStart = textarea.selectionEnd = selectionStart + markdown.length;
+            textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
+            undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);  // call after change to textarea.value (and friends)
           }
 
           function extractBestClipboardString(clipboardData) {
@@ -505,65 +517,339 @@
       });
       ////////////////////////// paste handler /////////////////////////////
 
+      ////////////////////////// UNDO MANAGER //////////////////////////////////
+      class UndoManager {
+        constructor(textarea, pageKey, options = {}) {
+          this.textarea = textarea;
+          this.pageKey = pageKey;
+          this.maxHistory = options.maxHistory || 50;
+          this.debounceTime = options.debounceTime || 300;
+
+          this.undoStack = [];
+          this.redoStack = [];
+          this.lastValue = textarea.value;
+          this.lastCursor = { start: textarea.selectionStart, end: textarea.selectionEnd };
+          this.lastSaveTime = 0;
+          this.debounceTimer = null;
+
+          this.load();
+
+          textarea.addEventListener("input", () => this.handleInput());
+          textarea.addEventListener("keydown", (e) => this.handleKeydown(e));
+        }
+
+        handleKeydown(e) {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+            e.preventDefault();
+            e.shiftKey ? this.redo() : this.undo();
+          }
+        }
+
+        handleInput() {
+          this.saveUndo();
+        }
+
+        saveUndo(beforeStart = null, beforeEnd = null, afterStart = null, afterEnd = null, force = false) {
+          const value = this.textarea.value;
+          const start = afterStart ?? this.textarea.selectionStart;
+          const end   = afterEnd   ?? this.textarea.selectionEnd;
+
+          // Use explicit or last-known "before" cursor
+          const selBeforeStart = beforeStart ?? (this.undoStack.length === 0 ? (this.textarea.selectionStart-1) : this.lastCursor.start);
+          const selBeforeEnd   = beforeEnd   ?? (this.undoStack.length === 0 ? (this.textarea.selectionEnd-1) : this.lastCursor.end);
+
+          const diff = this.computeDiff(this.lastValue, value, selBeforeStart, selBeforeEnd, start, end);
+          if (!diff) return;
+
+          const now = Date.now();
+          const lastDiff = this.undoStack[this.undoStack.length - 1];
+
+          if (!force && lastDiff && now - this.lastSaveTime < this.debounceTime) {
+            lastDiff.start = Math.min(lastDiff.start, diff.start);
+            lastDiff.end = Math.max(lastDiff.end, diff.end);
+            lastDiff.inserted += diff.inserted;
+            lastDiff.deleted += diff.deleted;
+            lastDiff.selectionAfterStart = diff.selectionAfterStart;
+            lastDiff.selectionAfterEnd = diff.selectionAfterEnd;
+          } else {
+            this.undoStack.push(diff);
+          }
+
+          this.lastSaveTime = now;
+          this.redoStack = [];
+          this.lastValue = value;
+          this.lastCursor = { start, end };
+          this.saveToLocalStorage();
+        }
+
+
+        undo() {
+          if (this.undoStack.length === 0) {
+            status( `<span style="color: #ffaa00"><b>no more undo!</b></span>`, 5000 );
+            return;
+          }
+          status( `<span style="color: #ffaa00"><b>undo[${this.undoStack.length}]</b></span>`, 5000 );
+
+          const diff = this.undoStack.pop();
+          const cursor = {
+            start: diff.selectionBeforeStart,
+            end: diff.selectionBeforeEnd
+          };
+          this.applyDiff(diff, true);
+          this.redoStack.push(diff);
+
+          // Explicitly restore "before edit" cursor
+          this.textarea.selectionStart = cursor.start;
+          this.textarea.selectionEnd = cursor.end;
+          console.log( "undo", this.textarea.selectionStart, this.textarea.selectionEnd )
+
+          //console.log( diff )
+
+          this.lastValue = this.textarea.value;
+          this.lastCursor = { ...cursor };
+
+          onMarkdownChanged(); // handle change
+        }
+
+        redo() {
+          if (this.redoStack.length === 0) {
+            status( `<span style="color: #ffaa00"><b>no more redo!</b></span>`, 5000 );
+            return;
+          }
+          status( `<span style="color: #ffaa00"><b>redo[${this.redoStack.length}]</b></span>`, 5000 );
+
+          const diff = this.redoStack.pop();
+          this.applyDiff(diff, false);
+          this.undoStack.push(diff);
+
+          this.lastValue = this.textarea.value;
+          this.lastCursor = {
+            start: this.textarea.selectionStart,
+            end: this.textarea.selectionEnd,
+          };
+
+          onMarkdownChanged(); // handle change
+        }
+
+        applyDiff(diff, isUndo) {
+          const val = this.textarea.value;
+          const start = diff.start;
+          const inserted = diff.inserted || "";
+          const deleted = diff.deleted || "";
+
+          if (isUndo) {
+            // remove inserted, insert deleted
+            this.textarea.value = val.slice(0, start) + deleted + val.slice(start + inserted.length);
+            // restore cursor to BEFORE state
+            this.textarea.selectionStart = diff.selectionBeforeStart;
+            this.textarea.selectionEnd = diff.selectionBeforeEnd;
+          } else {
+            // remove deleted, insert inserted
+            this.textarea.value = val.slice(0, start) + inserted + val.slice(start + deleted.length);
+            // restore cursor to AFTER state
+            this.textarea.selectionStart = diff.selectionAfterStart;
+            this.textarea.selectionEnd = diff.selectionAfterEnd;
+          }
+        }
+
+        computeDiff(oldVal, newVal, oldStart, oldEnd, newStart, newEnd) {
+          // find left boundary
+          let left = 0;
+          while (
+            left < oldVal.length &&
+            left < newVal.length &&
+            oldVal[left] === newVal[left]
+          ) {
+            left++;
+          }
+
+          // find right boundary
+          let oldRight = oldVal.length - 1;
+          let newRight = newVal.length - 1;
+          while (oldRight >= left && newRight >= left && oldVal[oldRight] === newVal[newRight]) {
+            oldRight--;
+            newRight--;
+          }
+
+          const deleted = oldVal.slice(left, oldRight + 1);
+          const inserted = newVal.slice(left, newRight + 1);
+          if (deleted === "" && inserted === "") return null;
+
+          return {
+            start: left,
+            end: oldRight + 1,
+            inserted,
+            deleted,
+            selectionBeforeStart: oldStart,
+            selectionBeforeEnd: oldEnd,
+            selectionAfterStart: newStart,
+            selectionAfterEnd: newEnd,
+          };
+        }
+
+        saveToLocalStorage() {
+          try {
+            const data = {
+              undoStack: this.undoStack,
+              redoStack: this.redoStack,
+              stackPointer: this.stackPointer,
+            };
+            //console.log( JSON.stringify( data ))
+            localStorage.setItem( `undo:${this.pageKey}`, JSON.stringify(data) );
+          } catch (err) {
+            console.warn("Unable to save undo history", err);
+          }
+        }
+
+        load() {
+          try {
+            const data = JSON.parse(localStorage.getItem(`undo:${this.pageKey}`));
+            if (data) {
+              this.undoStack = data.undoStack || [];
+              this.redoStack = data.redoStack || [];
+              this.stackPointer = data.stackPointer || this.undoStack.length;
+            }
+          } catch (err) {
+            console.warn("Unable to load undo history", err);
+          }
+        }
+
+        clear() {
+          localStorage.removeItem(`undo:${this.pageKey}`);
+        }
+      }
+
+      undoManager = new UndoManager( document.getElementById("markdown"), "<%=topic%>" );
+      ////////////////////////// UNDO MANAGER //////////////////////////////////
+
       ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
       // formatting toggle (e.g. bold toggle (cmd-b) to add/remove '**')
-      function createFormattingToggle( key='b', fmt='**' ) {
-        document.getElementById('markdown').addEventListener('keydown', function (event) {
-          const fmt_len = fmt.length;
+      function applyMarkdownFormatting( fmt = "**" ) {
+        const fmt_len = fmt.length;
 
-          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === key) {
-            event.preventDefault();
+        let start = textarea.selectionStart;
+        let end = textarea.selectionEnd;
+        let value = textarea.value;
 
-            const textarea = event.target;
-            let start = textarea.selectionStart;
-            let end = textarea.selectionEnd;
-            let value = textarea.value;
+        // in the selected text
+        // - trim whitespace from the selection before and after the selection (move the start++ if needed,  move the end-- if needed)
+        // - trim anything after \n, since formatting can't go across newlines
+        const original_selected_text = value.slice(start, end);
+        const original_selected_text_leading_ws = (original_selected_text.match(/^[\s\n]+/) || [''])[0].length;
+        const original_selected_text_trailing_was = (original_selected_text.match(/[\s]*\n[\s\S]*$|[\s\n]+$/) || [''])[0].length;
+        start += original_selected_text_leading_ws;
+        end -= original_selected_text_trailing_was;
 
-            // in the selected text
-            // - trim whitespace from the selection before and after the selection (move the start++ if needed,  move the end-- if needed)
-            // - trim anything after \n, since formatting can't go across newlines
-            const original_selected_text = value.slice(start, end);
-            const original_selected_text_leading_ws = (original_selected_text.match(/^[\s\n]+/) || [''])[0].length;
-            const original_selected_text_trailing_was = (original_selected_text.match(/[\s]*\n[\s\S]*$|[\s\n]+$/) || [''])[0].length;
-            start += original_selected_text_leading_ws;
-            end -= original_selected_text_trailing_was;
+        const before = value.slice(0, start);
+        const selected = value.slice(start, end);
+        const after = value.slice(end);
 
-            const before = value.slice(0, start);
-            const selected = value.slice(start, end);
-            const after = value.slice(end);
-
-            // Case 3: selected text is "word" and there is outside **'s:  **word** — remove the **'s
-            if (before.slice(-fmt_len) === fmt && after.slice(0, fmt_len) === fmt) {
-              textarea.value = before.slice(0, -fmt_len) + selected + after.slice(fmt_len);
-              textarea.selectionStart = start - fmt_len;
-              textarea.selectionEnd = end - fmt_len;
-              return;
-            }
-
-            // Case 2: selected text is "**word**": — remove the **'s
-            if (selected.slice(0, fmt_len) === fmt && selected.slice(-fmt_len) === fmt) {
-              textarea.value = before + selected.slice(fmt_len, selected.length - fmt_len) + after;
-              textarea.selectionStart = start;
-              textarea.selectionEnd = end - (fmt_len*2);
-              return;
-            }
-
-            // Case 1: add **
-            textarea.value = before + fmt + selected + fmt + after;
-            textarea.selectionStart = start + fmt_len;
-            textarea.selectionEnd = end + fmt_len;
-          }
-        });
-      }
-      createFormattingToggle( 'b', '**' )
-      createFormattingToggle( 'i', '*' )
-      createFormattingToggle( 'u', '__' )
-      document.getElementById('markdown').addEventListener('keydown', function (event) {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-          event.preventDefault();
-          return false;
+        // Case 3: selected text is "word" and there is outside **'s:  **word** — remove the **'s
+        if (before.slice(-fmt_len) === fmt && after.slice(0, fmt_len) === fmt) {
+          textarea.value = before.slice(0, -fmt_len) + selected + after.slice(fmt_len);
+          textarea.selectionStart = start - fmt_len;
+          textarea.selectionEnd = end - fmt_len;
+          undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+          return;
         }
-      })
+
+        // Case 2: selected text is "**word**": — remove the **'s
+        if (selected.slice(0, fmt_len) === fmt && selected.slice(-fmt_len) === fmt) {
+          textarea.value = before + selected.slice(fmt_len, selected.length - fmt_len) + after;
+          textarea.selectionStart = start;
+          textarea.selectionEnd = end - (fmt_len*2);
+          undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+          return;
+        }
+
+        // Case 1: add **
+        textarea.value = before + fmt + selected + fmt + after;
+        textarea.selectionStart = start + fmt_len;
+        textarea.selectionEnd = end + fmt_len;
+        undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+      }
+
+      // apply any formatting to the active cursor position / selection
+      applyFormat = ( options = {} ) => {
+        if (options.key_bold) return applyMarkdownFormatting( '**' );
+        if (options.key_italics) return applyMarkdownFormatting( '*' );
+        if (options.key_underscore) return applyMarkdownFormatting( '__' );
+        if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_togglebullet || options.key_addbullet || options.key_rmbullet)) {
+          const value = textarea.value;
+          let start = textarea.selectionStart;
+          let end = textarea.selectionEnd;
+
+          // Expand selection to full lines
+          const before = value.lastIndexOf("\n", start - 1);
+          const after = value.indexOf("\n", end);
+          const lineStart = before === -1 ? 0 : before + 1;
+          const lineEnd = after === -1 ? value.length : after;
+          const selected = value.slice(lineStart, lineEnd);
+
+          let modified;
+          if (options.key_addindent) {
+            modified = selected.replace(/^/gm, "  ");
+          }
+          else if (options.key_rmindent) {
+            modified = selected.replace(/^ {1,2}/gm, "");
+          }
+          else if (options.key_addbullet) {
+            modified = selected.replace(/^(\s*)(?:- )?/gm, "$1- ");
+          }
+          else if (options.key_rmbullet) {
+            modified = selected.replace(/^(\s*)- /gm, "$1");
+          }
+          else if (options.key_togglebullet) {
+            modified = selected.replace(/^(\s*)(- )?/gm, (match, spaces, bullet) => {
+              // If there’s already a bullet, remove it; otherwise, add one
+              return spaces + (bullet ? "" : "- ");
+            });
+          }
+          else if (options.key_addtab) {
+            // there's no selection, just add 2 spaces at the cursor when user hits TAB
+            const insert_chars = "  "
+            const before = value.slice(0, start);
+            const after = value.slice(end);
+            textarea.value = before + insert_chars + after;
+            textarea.selectionStart = textarea.selectionEnd = start + insert_chars.length;
+            undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+            return;
+          }
+          else {
+            return; // allow normal typing for other keys
+          }
+
+          // Replace text
+          const newValue = value.slice(0, lineStart) + modified + value.slice(lineEnd);
+          textarea.value = newValue;
+          textarea.selectionStart = lineStart;
+          textarea.selectionEnd = lineStart + modified.length;
+          undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+        }
+      }
+
+      // keyhandlers for indent and bullets
+      document.getElementById('markdown').addEventListener('keydown', function (e) {
+        const has_selection = textarea.selectionStart !== textarea.selectionEnd;
+        const activeKeys = Object.fromEntries( Object.entries({
+          key_addtab: e.key === "Tab" && !e.shiftKey && !has_selection,
+          key_addindent: e.key === "Tab" && !e.shiftKey && has_selection,
+          key_rmindent: e.key === "Tab" && e.shiftKey,
+          key_togglebullet: (e.metaKey || e.ctrlKey) && e.key === "-" && !e.shiftKey,
+          // key_addbullet: (e.metaKey || e.ctrlKey) && e.key === "-" && !e.shiftKey,
+          // key_rmbullet: (e.metaKey || e.ctrlKey) && (e.key === "_" || e.key === "-") && e.shiftKey,
+          key_bold: (e.metaKey || e.ctrlKey) && event.key.toLowerCase() === "b" && !e.shiftKey,
+          key_italics: (e.metaKey || e.ctrlKey) && event.key.toLowerCase() === "i" && !e.shiftKey,
+          key_underscore: (e.metaKey || e.ctrlKey) && event.key.toLowerCase() === "u" && !e.shiftKey,
+          key_save: (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's' && !e.shiftKey,
+        }).filter(([_, v]) => v) );
+        const hasAnyActive = Object.values(activeKeys).some(Boolean);
+        if (hasAnyActive) {
+          e.preventDefault()
+          applyFormat( activeKeys )
+        }
+        return false;
+      });
       ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
 
       ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
@@ -679,6 +965,11 @@
             svgPopup.style.display = 'none'; // Hide the popup
         }
       });
+    }
+
+    function onMarkdownChanged() {
+      debouncedUpdatePreview();
+      debouncedAutosaveMarkdown();
     }
   </script>
   <style>
@@ -847,19 +1138,29 @@
   <div class="container">
     <div id="preview"></div>
     <div class="drag-handle"></div>
-    <textarea id="markdown" class="markdown" onkeyup="debouncedUpdatePreview(); debouncedAutosaveMarkdown();" rows="10" cols="50"><%=markdown%></textarea>
+    <textarea id="markdown" class="markdown" onkeyup="onMarkdownChanged()" rows="10" cols="50"><%=markdown%></textarea>
   </div>
   <div class="buttons-tray">
     <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
     <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
+    <button id="togglebullet" title="toggle bullet" class="button2" onclick="applyFormat( { key_togglebullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
+    <!-- <button id="addbullet" title="add bullet" class="button2" onclick="applyFormat( { key_addbullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
+    <button id="rmbullet" title="remove bullet" class="button2" onclick="applyFormat( { key_rmbullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;color: red;">•</span></span></button> -->
+    <button id="dec" title="unindent selected text" class="button2" onclick="applyFormat( { key_rmindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
+    <button id="inc" title="indent selected text" class="button2" onclick="applyFormat( { key_addindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
+    <button id="apply_bold" title="bold selected text" class="button2" onclick="applyFormat( { key_bold: true } ); document.getElementById('markdown').focus()"><b>B</b></button>
+    <button id="apply_italics" title="italics selected text" class="button2" onclick="applyFormat( { key_italics: true } ); document.getElementById('markdown').focus()"><i>I</i></button>
+    <button id="apply_underscore" title="underscore selected text" class="button2" onclick="applyFormat( { key_underscore: true } ); document.getElementById('markdown').focus()"><u>U</u></button>
+    <button id="undo" title="undo last change" class="button2" onclick="undoManager.undo(); document.getElementById('markdown').focus()">⤺</button>
+    <button id="redo" title="redo last change" class="button2" onclick="undoManager.redo(); document.getElementById('markdown').focus()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
     <script>
       createSvgPopup("infopopup", "Markdown Help", `<%include "template.markdown-help.html"%>`)
     </script>
     <input type="file" id="uploadInput" accept="this will be populated later by javascript" style="display: none;">
-    <button id="uploadBtn" class="button2">Upload</button>
-    <button id="cancel_button" class="button2" onclick="cancelWiki()">Cancel</button>
-    <button id="save_button" class="button1" onclick="saveWiki()">Save</button>
+    <button id="uploadBtn" title="upload" class="button2">Upload</button>
+    <button id="cancel_button" title="cancel editing" class="button2" onclick="cancelWiki()">Cancel</button>
+    <button id="save_button" title="save edits" class="button1" onclick="saveWiki()">Save</button>
   </div>
   <%include "template.global-error-handler.html"%>
 </body>

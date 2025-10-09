@@ -46,6 +46,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     link_absolute_callback: (baseUrl, url) => url,
     skipYouTubeEmbed: false,
     inlineFormattingOnly: false,
+    final: true,
   }
   options = { ...options_defaults, ...options };
 
@@ -82,7 +83,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
   }
 
   function htmlToText(str) {
-    return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true } ).replace(/<[^>]+?>/g,'')
+    return markdownToHtml( str, baseUrl, {...options, inlineFormattingOnly: true, final: false } ).replace(/<[^>]+?>/g,'')
   }
   function sanitizeForHTMLParam(str, options = { is_id: false }) {
     return __sanitizeForHTMLParam( htmlToText( str ), options )
@@ -117,7 +118,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
         function recurse(content) {
           //console.log( `transformCustomBlocks (recurse) "${content}"` )
           //return transformCustomBlocks(content).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
-          let result = markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
+          let result = markdownToHtml(content, baseUrl, { ...options, inlineFormattingOnly: false, final: false } ).replace(/((blockquote|ul|ol|div|pre|iframe)>)\n+/,'$1');
           //console.log( `transformCustomBlocks (recurse result pre) "${result}"` )
           result = result.replace( /<br>\n<p>/gm, '<p>' ).replace( /<br>\n/g, "<br>" ).replace( /(<br>|\n)(<\/?)(blockquote|ul|ol|div|pre|iframe)/gm, "$2$3" ) // clean up extra <br> crap that creeps in
           //console.log( `transformCustomBlocks (recurse result) "${result}"` )
@@ -179,7 +180,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
         // unordered lists (-, +, *)
         // require leading space:  "[  ]${indent}" or dont: "[  ]?${indent}"
         markdown = markdown.replace( new RegExp( `(?:^|\\n)(([  ]?${indent})([-+*])[  ]+.*(?:\\n\\2\\3[  ]+.*)*)`, "gim" ), (match, match2, indents, bullet) => {
-          return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, (match, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
+          return `<ul>` + match.replace( /^\s*[-+*]\s+(.*?)$/gim, (match, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true, final: false })}</li>` ).replace(/\n/g,"") + `</ul>` // * bullet
         })
         // numbered lists (1., 2., 3., etc.)
         // require leading space:  "[  ]${indent}" or dont: "[  ]?${indent}"
@@ -195,7 +196,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
                     bullet.match(/^[a-z]{1,2}$/) ? "a" :
                     bullet.match(/^[A-Z]{1,2}$/) ? "A" :
                     "1"
-          return `<ol type="${type}" start="${bullet}">` + match.replace( /^[  ]*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.[  ]+(.*?)$/gim, (match, type, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
+          return `<ol type="${type}" start="${bullet}">` + match.replace( /^[  ]*([0-9]{1,2}|[a-z]{1,2}|[A-Z]{1,2}|[IVXLCDM]+|[ivxlcdm]+)\.[  ]+(.*?)$/gim, (match, type, content) => `<li>${markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true, final: false })}</li>` ).replace(/\n/g,"") + `</ol>` // * bullet
         })
       }
       //console.log( ` - processBulletLists returning "${markdown}"` )
@@ -238,7 +239,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
           ++whichcol
           let just = justification[Math.min( justification.length, whichcol )];
           VERBOSE && console.log( `[markdown] table:    - ${is_heading ? "heading" : "content"}:'${content}' col:'${whichcol}' just:'${just}'` )
-          return `<${is_heading?'th':'td'} style='text-align:${just};'>${content.trim() === "" ? "&nbsp;" : markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true })}</${is_heading?'th':'td'}>`
+          return `<${is_heading?'th':'td'} style='text-align:${just};'>${content.trim() === "" ? "&nbsp;" : markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true, final: false })}</${is_heading?'th':'td'}>`
         }).replace( /\s*\|$/, '' ) // eat the last trailing |
         result += `</tr></${is_heading ? "thead" : "tbody"}>`
         ++whichline
@@ -288,7 +289,7 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
               stack.push(`<blockquote${markerChar=='}'?' style="border-left-color:transparent;"':''}>`);
           }
           //console.log( `processBlockQuotes (content) "${content}"`)
-          result += markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true });
+          result += markdownToHtml( content, baseUrl, { ...options, inlineFormattingOnly: true, final: false });
       }
       while (stack.length) {
           result += '</blockquote>';
@@ -380,19 +381,19 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
     .replace(/__(\S(?:[^*\n]*?\S)?)__/gm, "<u>$1</u>") // _underline_
 
     // post process <postprocess-prescript>
-    const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{/*console.log('scrollWidth:',s.scrollWidth,'clientWidth:',s.clientWidth);*/c.classList[s.scrollWidth>s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()<\/script>`;
+    const postprocess_prescript = `<script>(()=>{const c=document.currentScript.parentElement.parentElement,s=c.querySelector('.pre-container-scroll-wrapper'),f=()=>{c.classList[s.scrollWidth > s.clientWidth?'add':'remove']('overflowing')};f();window.addEventListener('resize',f);})()<\/script>`;
 
     // Convert line breaks (two spaces at the end of a line)
     //markdown = markdown.replace(/\n\s*\n/g, '<br>');
   // close it out
   if (!options.inlineFormattingOnly) {
     markdown = markdown.replace(/^\s*\n(?:\s*\n)*/gm, "<p>") // New lines to <p>
-      .replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <br>
-      .replace(/\n(<intentional newline><\/div>)/gm, "$1") // clean up spurious newline after certain blocks
-      .replace(/\n/gm, "<br>\n") // New lines to <br>
-      .replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
-      .replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
-      .replace(/<postprocess-prescript>/gm, postprocess_prescript) // postprocess
+    if (options.final) markdown = markdown.replace(/<intentional newline>\n/gm, "<intentional newline>") // remove newlines where intentional, to avoid <br>
+    if (options.final) markdown = markdown.replace(/\n(<intentional newline><\/div>)/gm, "$1") // clean up spurious newline after certain blocks
+    markdown = markdown.replace(/\n/gm, "<br>\n") // New lines to <br>
+    markdown = markdown.replace(/((blockquote|ul|ol|div|pre|iframe)>)\s*<br>/g, "$1") // clean up spurious <br> after certain blocks
+    if (options.final) markdown = markdown.replace(/<intentional newline>/gm, "\n") // add back in intentional newlines
+    if (options.final) markdown = markdown.replace(/<postprocess-prescript>/gm, postprocess_prescript) // postprocess
   }
 
   return markdown

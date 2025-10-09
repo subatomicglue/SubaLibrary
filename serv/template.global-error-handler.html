@@ -11,18 +11,38 @@
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   z-index: 9999;
   font-family: sans-serif;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
 " onclick="this.style.display='none'"></div>
 <script>
 (function() {
   var errorDiv = document.getElementById('globalErrorPopup');
 
   function showError(message) {
-    errorDiv.textContent = message;
+    errorDiv.innerHTML = message;
     errorDiv.style.display = 'block';
   }
 
   window.addEventListener('error', function(event) {
-    showError('Error: ' + event.message);
+    const errorDetails = [
+      `Message: ${event.message}`,
+      `File: ${event.filename}`,
+      `Line: ${event.lineno}`,
+      `Column: ${event.colno}`,
+    ];
+
+    // Include stack trace if available
+    if (event.error && event.error.stack) {
+      errorDetails.push(`Stack: ${event.error.stack}`);
+    }
+
+    const fullMessage = errorDetails.join('\n\n');
+    console.error(fullMessage); // Also log to console
+    showError( fullMessage.replace(/\n/g,"<br>").replace( /https?:\/\/[^ ]+\//g, '' ) );
     event.preventDefault(); // Stop browser default error handling
   });
 
@@ -52,7 +72,7 @@
   // prevent pinchzoom on desktop browsers
   document.addEventListener('wheel', function(event) {
     // Prevent zooming by intercepting scroll events with key modifiers
-    if (event.ctrlKey) { 
+    if (window.preventzoom && event.ctrlKey) {
       event.preventDefault();
     }
   }, { passive: false });  // passive: false allows preventDefault() in modern browsers
