@@ -774,7 +774,7 @@
         if (options.key_bold) return applyMarkdownFormatting( '**' );
         if (options.key_italics) return applyMarkdownFormatting( '*' );
         if (options.key_underscore) return applyMarkdownFormatting( '__' );
-        if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_togglebullet || options.key_addbullet || options.key_rmbullet)) {
+        if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_togglebullet || options.key_link || options.key_addbullet || options.key_rmbullet)) {
           const value = textarea.value;
           let start = textarea.selectionStart;
           let end = textarea.selectionEnd;
@@ -815,6 +815,23 @@
             undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
             return;
           }
+          else if (options.key_link) {
+              const selection = value.slice(start, end).trim();
+              let insert_chars;
+              if ((/^https?:\/\//i).test(selection)) {
+                insert_chars = `[title](${selection})`;
+              } else if (selection.length > 0) {
+                insert_chars = `[${selection}](url)`;
+              } else {
+                insert_chars = `[title](url)`;
+              }
+              const before = value.slice(0, start);
+              const after = value.slice(end);
+              textarea.value = before + insert_chars + after;
+              textarea.selectionStart = textarea.selectionEnd = start + insert_chars.length;
+              undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);
+              return;
+          }
           else {
             return; // allow normal typing for other keys
           }
@@ -842,6 +859,7 @@
           key_italics: (e.metaKey || e.ctrlKey) && event.key.toLowerCase() === "i" && !e.shiftKey,
           key_underscore: (e.metaKey || e.ctrlKey) && event.key.toLowerCase() === "u" && !e.shiftKey,
           key_save: (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's' && !e.shiftKey,
+          key_link: (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l' && !e.shiftKey,
         }).filter(([_, v]) => v) );
         const hasAnyActive = Object.values(activeKeys).some(Boolean);
         if (hasAnyActive) {
@@ -869,6 +887,13 @@
         .svg-popup-container {
           position: relative;
           display: inline-block;
+        }
+        .svg-popup-container img.popup-trigger {
+          width: 24px !important;
+          height: 24px !important;
+          flex-shrink: 0;       /* prevents shrinking in flexbox */
+          display: inline-block; /* ensures width/height apply */
+          max-width: none;       /* prevents parent max-width from overriding */
         }
         .svg-popup {
           display: none; /* Hidden by default */
@@ -1131,6 +1156,48 @@
     .button2:hover {
       color: #FFFFFF;
     }
+
+    /* scrollable strip for formatting buttons */
+    .format-buttons-scroll {
+      display: flex;
+      /* gap: 0.3em; */
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; /* hide Firefox scrollbar */
+      position: relative;
+      padding: 0 0.5em;
+      mask-image: linear-gradient(to right, transparent, black 1em, black calc(100% - 1em), transparent);
+    }
+
+    .format-buttons-scroll::-webkit-scrollbar {
+      display: none; /* hide Chrome/Safari scrollbar */
+    }
+
+    /* gradient “scroll hint” edges */
+    .format-buttons-scroll::before,
+    .format-buttons-scroll::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1.5em;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .format-buttons-scroll::before {
+      left: 0;
+      background: linear-gradient(to right, #22282f, transparent);
+    }
+
+    .format-buttons-scroll::after {
+      right: 0;
+      background: linear-gradient(to left, #22282f, transparent);
+    }
+
+    /* Hide left or right gradient when fully scrolled */
+    .format-buttons-scroll.scrolled-start::before { opacity: 0; }
+    .format-buttons-scroll.scrolled-end::after   { opacity: 0; }
   </style>
 </head>
 <body>
@@ -1144,21 +1211,60 @@
     <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
     <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
-    <button id="togglebullet" title="toggle bullet" class="button2" onclick="applyFormat( { key_togglebullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
-    <!-- <button id="addbullet" title="add bullet" class="button2" onclick="applyFormat( { key_addbullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
-    <button id="rmbullet" title="remove bullet" class="button2" onclick="applyFormat( { key_rmbullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;color: red;">•</span></span></button> -->
-    <button id="dec" title="unindent selected text" class="button2" onclick="applyFormat( { key_rmindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
-    <button id="inc" title="indent selected text" class="button2" onclick="applyFormat( { key_addindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
-    <button id="apply_bold" title="bold selected text" class="button2" onclick="applyFormat( { key_bold: true } ); document.getElementById('markdown').focus()"><b>B</b></button>
-    <button id="apply_italics" title="italics selected text" class="button2" onclick="applyFormat( { key_italics: true } ); document.getElementById('markdown').focus()"><i>I</i></button>
-    <button id="apply_underscore" title="underscore selected text" class="button2" onclick="applyFormat( { key_underscore: true } ); document.getElementById('markdown').focus()"><u>U</u></button>
-    <button id="undo" title="undo last change" class="button2" onclick="undoManager.undo(); document.getElementById('markdown').focus()">⤺</button>
-    <button id="redo" title="redo last change" class="button2" onclick="undoManager.redo(); document.getElementById('markdown').focus()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
+    <div id="format-buttons-scroll" class="format-buttons-scroll">
+      <button id="uploadBtn" title="upload" class="button2">⇪</button>
+      <button id="linkBtn" title="link" onclick="applyFormat( { key_link: true } ); document.getElementById('markdown').focus()" class="button2">📎</button>
+      <button id="toggle_bullet" title="toggle bullet" class="button2" onclick="applyFormat( { key_togglebullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
+      <button id="dec_indent" title="unindent selected text" class="button2" onclick="applyFormat( { key_rmindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
+      <button id="inc_indent" title="indent selected text" class="button2" onclick="applyFormat( { key_addindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
+      <button id="apply_bold" title="bold selected text" class="button2" onclick="applyFormat( { key_bold: true } ); document.getElementById('markdown').focus()"><b>B</b></button>
+      <button id="apply_italics" title="italics selected text" class="button2" onclick="applyFormat( { key_italics: true } ); document.getElementById('markdown').focus()"><i>I</i></button>
+      <button id="apply_underscore" title="underscore selected text" class="button2" onclick="applyFormat( { key_underscore: true } ); document.getElementById('markdown').focus()"><u>U</u></button>
+      <button id="undo" title="undo last change" class="button2" onclick="undoManager.undo(); document.getElementById('markdown').focus()">⤺</button>
+      <button id="redo" title="redo last change" class="button2" onclick="undoManager.redo(); document.getElementById('markdown').focus()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
+    </div>
+    <script>
+      const formatScroll = document.querySelector('.format-buttons-scroll');
+      if (formatScroll) {
+        function updateScrollShadows() {
+          const maxScroll = formatScroll.scrollWidth - formatScroll.clientWidth;
+          const x = formatScroll.scrollLeft;
+          formatScroll.classList.toggle('scrolled-start', x <= 1);
+          formatScroll.classList.toggle('scrolled-end',   x >= maxScroll - 1);
+        }
+        formatScroll.addEventListener('scroll', updateScrollShadows, { passive: true });
+        window.addEventListener('resize', updateScrollShadows);
+        updateScrollShadows();
+
+        // make room when on tiny mobile screens...
+        window.addEventListener('DOMContentLoaded', () => {
+          function scrollButtonBarToRight() {
+            formatScroll.scrollLeft = formatScroll.scrollWidth;
+          }
+
+          // Also run on window resize (for mobile orientation changes)
+          function changeButtonTextToMakeRoom() {
+            if (formatScroll.scrollWidth > formatScroll.clientWidth) {
+              console.log( "brief" )
+              document.getElementById("save_button").textContent = "✔"
+              document.getElementById("cancel_button").textContent = "✖"
+            } else {
+              console.log( "verbose" )
+              document.getElementById("save_button").textContent = "Save"
+              document.getElementById("cancel_button").textContent = "Cancel"
+            }
+          }
+          changeButtonTextToMakeRoom();
+          scrollButtonBarToRight();
+          window.addEventListener("resize", changeButtonTextToMakeRoom);
+          window.addEventListener("resize", scrollButtonBarToRight);
+        })
+      }
+    </script>
     <script>
       createSvgPopup("infopopup", "Markdown Help", `<%include "template.markdown-help.html"%>`)
     </script>
     <input type="file" id="uploadInput" accept="this will be populated later by javascript" style="display: none;">
-    <button id="uploadBtn" title="upload" class="button2">Upload</button>
     <button id="cancel_button" title="cancel editing" class="button2" onclick="cancelWiki()">Cancel</button>
     <button id="save_button" title="save edits" class="button1" onclick="saveWiki()">Save</button>
   </div>
