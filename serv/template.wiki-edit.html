@@ -1121,6 +1121,13 @@
       font-size: 1.4rem;
     }
 
+    #status {
+      white-space: nowrap;
+      flex-shrink: 0;   /* Prevent the element from shrinking */
+      overflow: hidden;  /* Keep text clipped if it overflows */
+      text-overflow: ellipsis;  /* Optional: show ... if text is too long */
+    }
+
     @media (orientation: portrait)  {
       .buttons-tray {
         padding-top: 1px;
@@ -1209,8 +1216,8 @@
   </div>
   <div class="buttons-tray">
     <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
-    <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
+    <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div id="format-buttons-scroll" class="format-buttons-scroll">
       <button id="uploadBtn" title="upload" class="button2">⇪</button>
       <button id="linkBtn" title="link" onclick="applyFormat( { key_link: true } ); document.getElementById('markdown').focus()" class="button2">📎</button>
