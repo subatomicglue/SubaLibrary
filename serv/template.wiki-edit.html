@@ -818,6 +818,7 @@
           }
           else if (options.key_help) {
             status( "getting you some help", "#aaffaa", 2000 ); 
+            const svgPopup = document.getElementById(`infopopup-popup`);
             if (svgPopup.style.display != "flex")
               svgPopup.style.display = 'flex'; // Show the popup
             else
