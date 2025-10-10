@@ -15,7 +15,18 @@
     let previewDebounceTimer;
     let undoManager = undefined;
     let applyFormat = undefined;
+    let restoreSelection = undefined;
+    let saveSelection = undefined;
     window.preventzoom = true;
+
+    // update the textarea's selection using this, always...  (needed for restoration of selection after blur)
+    function setSelection( start, end ) {
+      const textarea = document.getElementById("markdown");
+      textarea.selectionStart = start;
+      textarea.selectionEnd = end;
+      if (saveSelection)
+        saveSelection();
+    }
 
     // for autoscroll of the preview
     function createMirrorDiv(textarea, id = "markdown-mirror") {
@@ -266,10 +277,10 @@
 
       const dropzone = document.getElementById("markdown");
       const uploadBtn = document.getElementById("uploadBtn");
-      const textarea = document.getElementById("markdown"); // rename to editor
       const uploadInput = document.getElementById("uploadInput");
       const dragHandle = document.querySelector('.drag-handle');
-      const markdown = document.getElementById('markdown'); // rename to editor
+      const markdown = document.getElementById('markdown');
+      const textarea = document.getElementById("markdown");
       const preview = document.getElementById('preview');
 
 
@@ -356,10 +367,11 @@
 
               // insert the new file link
               textarea.value = before + insertText + after;
-              textarea.selectionStart = textarea.selectionEnd = start + insertText.length;
+              setSelection( start + insertText.length, start + insertText.length )
               undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
 
-              debouncedUpdatePreview();
+              //debouncedUpdatePreview();
+              onMarkdownChanged();
             }, 400);
           }
         });
@@ -499,8 +511,9 @@
 
             // perform the change
             textarea.value = textBefore + markdown + textAfter;
-            textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
+            setSelection( start + markdown.length, start + markdown.length )
             undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);  // call after change to textarea.value (and friends)
+            onMarkdownChanged();
           }
 
           function extractBestClipboardString(clipboardData) {
@@ -747,26 +760,26 @@
         // Case 3: selected text is "word" and there is outside **'s:  **word** — remove the **'s
         if (before.slice(-fmt_len) === fmt && after.slice(0, fmt_len) === fmt) {
           textarea.value = before.slice(0, -fmt_len) + selected + after.slice(fmt_len);
-          textarea.selectionStart = start - fmt_len;
-          textarea.selectionEnd = end - fmt_len;
+          setSelection( start - fmt_len, end - fmt_len )
           undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+          onMarkdownChanged();
           return;
         }
 
         // Case 2: selected text is "**word**": — remove the **'s
         if (selected.slice(0, fmt_len) === fmt && selected.slice(-fmt_len) === fmt) {
           textarea.value = before + selected.slice(fmt_len, selected.length - fmt_len) + after;
-          textarea.selectionStart = start;
-          textarea.selectionEnd = end - (fmt_len*2);
+          setSelection( start, end - (fmt_len*2) )
           undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+          onMarkdownChanged();
           return;
         }
 
         // Case 1: add **
         textarea.value = before + fmt + selected + fmt + after;
-        textarea.selectionStart = start + fmt_len;
-        textarea.selectionEnd = end + fmt_len;
+        setSelection( start + fmt_len, end + fmt_len )
         undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+        onMarkdownChanged();
       }
 
       // apply any formatting to the active cursor position / selection
@@ -811,8 +824,9 @@
             const before = value.slice(0, start);
             const after = value.slice(end);
             textarea.value = before + insert_chars + after;
-            textarea.selectionStart = textarea.selectionEnd = start + insert_chars.length;
+            setSelection( start + insert_chars.length, start + insert_chars.length )
             undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+            onMarkdownChanged();
             return;
           }
           else if (options.key_link) {
@@ -828,8 +842,9 @@
               const before = value.slice(0, start);
               const after = value.slice(end);
               textarea.value = before + insert_chars + after;
-              textarea.selectionStart = textarea.selectionEnd = start + insert_chars.length;
+              setSelection( start + insert_chars.length, start + insert_chars.length )
               undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);
+              onMarkdownChanged();
               return;
           }
           else {
@@ -839,9 +854,9 @@
           // Replace text
           const newValue = value.slice(0, lineStart) + modified + value.slice(lineEnd);
           textarea.value = newValue;
-          textarea.selectionStart = lineStart;
-          textarea.selectionEnd = lineStart + modified.length;
+          setSelection( lineStart, lineStart + modified.length )
           undoManager.saveUndo( start, end, textarea.selectionStart, textarea.selectionEnd, true );  // call after change to textarea.value (and friends)
+          onMarkdownChanged();
         }
       }
 
@@ -869,6 +884,41 @@
         return false;
       });
       ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
+
+      ////////////////////////// SELECTION RESTORATION WHEN PRESSING A BUTTON //
+      let cachedSelection = { start: 0, end: 0 };
+      saveSelection = () => {
+        cachedSelection.start = textarea.selectionStart;
+        cachedSelection.end = textarea.selectionEnd;
+      }
+      ['select', 'keyup', 'mouseup'].forEach(ev =>
+        textarea.addEventListener(ev, () => {
+          if (document.activeElement !== textarea && textarea.selectionStart === 0 && textarea.selectionEnd === 0) {
+            // Chrome just collapsed selection due to blur - ignore it!
+            return;
+          }
+          saveSelection();
+          // console.log( "addEventListener", cachedSelection.start, cachedSelection.end )
+        })
+      );
+      document.querySelectorAll('.button2, .button1').forEach(btn => {
+        btn.addEventListener('mousedown', () => {
+          if (document.activeElement !== textarea && textarea.selectionStart === 0 && textarea.selectionEnd === 0) {
+            // Chrome just collapsed selection due to blur - ignore it!
+            return;
+          }
+          saveSelection();
+          // console.log("mousedown:", cachedSelection.start, cachedSelection.end);
+        });
+      });
+
+      // Call restoreSelection() before any function that uses textarea.selectionStart
+      restoreSelection = () => {
+        textarea.selectionStart = cachedSelection.start;
+        textarea.selectionEnd = cachedSelection.end;
+        // console.log( "restoreSelection", textarea.selectionStart, textarea.selectionEnd )
+      }
+      ////////////////////////// SELECTION RESTORATION WHEN PRESSING A BUTTON //
 
       ////////////////////////////////// AUTOSCROLL THE PREVIEW ////////////////////////////////////
       // Hook up everything  (to update:  updateMirrorContent(textarea.value))
@@ -1220,15 +1270,15 @@
     <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div id="format-buttons-scroll" class="format-buttons-scroll">
       <button id="uploadBtn" title="upload" class="button2">⇪</button>
-      <button id="linkBtn" title="link" onclick="applyFormat( { key_link: true } ); document.getElementById('markdown').focus()" class="button2">📎</button>
-      <button id="toggle_bullet" title="toggle bullet" class="button2" onclick="applyFormat( { key_togglebullet: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
-      <button id="dec_indent" title="unindent selected text" class="button2" onclick="applyFormat( { key_rmindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
-      <button id="inc_indent" title="indent selected text" class="button2" onclick="applyFormat( { key_addindent: true } ); document.getElementById('markdown').focus()"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
-      <button id="apply_bold" title="bold selected text" class="button2" onclick="applyFormat( { key_bold: true } ); document.getElementById('markdown').focus()"><b>B</b></button>
-      <button id="apply_italics" title="italics selected text" class="button2" onclick="applyFormat( { key_italics: true } ); document.getElementById('markdown').focus()"><i>I</i></button>
-      <button id="apply_underscore" title="underscore selected text" class="button2" onclick="applyFormat( { key_underscore: true } ); document.getElementById('markdown').focus()"><u>U</u></button>
-      <button id="undo" title="undo last change" class="button2" onclick="undoManager.undo(); document.getElementById('markdown').focus()">⤺</button>
-      <button id="redo" title="redo last change" class="button2" onclick="undoManager.redo(); document.getElementById('markdown').focus()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
+      <button id="linkBtn" title="link" onclick="restoreSelection(); applyFormat( { key_link: true } )" class="button2">📎</button>
+      <button id="toggle_bullet" title="toggle bullet" class="button2" onclick="restoreSelection(); applyFormat( { key_togglebullet: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
+      <button id="dec_indent" title="unindent selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_rmindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
+      <button id="inc_indent" title="indent selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_addindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
+      <button id="apply_bold" title="bold selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_bold: true } )"><b>B</b></button>
+      <button id="apply_italics" title="italics selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_italics: true } )"><i>I</i></button>
+      <button id="apply_underscore" title="underscore selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_underscore: true } )"><u>U</u></button>
+      <button id="undo" title="undo last change" class="button2" onclick="restoreSelection(); undoManager.undo()">⤺</button>
+      <button id="redo" title="redo last change" class="button2" onclick="restoreSelection(); undoManager.redo()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
     </div>
     <script>
       const formatScroll = document.querySelector('.format-buttons-scroll');
