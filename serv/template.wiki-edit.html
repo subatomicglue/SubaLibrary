@@ -795,7 +795,7 @@
         if (options.key_bold) { status( "bold", "#ffffff", 2000 ); return applyMarkdownFormatting( '**' ); }
         if (options.key_italics) { status( "italics", "#ffffff", 2000 ); return applyMarkdownFormatting( '*' ); }
         if (options.key_underscore) { status( "underscore", "#ffffff", 2000 ); return applyMarkdownFormatting( '__' ); }
-        if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_togglebullet || options.key_link || options.key_addbullet || options.key_rmbullet)) {
+        if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_help || options.key_togglebullet || options.key_link || options.key_addbullet || options.key_rmbullet)) {
           const value = textarea.value;
           let start = textarea.selectionStart;
           let end = textarea.selectionEnd;
