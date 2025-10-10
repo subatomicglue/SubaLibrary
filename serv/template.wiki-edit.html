@@ -169,11 +169,19 @@
     let markdown_version_on_server = <%=markdown_version%>;
     let markdown_version = <%=markdown_version%>;
 
-    function status( msg, timeout ) {
-      document.getElementById('status').innerHTML = msg;
-      setTimeout( () => {
-        document.getElementById('status').textContent = '';
-      }, timeout)
+    function status( message, color = "white", duration = 2000 ) {
+      const status = document.getElementById("status");
+      if (!status) return;
+
+      status.textContent = message;
+      status.style.color = color;
+
+      status.classList.add("show");
+      clearTimeout(status._timeout);
+
+      status._timeout = setTimeout(() => {
+        status.classList.remove("show");
+      }, duration);
     }
 
     ////////////////////////// autosave into localStorage ////////////////
@@ -184,7 +192,7 @@
       if (autosave_item !== null) {
         markdown_version = autosave_item.version ? autosave_item.version : 0;
         document.getElementById('markdown').value = autosave_item.content ? autosave_item.content : autosave_item;
-        status( `<span style="color: #ffaa00"><b>restored v${autosave_item.version}</b></span>`, 5000 );
+        status( `restored v${autosave_item.version}`, "#ffaa00", 5000 );
         setTimeout( () => {
           if (markdown_version < markdown_version_on_server) {
             undoManager.clear(); // can't restore saved undo history, when the text has changed (diffs wont line up)
@@ -208,11 +216,11 @@
 
       //console.log( LS_KEY, autosave_item )
       localStorage.setItem(LS_KEY, JSON.stringify( autosave_item ));
-      status( '<span style="color: #aaff00"><b>autosaved...</b></span>', 1000 )
+      status( 'autosaved...', "#aaff00", 1000 )
     }
     function autosaveMarkdownClear() {
       localStorage.removeItem(LS_KEY);
-      status( '', 0 );
+      status( '', "#ffffff", 0 );
     }
     const debouncedAutosaveMarkdown = debounce(autosaveMarkdown, 700);
     ////////////////////////// autosave into localStorage ////////////////
@@ -598,10 +606,10 @@
 
         undo() {
           if (this.undoStack.length === 0) {
-            status( `<span style="color: #ffaa00"><b>no more undo!</b></span>`, 5000 );
+            status( `no more undo!`, "#ffaa00", 5000 );
             return;
           }
-          status( `<span style="color: #ffaa00"><b>undo[${this.undoStack.length}]</b></span>`, 5000 );
+          status( `undo[${this.undoStack.length}]`, "#ffaa00", 5000 );
 
           const diff = this.undoStack.pop();
           const cursor = {
@@ -626,10 +634,10 @@
 
         redo() {
           if (this.redoStack.length === 0) {
-            status( `<span style="color: #ffaa00"><b>no more redo!</b></span>`, 5000 );
+            status( `no more redo!`, "#ffaa00", 5000 );
             return;
           }
-          status( `<span style="color: #ffaa00"><b>redo[${this.redoStack.length}]</b></span>`, 5000 );
+          status( `redo[${this.redoStack.length}]`, "#ffaa00", 5000 );
 
           const diff = this.redoStack.pop();
           this.applyDiff(diff, false);
@@ -784,9 +792,9 @@
 
       // apply any formatting to the active cursor position / selection
       applyFormat = ( options = {} ) => {
-        if (options.key_bold) return applyMarkdownFormatting( '**' );
-        if (options.key_italics) return applyMarkdownFormatting( '*' );
-        if (options.key_underscore) return applyMarkdownFormatting( '__' );
+        if (options.key_bold) { status( "bold", "#ffffff", 2000 ); return applyMarkdownFormatting( '**' ); }
+        if (options.key_italics) { status( "italics", "#ffffff", 2000 ); return applyMarkdownFormatting( '*' ); }
+        if (options.key_underscore) { status( "underscore", "#ffffff", 2000 ); return applyMarkdownFormatting( '__' ); }
         if ((options.key_addtab || options.key_addindent || options.key_rmindent || options.key_togglebullet || options.key_link || options.key_addbullet || options.key_rmbullet)) {
           const value = textarea.value;
           let start = textarea.selectionStart;
@@ -801,24 +809,30 @@
 
           let modified;
           if (options.key_addindent) {
+            status( "increment indentation", "#ffffff", 2000 ); 
             modified = selected.replace(/^/gm, "  ");
           }
           else if (options.key_rmindent) {
+            status( "decrement indentation", "#ffffff", 2000 ); 
             modified = selected.replace(/^ {1,2}/gm, "");
           }
           else if (options.key_addbullet) {
+            status( "add bullet(s)", "#ffffff", 2000 ); 
             modified = selected.replace(/^(\s*)(?:- )?/gm, "$1- ");
           }
           else if (options.key_rmbullet) {
+            status( "remove bullet(s)", "#ffffff", 2000 ); 
             modified = selected.replace(/^(\s*)- /gm, "$1");
           }
           else if (options.key_togglebullet) {
+            status( "toggle bullet(s)", "#ffffff", 2000 ); 
             modified = selected.replace(/^(\s*)(- )?/gm, (match, spaces, bullet) => {
               // If there’s already a bullet, remove it; otherwise, add one
               return spaces + (bullet ? "" : "- ");
             });
           }
           else if (options.key_addtab) {
+            status( "indent", "#ffffff", 2000 ); 
             // there's no selection, just add 2 spaces at the cursor when user hits TAB
             const insert_chars = "  "
             const before = value.slice(0, start);
@@ -830,22 +844,23 @@
             return;
           }
           else if (options.key_link) {
-              const selection = value.slice(start, end).trim();
-              let insert_chars;
-              if ((/^https?:\/\//i).test(selection)) {
-                insert_chars = `[title](${selection})`;
-              } else if (selection.length > 0) {
-                insert_chars = `[${selection}](url)`;
-              } else {
-                insert_chars = `[title](url)`;
-              }
-              const before = value.slice(0, start);
-              const after = value.slice(end);
-              textarea.value = before + insert_chars + after;
-              setSelection( start + insert_chars.length, start + insert_chars.length )
-              undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);
-              onMarkdownChanged();
-              return;
+            status( "hyperlink", "#ffffff", 2000 ); 
+            const selection = value.slice(start, end).trim();
+            let insert_chars;
+            if ((/^https?:\/\//i).test(selection)) {
+              insert_chars = `[title](${selection})`;
+            } else if (selection.length > 0) {
+              insert_chars = `[${selection}](url)`;
+            } else {
+              insert_chars = `[title](url)`;
+            }
+            const before = value.slice(0, start);
+            const after = value.slice(end);
+            textarea.value = before + insert_chars + after;
+            setSelection( start + insert_chars.length, start + insert_chars.length )
+            undoManager.saveUndo(start, end, textarea.selectionStart, textarea.selectionEnd, true);
+            onMarkdownChanged();
+            return;
           }
           else {
             return; // allow normal typing for other keys
@@ -1151,12 +1166,15 @@
     }
 
     .buttons-tray {
+      justify-content: flex-end;  /* <-- right-align children */
       text-align: right;
       padding: 0.75rem;
       background-color: #22282F;
       display: flex;
-      align-items: center
+      align-items: center;
+      /*gap: 0.4rem;*/ /* optional, adds consistent spacing between buttons */
     }
+
 
     .button1, .button2 {
       padding: 0.40rem 0.80rem;
@@ -1167,16 +1185,36 @@
       touch-action: manipulation;    /* Hint to prevent gesture-based zooming */
     }
 
-    .button1, .button2, #status {
+    .button1, .button2/*, #status*/ {
       font-size: 1.4rem;
     }
 
+    /* Toast-style status popup */
     #status {
+      position: fixed;
+      bottom: 3.5rem; /* animation start:  1rem lower than final toast position in #status.show */
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(60, 60, 60, 0.9);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      text-align: center;
       white-space: nowrap;
-      flex-shrink: 0;   /* Prevent the element from shrinking */
-      overflow: hidden;  /* Keep text clipped if it overflows */
-      text-overflow: ellipsis;  /* Optional: show ... if text is too long */
+      pointer-events: none; /* ignore mouse */
+      opacity: 0;
+      transition: opacity 0.3s ease, bottom 0.3s ease;
+      z-index: 9999;
     }
+
+    /* visible state when shown via JS */
+    #status.show {
+      opacity: 1;
+      bottom: 4.5rem; /* animation end:  final toast position, right above footer;  1rem more than #status */
+    }
+
 
     @media (orientation: portrait)  {
       .buttons-tray {
@@ -1184,12 +1222,19 @@
         padding-bottom: 1px;
         padding-right: 1px;
       }
-      .button1, .button2, #status {
+      .button1, .button2/*, #status*/ {
         font-size: 1rem;
         margin-left: .15em;
       }
       .drag-handle {
         height: 1.25rem; /* Height of the handle */
+      }
+      #status {
+        bottom: 1.75rem; /* animation start:  1rem lower than final toast position in #status.show */
+      }
+      #status.show {
+        opacity: 1;
+        bottom: 2.75rem; /* animation end:  final toast position, right above footer;  1rem more than #status */
       }
     }
 
@@ -1264,10 +1309,10 @@
     <div class="drag-handle"></div>
     <textarea id="markdown" class="markdown" onkeyup="onMarkdownChanged()" rows="10" cols="50"><%=markdown%></textarea>
   </div>
+  <div id="status"><%=description%></div>
   <div class="buttons-tray">
     <!-- background-color: #333333; position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);  -->
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
-    <div style="flex-grow: 1; color: white; overflow: hidden; white-space: nowrap;" id="status"><%=description%></div>
     <div id="format-buttons-scroll" class="format-buttons-scroll">
       <button id="uploadBtn" title="upload" class="button2">⇪</button>
       <button id="linkBtn" title="link" onclick="restoreSelection(); applyFormat( { key_link: true } )" class="button2">📎</button>
