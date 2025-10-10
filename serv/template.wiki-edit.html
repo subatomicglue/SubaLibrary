@@ -744,7 +744,7 @@
       ////////////////////////// UNDO MANAGER //////////////////////////////////
 
       ////////////////////////// KEYBOARD HANDLERS /////////////////////////////
-      // formatting toggle (e.g. bold toggle (cmd-b) to add/remove '**')
+      // formatting toggle (e.g. bold toggle (ctrl-b) to add/remove '**')
       function applyMarkdownFormatting( fmt = "**" ) {
         const fmt_len = fmt.length;
 
@@ -1315,15 +1315,15 @@
     <div style="display: inline; font-size: 1.4rem;" id="infopopup"></div>
     <div id="format-buttons-scroll" class="format-buttons-scroll">
       <button id="uploadBtn" title="upload" class="button2">⇪</button>
-      <button id="linkBtn" title="link" onclick="restoreSelection(); applyFormat( { key_link: true } )" class="button2">📎</button>
-      <button id="toggle_bullet" title="toggle bullet" class="button2" onclick="restoreSelection(); applyFormat( { key_togglebullet: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
-      <button id="dec_indent" title="unindent selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_rmindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
-      <button id="inc_indent" title="indent selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_addindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
-      <button id="apply_bold" title="bold selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_bold: true } )"><b>B</b></button>
-      <button id="apply_italics" title="italics selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_italics: true } )"><i>I</i></button>
-      <button id="apply_underscore" title="underscore selected text" class="button2" onclick="restoreSelection(); applyFormat( { key_underscore: true } )"><u>U</u></button>
-      <button id="undo" title="undo last change" class="button2" onclick="restoreSelection(); undoManager.undo()">⤺</button>
-      <button id="redo" title="redo last change" class="button2" onclick="restoreSelection(); undoManager.redo()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
+      <button id="linkBtn" title="link (ctrl-l)" onclick="restoreSelection(); applyFormat( { key_link: true } )" class="button2">📎</button>
+      <button id="toggle_bullet" title="toggle bullet (ctrl-dash)" class="button2" onclick="restoreSelection(); applyFormat( { key_togglebullet: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">•</span></span></button>
+      <button id="dec_indent" title="unindent selected text (shift-tab)" class="button2" onclick="restoreSelection(); applyFormat( { key_rmindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↞</span></span></button>
+      <button id="inc_indent" title="indent selected text (tab)" class="button2" onclick="restoreSelection(); applyFormat( { key_addindent: true } )"><span style="display: inline-flex; align-items: center;"><span style="line-height: 1;">|</span><span style="line-height: 1; margin-left: 0.1em;">↠</span></span></button>
+      <button id="apply_bold" title="bold selected text (ctrl-b)" class="button2" onclick="restoreSelection(); applyFormat( { key_bold: true } )"><b>B</b></button>
+      <button id="apply_italics" title="italics selected text (ctrl-i)" class="button2" onclick="restoreSelection(); applyFormat( { key_italics: true } )"><i>I</i></button>
+      <button id="apply_underscore" title="underscore selected text (ctrl-u)" class="button2" onclick="restoreSelection(); applyFormat( { key_underscore: true } )"><u>U</u></button>
+      <button id="undo" title="undo last change (ctrl-z)" class="button2" onclick="restoreSelection(); undoManager.undo()">⤺</button>
+      <button id="redo" title="redo last change (ctrl-shift-z)" class="button2" onclick="restoreSelection(); undoManager.redo()"><span style="display: inline-block; transform: scaleY(-1) translateY(1px);">⤻</span></button>
     </div>
     <script>
       const formatScroll = document.querySelector('.format-buttons-scroll');
