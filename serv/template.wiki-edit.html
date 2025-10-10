@@ -1303,8 +1303,8 @@
           function changeButtonTextToMakeRoom() {
             if (formatScroll.scrollWidth > formatScroll.clientWidth) {
               console.log( "brief" )
-              document.getElementById("save_button").innerHTML = `<span style='font-family: "Arial", "Helvetica Neue", sans-serif !important;color: white !important;'>&#10003;</style>`
-              document.getElementById("cancel_button").innerHTML = `<span style='font-family: "Arial", "Helvetica Neue", sans-serif !important;color: white !important;'>&#10005;</style>`
+              document.getElementById("save_button").innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff"><path d="M382-208 122-468l90-90 170 170 366-366 90 90-456 456Z"/></svg>`//&#10003; ✔
+              document.getElementById("cancel_button").innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff"><path d="m256-168-88-88 224-224-224-224 88-88 224 224 224-224 88 88-224 224 224 224-88 88-224-224-224 224Z"/></svg>`;//&#10005; ✖
             } else {
               console.log( "verbose" )
               document.getElementById("save_button").innerHTML = "Save"
