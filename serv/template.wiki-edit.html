@@ -816,6 +816,13 @@
             status( "decrement indentation", "#ffffff", 2000 ); 
             modified = selected.replace(/^ {1,2}/gm, "");
           }
+          else if (options.key_help) {
+            status( "getting you some help", "#aaffaa", 2000 ); 
+            if (svgPopup.style.display != "flex")
+              svgPopup.style.display = 'flex'; // Show the popup
+            else
+              svgPopup.style.display = 'none'; // Hide the popup
+          }
           else if (options.key_addbullet) {
             status( "add bullet(s)", "#ffffff", 2000 ); 
             modified = selected.replace(/^(\s*)(?:- )?/gm, "$1- ");
