@@ -27,6 +27,7 @@ aws s3 sync ../serv/build/tools/ "s3://$BUCKET_NAME/tools/" --cache-control 'no-
 aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki/view" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/root/tools/index.html "s3://$BUCKET_NAME/tools" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/assets/favicon.ico "s3://$BUCKET_NAME/" --cache-control 'max-age=31536000'  --content-type 'image/x-icon' $METADATA_FOR_HTML
 
 
 # images
