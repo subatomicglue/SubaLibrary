@@ -6,7 +6,7 @@ const router = express.Router();
 const sanitizer = require('./sanitizer');
 const { sanitize, sanitizeFloat, sanitizeInt, sanitizeTopic } = sanitizer;
 const template = require('./template');
-const { markdownToHtml } = require('./markdown');
+const { markdownToHtml, extractFirstImage } = require('./markdown');
 const { makeRSS } = require('./router-rss-torrent');
 
 const SETTINGS = require('./settings');
@@ -37,14 +37,16 @@ class Req {
 }
 
 // generate .html file.
-function wrapWithFrame(content, topic, req, t=new Date()) {
+function wrapWithFrame(content, topic, req, firstimage=undefined, t=new Date()) {
+  const assets_magic = "assets";
   return template.file( "template.page.html", {
     ...SETTINGS, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     SOCIAL_TITLE: `${SETTINGS.TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
+    SOCIAL_IMAGE: firstimage ? `${req.canonicalUrlRoot.replace(/\/+$/,'')}${firstimage}` : `${req.canonicalUrlRoot}/${assets_magic}/${SETTINGS.SOCIAL_IMAGE}`, // Default social image path
     BACKBUTTON_PATH: `/`,
-    ASSETS_MAGIC: "assets",
+    ASSETS_MAGIC: `${assets_magic}`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
-    BACKBUTTON_IMAGE: `/assets/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
+    BACKBUTTON_IMAGE: `/${assets_magic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
     PAGE_TITLE: `<a href="/">/</a>${topic}`,
     USER: `${req.user}`,
     SCROLL_CLASS: "scroll-child-wiki",
@@ -54,7 +56,7 @@ function wrapWithFrame(content, topic, req, t=new Date()) {
     SEARCH_URL: `${req.baseUrl}/search`,
     BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     USER_LOGOUT: `<a id="signin-link" style="color: grey;" href="https://${SETTINGS.HOSTNAME_FOR_EDITS}.${SETTINGS.DOMAINS[0]}/login">&nbsp;signin</a>`,
-    SEARCH: `<span id="search" onclick='search()'><img src="/assets/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${assets_magic}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
   })
 }
 
@@ -283,7 +285,7 @@ fs.readdirSync(inputDir).forEach(file => {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
       userdata: SETTINGS.USERS_WHITELIST,
-    }), topic, req, syncer.getFileTimestamp(fullPath) );
+    }), topic, req, extractFirstImage( markdown, 6 ), syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                  // copy the topic html over
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
 

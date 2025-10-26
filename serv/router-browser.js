@@ -227,7 +227,8 @@ router.get('*', (req, res) => {
       ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: (new Date()).toISOString().replace(/\.\d{3}Z$/, '+0000') },
       TITLE,
       SOCIAL_TITLE: `${TITLE} - ${`/${relPath.replace( /\s/g, "&nbsp;" )}`}`,
-      ASSETS_MAGIC,
+      SOCIAL_IMAGE: `${req.canonicalUrlRoot}/${require('./settings').ASSETS_MAGIC}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
+      //ASSETS_MAGIC,
       BACKBUTTON_PATH: `${relPath == "" ? "" : req.baseUrl}/${relPath.split('/').slice(0, -1).join('/')}`,
       BACKBUTTON_VISIBILITY: "visible", //`${relPath == '' ? "hidden" : "visible"}`,
       BACKBUTTON_IMAGE: `/${ASSETS_MAGIC}/${relPath == '' ? "home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" : "arrow_back_ios_new_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg"}`,

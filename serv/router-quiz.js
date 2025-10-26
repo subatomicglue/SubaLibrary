@@ -158,6 +158,7 @@ function commonPageVars(req, app_name, t=new Date() ) {
     ...settings, ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${settings.TITLE}`,
     SOCIAL_TITLE: `${settings.TITLE} - ${req.baseUrl}/${app_name}`,
+    SOCIAL_IMAGE: `${req.canonicalUrlRoot}/${assets_magic}/${settings.SOCIAL_IMAGE}`, // Default social image path
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
     BACKBUTTON_IMAGE: `/${assets_magic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
@@ -968,26 +969,26 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
   // Unit 1
   data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["quizzes"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
   data += `<script type="application/json">` + JSON.stringify({
-    "options": { "inorder": true, "first_question": 0 },
+    options: { "inorder": true, "first_question": 0 },
     title: "Unit1: THE definite article Declensions",
     question: "THE definite article",
     questions: generateDefiniteArticleQuiz( require(`${settings.WIKI_DIR}/greek-units.json`)["definite article declension"] )
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
-    "options": { "inorder": true, "first_question": 0 },
+    options: { "inorder": true, "first_question": 0 },
     title: "Unit1: 1st declension noun endings",
     question: "Unit1: 1st declension noun endings",
     questions: generateNounDeclenionQuizData( require(`${settings.WIKI_DIR}/greek-units.json`)["noun declension"], "first" )
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
-    "options": { "inorder": true, "first_question": 0 },
+    options: { "inorder": true, "first_question": 0 },
     title: "Unit1: 2nd declension noun endings",
     question: "Unit1: 2nd declension noun endings",
     questions: generateNounDeclenionQuizData( require(`${settings.WIKI_DIR}/greek-units.json`)["noun declension"], "second" )
   }) + `</script>` + '\n'
 
   data += `<script type="application/json">` + JSON.stringify({
-    "options": { "inorder": true, "first_question": 0 },
+    options: { "inorder": true, "first_question": 0 },
     title: "Unit1: 1st declension nouns",
     question: "Unit1: 1st declension nouns",
     questions: generateNounDeclenionQuizData( require(`${settings.WIKI_DIR}/greek-units.json`)["noun declension"], "first", { "feminine": "τέχν", "feminine (ends in ε,ι,ρ)": "χώρ" } )
@@ -1011,6 +1012,141 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       let numbers = ["plural","singular"];
       let number = numbers[Math.floor(Math.random() * numbers.length)];
       return { "question": `${r.root} (${r.meaning}) is a ${r.hints.declension} declension, ${r.gender} ${r.part_of_speech}, choose the ${c} ${number} case below`, "answers": [ declineNoun( r, c, number ), ...cases.map( c => declineNoun( r, c, number ) ) ] }})
+  }) + `</script>` + '\n'
+
+  // UNIT2
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Principle Parts of Verbs",
+    question: "PRINCIPAL PARTS of Verbs",
+    questions: [
+      { "question": "I", "answer": "present" },
+      { "question": "II", "answer": "future" },
+      { "question": "III", "answer": "aorist" },
+      { "question": "IV", "answer": "perfect" },
+      { "question": "V", "answer": "perfect" },
+      { "question": "VI", "answer": "aorist" },
+    ]
+  }) + `</script>` + '\n'
+  //  verb stems
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verb stems",
+    question: "Verb stems",
+    questions: [
+      { "question": "PRESENT INDICATIVE ACTIVE", "answer": "παιδεύ-" },
+      { "question": "IMPERFECT INDICATIVE ACTIVE", "answer": "ἐπαιδεύ-" },
+      { "question": "FUTURE INDICATIVE ACTIVE", "answer": "παιδεύσ-" },
+      { "question": "AORIST INDICATIVE ACTIVE", "answer": "επαιδεύσ-" },
+    ]
+  }) + `</script>` + '\n'
+  // PRESENT INDICATIVE ACTIVE
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (endings)",
+    question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (endings)",
+    questions: [
+      { "question": "First Person Singular", "answer": "-ω" },
+      { "question": "Second Person Singular", "answer": "-εις" },
+      { "question": "Third Person Singular", "answer": "-ει" },
+      { "question": "First Person Plural", "answer": "-ομεν" },
+      { "question": "Second Person Plural", "answer": "-ετε" },
+      { "question": "First Person Plural", "answer": "-ουσι(ν)" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    questions: [
+      { "question": "I am educating, I educate", "answer": "παιδεύω" },
+      { "question": "you are educating, you educate", "answer": "παιδεύεις" },
+      { "question": "he/she/it is educating, he/she/it educates", "answer": "παιδεύει" },
+      { "question": "we are educating, we educate", "answer": "παιδεύομεν" },
+      { "question": "you are educating, you educate", "answer": "παιδεύετε" },
+      { "question": "they are educating, they educate", "answer": "παιδεύουσι" },
+    ]
+  }) + `</script>` + '\n'
+  // IMPERFECT INDICATIVE ACTIVE
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (endings)",
+    question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (endings)",
+    questions: [
+      { "question": "First Person Singular", "answer": "-ον" },
+      { "question": "Second Person Singular", "answer": "-ες" },
+      { "question": "Third Person Singular", "answer": "-ε(ν)" },
+      { "question": "First Person Plural", "answer": "-ομεν" },
+      { "question": "Second Person Plural", "answer": "-ετε" },
+      { "question": "First Person Plural", "answer": "-ον" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    questions: [
+      { "question": "I was educating, I used to educate, I educated (habitually)",                  "answer": "ἐπαιδεύον" },
+      { "question": "you were educating, you used to educate, you educated (habitually)",             "answer": "ἐπαιδεύες" },
+      { "question": "he/she/it was educating, he/she/it used to educate, he/she/it educated (habitually)", "answer": "ἐπαιδεύε(ν)" },
+      { "question": "we were educating, we used to educate, we educated (habitually)",               "answer": "ἐπαιδεύομεν" },
+      { "question": "you were educating, you used to educate, you educated (habitually)",             "answer": "ἐπαιδεύετε" },
+      { "question": "they were educating, they used to educate, you educated (habitually)",           "answer": "ἐπαιδεύον" },
+    ]
+  }) + `</script>` + '\n'
+  // FUTURE INDICATIVE ACTIVE
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (endings)",
+    question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (endings)",
+    questions: [
+      { "question": "First Person Singular", "answer": "-ω" },
+      { "question": "Second Person Singular", "answer": "-εις" },
+      { "question": "Third Person Singular", "answer": "-ει" },
+      { "question": "First Person Plural", "answer": "-ομεν" },
+      { "question": "Second Person Plural", "answer": "-ετε" },
+      { "question": "First Person Plural", "answer": "-ουσι(ν)" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (paideus/παιδεύσ)",
+    question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (paideus/παιδεύσ)",
+    questions: [
+      { "question": "I shall educate, I shall be educating", "answer": "παιδεύσω" },
+      { "question": "you will educate, you will be educating", "answer": "παιδεύσεις" },
+      { "question": "he/she/it will educate, he/she/it will be educating", "answer": "παιδεύσει" },
+      { "question": "we shall educate, we shall be educating", "answer": "παιδεύσομεν" },
+      { "question": "you will educate, you will be educating", "answer": "παιδεύσετε" },
+      { "question": "they will educate, they will be educating", "answer": "παιδεύσουσι" },
+    ]
+  }) + `</script>` + '\n'
+  // AORIST INDICATIVE ACTIVE
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (endings)",
+    question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (endings)",
+    questions: [
+      { "question": "First Person Singular", "answer": "-α" },
+      { "question": "Second Person Singular", "answer": "-ας" },
+      { "question": "Third Person Singular", "answer": "-ε(ν)" },
+      { "question": "First Person Plural", "answer": "-αμεν" },
+      { "question": "Second Person Plural", "answer": "-ατε" },
+      { "question": "First Person Plural", "answer": "-αν" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    questions: [
+      { "question": "I educated", "answer": "ἐπαιδεύσα" },
+      { "question": "you educated", "answer": "ἐπαιδεύσας" },
+      { "question": "he/she/it educated", "answer": "ἐπαιδεύσε(ν)" },
+      { "question": "we educated", "answer": "ἐπαιδεύσαμεν" },
+      { "question": "you educated", "answer": "ἐπαιδεύσατε" },
+      { "question": "they educated", "answer": "ἐπαιδεύσαν" },
+    ]
   }) + `</script>` + '\n'
 
   // General:

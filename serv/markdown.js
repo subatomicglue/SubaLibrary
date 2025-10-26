@@ -862,6 +862,39 @@ function htmlToMarkdown( str ) {
   return markdown_str;
 }
 
+/**
+ * Extracts the first image URL (markdown or HTML) within the first N lines of markdown.
+ *
+ * @param {string} markdown - Markdown text to search.
+ * @param {number} maxLines - How many lines from the top to include in search.
+ * @returns {string|undefined} - First image URL found, or undefined.
+ */
+function extractFirstImage(markdown, maxLines) {
+  if (typeof markdown !== 'string' || typeof maxLines !== 'number') {
+    throw new TypeError('Invalid arguments: (markdown: string, maxLines: number)');
+  }
+
+  // Regex to grab only the first N lines (handles \r\n or \n)
+  const topNRegex = new RegExp(`^(?:.*(?:\\r?\\n|$)){0,${maxLines}}`);
+  const limitedTextMatch = markdown.match(topNRegex);
+  if (!limitedTextMatch) return undefined;
+  const limitedText = limitedTextMatch[0];
+
+  // Combined regex:
+  // - Markdown: ![alt](url)
+  // - HTML: <img src="url" ...> or <img src='url' ...>
+  const imageRegex = /!\[[^\]]*\]\(([^)]+)\)|<img[^>]+src\s*=\s*["']([^"']+)["']/i;
+
+  const match = limitedText.match(imageRegex);
+
+  // Return whichever capture group matched (Markdown or HTML)
+  const foundimage = match ? (match[1] || match[2]) : undefined;
+  return foundimage && foundimage.match(/^\//) && foundimage; // only return relative URLs
+}
+
+
+
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;
 module.exports.splitTopicQueryHash = splitTopicQueryHash;
+module.exports.extractFirstImage = extractFirstImage;

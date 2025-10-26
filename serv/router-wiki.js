@@ -5,7 +5,7 @@ const router = express.Router();
 const sanitizer = require('./sanitizer');
 const { sanitize, sanitizeFloat, sanitizeInt, sanitizeTopic } = sanitizer;
 const template = require('./template');
-const { markdownToHtml, htmlToMarkdown } = require('./markdown')
+const { markdownToHtml, htmlToMarkdown, extractFirstImage } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
 markdownTests();
 const { guardForProdHostOnly, redirectAnonUsersToStaticSite } = require("./router-auth");
@@ -70,12 +70,13 @@ function isLoggedIn( req ) {
 
 
 
-function wrapWithFrame(content, topic, req, t=new Date()) {
+function wrapWithFrame(content, topic, req, firstimage = undefined, t=new Date()) {
   return template.file( "template.page.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
     SOCIAL_TITLE: `${TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
-    ASSETS_MAGIC,
+    SOCIAL_IMAGE: firstimage ? `${req.canonicalUrlRoot.replace(/\/+$/,'')}${firstimage}` : `${req.canonicalUrlRoot}/${require('./settings').ASSETS_MAGIC}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
+    // ASSETS_MAGIC,
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
     BACKBUTTON_IMAGE: `/${ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
@@ -279,7 +280,7 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   let markdown = fs.readFileSync( filePath, "utf8" );
   const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     userdata: USERS_WHITELIST,
-  }), topic, req );
+  }), topic, req, extractFirstImage( markdown, 6 ) );
   res.send( html );
 });
 
