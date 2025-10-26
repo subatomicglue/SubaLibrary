@@ -1020,12 +1020,12 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
     title: "Unit 2: Principle Parts of Verbs",
     question: "PRINCIPAL PARTS of Verbs",
     questions: [
-      { "question": "I", "answer": "present" },
-      { "question": "II", "answer": "future" },
-      { "question": "III", "answer": "aorist" },
-      { "question": "IV", "answer": "perfect" },
-      { "question": "V", "answer": "perfect" },
-      { "question": "VI", "answer": "aorist" },
+      { "question": "I", "answer": "present indicative active" },
+      { "question": "II", "answer": "future indicative active" },
+      { "question": "III", "answer": "aorist indicative active" },
+      { "question": "IV", "answer": "perfect indicative active" },
+      { "question": "V", "answer": "perfect indicative passive" },
+      { "question": "VI", "answer": "aorist indicative passive" },
     ]
   }) + `</script>` + '\n'
   //  verb stems
@@ -1051,7 +1051,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "Third Person Singular", "answer": "-ει" },
       { "question": "First Person Plural", "answer": "-ομεν" },
       { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "First Person Plural", "answer": "-ουσι(ν)" },
+      { "question": "Third Person Plural", "answer": "-ουσι(ν)" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
@@ -1078,7 +1078,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "Third Person Singular", "answer": "-ε(ν)" },
       { "question": "First Person Plural", "answer": "-ομεν" },
       { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "First Person Plural", "answer": "-ον" },
+      { "question": "Third Person Plural", "answer": "-ον" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
@@ -1105,7 +1105,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "Third Person Singular", "answer": "-ει" },
       { "question": "First Person Plural", "answer": "-ομεν" },
       { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "First Person Plural", "answer": "-ουσι(ν)" },
+      { "question": "Third Person Plural", "answer": "-ουσι(ν)" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
@@ -1132,7 +1132,7 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "Third Person Singular", "answer": "-ε(ν)" },
       { "question": "First Person Plural", "answer": "-αμεν" },
       { "question": "Second Person Plural", "answer": "-ατε" },
-      { "question": "First Person Plural", "answer": "-αν" },
+      { "question": "Third Person Plural", "answer": "-αν" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
@@ -1146,6 +1146,37 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "we educated", "answer": "ἐπαιδεύσαμεν" },
       { "question": "you educated", "answer": "ἐπαιδεύσατε" },
       { "question": "they educated", "answer": "ἐπαιδεύσαν" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Vocab Meanings",
+    question: "Vocab Meanings",
+    questions: [
+      { "question": "ἄγγελος, ἀγγέλου, ὁ", "answer": "messenger" },
+      { "question": "από (prep.)  +gen.", "answer": "from, away from" },
+      { "question": "ἆρα (particle)", "answer": "introduces a question" },
+      { "question": "γάρ (postpositive conj.)", "answer": "for (explanatory)" },
+      { "question": "δέ (postpositive conj.)", "answer": "but" },
+      { "question": "ἐξ (indeclinable numeral)", "answer": "six" },
+      { "question": "εὖ (adv.)", "answer": "well" },
+      { "question": "ζῷον, ζῴου, τό", "answer": "animal (zoo)" },
+      { "question": "ἤ (conj.)", "answer": "or" },
+      { "question": "ή ...ἤ (conjs.)", "answer": "either ...or" },
+      { "question": "κελεύω, κελεύσω, ἐκέλευσα,κεκέλευκα, κεκέλευσμαι, ἐκελεύσθην", "answer": "order, command" },
+      { "question": "λύω, λύσω, ἔλυσα, λέλυκα, λέλυμαι, ἐλύθην", "answer": "unbind, free, release; dissolve; destroy" },
+      { "question": "μέν . . . δέ (postpositive conjs.)", "answer": "on the one hand... on the other hand" },
+      { "question": "νῦν (adv.)", "answer": "now" },
+      { "question": "ξένος, ξένου, ὁ", "answer": "foreigner, guest-friend, host, stranger" },
+      { "question": "οὐ, οὐκ, οὐχ (adv.)", "answer": "not" },
+      { "question": "παιδεύω, παιδεύσω, ἐπαίδευσα, πεπαίδευκα, πεπαίδευμαι, ἐπαιδεύθην", "answer": "educate, teach" },
+      { "question": "παρά (prep.) + gen.", "answer": "from (the side of)" },
+      { "question": "παρά (prep.) + dat.", "answer": "at (the side of), at the house of" },
+      { "question": "παρά (prep.) + acc.", "answer": "to (the side of), beside; contrary to" },
+      // { "question": "", "answer": "" },
+      // { "question": "", "answer": "" },
+      // { "question": "", "answer": "" },
+      // { "question": "", "answer": "" },
     ]
   }) + `</script>` + '\n'
 
