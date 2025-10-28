@@ -332,6 +332,25 @@ Resources:
       FunctionName: !Ref SearchLambdaFunction
       Principal: apigateway.amazonaws.com
 
+  SearchLambdaFunctionUrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - SearchLambdaFunction
+      - SearchLambdaFunctionURL
+    Properties:
+      Action: lambda:InvokeFunctionUrl
+      FunctionName: !Ref SearchLambdaFunction
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  SearchLambdaFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - SearchLambdaFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SearchLambdaFunction
+      Principal: "*"
 
 
   # 1. VPC for Lambda + EFS
