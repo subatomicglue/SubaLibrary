@@ -1,15 +1,7 @@
-#.env vars for AWS CLI
-#AWS_ACCESS_KEY_ID="AKIAXXXXXXXXXXXXXXX"
-#AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXXXXXXXXXXXXX"
-#AWS_DEFAULT_REGION="us-west-2"
-
 # vars for infra.yaml
-BUCKET_NAME="my-bucket-name"
-DomainName="www.example.com"
-DomainName2="www.example2.com"
-CloudfrontDomain="dxxxxxxxxxxx.cloudfront.net"
-EditableHostname="editor"
-StaticHostnameForTesting="www-testing"
-#IAMUSERID="AIDXXXXXXXXXXXXXXXXXXXXX"
-#IAMUSERNAME="StaticSiteHostingUser"
-#IAMARN="arn:aws:iam::XXXXXXXXXXXXXXX:user/StaticSiteHostingUser"
+BUCKET_NAME="my-s3-bucket-name-goes-here"
+DomainName="my-primary-domain-name-goes-here.com"
+DomainName2="my-secondary-domain-name-goes-here.com"
+CloudfrontDomain="my-cloudfront-id-goes-here.cloudfront.net"
+EditableHostname="your-editable-hostname-goes-here---see-users-json"
+StaticHostnameForTesting="private"
