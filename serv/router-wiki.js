@@ -615,8 +615,8 @@ function __buildPageSearch( req, title = "Search", endpoint = "search", descript
 function buildPageSearch( req ) {
   return __buildPageSearch( req,
     "Search",
-    "search",
-    (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ? `Or head over to <a href='<%=optional_domain%>${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
+    "search", //<%=optional_domain%>
+    (fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) && fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) ? `Or head over to <a href='${req.baseUrl}/search-youtube?searchterm=\${searchterm}'>youtube search</a>` : "",
     JSON.stringify( ADDITIONAL_WIKI_SEARCH_BUTTONS )
   )
 }
@@ -624,8 +624,8 @@ function buildPageSearch( req ) {
 function buildPageYoutubeSearch( req ) {
   return __buildPageSearch( req,
     "Search (YouTube Transcripts)",
-    "search-youtube",
-    `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='<%=optional_domain%>${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
+    "search-youtube",//<%=optional_domain%>
+    `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
     JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS )
   )
 }
