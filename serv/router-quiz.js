@@ -1016,156 +1016,424 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
 
   // UNIT2
   data += `<script type="application/json">` + JSON.stringify({
-    options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Principle Parts of Verbs",
-    question: "PRINCIPAL PARTS of Verbs",
+    // options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Vocab OVERVIEW - strange new terms! (and some old ones too)",
+    // question: "Vocab COGNATES AND DERIVATIVES",
     questions: [
-      { "question": "I", "answer": "present indicative active" },
-      { "question": "II", "answer": "future indicative active" },
-      { "question": "III", "answer": "aorist indicative active" },
-      { "question": "IV", "answer": "perfect indicative active" },
-      { "question": "V", "answer": "perfect indicative passive" },
-      { "question": "VI", "answer": "aorist indicative passive" },
+      { "question": "inflected",    "answer": "a word that changes its form (ending or stem) to show its grammatical function (case, number, tense, mood, person, etc.)." },
+      { "question": "declension",   "answer": "the pattern or set of endings used for nouns, adjectives, or pronouns to show case and number." },
+      { "question": "declined",     "answer": "said of a noun/adjective/pronoun that has been put into a specific case and number using its declension endings." },
+      { "question": "conjugation",  "answer": "the pattern or set of endings used for verbs to show person, number, tense, mood, and voice." },
+      { "question": "conjugated",   "answer": "said of a verb that has been inflected according to its conjugation to show those features." },
+      { "question": "pluperfect",   "answer": "a verb tense meaning “had done”; expresses an action completed before another past action." },
+      { "question": "aorist",       "answer": "a past tense expressing a simple, undefined action (without indicating duration or repetition); literally “without limit.”" },
+      { "question": "INDICATIVE",   "answer": "the mood of factual statement; expresses what is or was." },
+      { "question": "SUBJUNCTIVE",  "answer": "the mood of potential or will; expresses what may or should be." },
+      { "question": "OPTATIVE",     "answer": "the mood of wish or possibility; expresses what might or could be." },
+      { "question": "ACTIVE VOICE", "answer": "the subject performs the action (e.g., “the man sees”)." },
+      { "question": "PASSIVE VOICE","answer": "the subject receives the action (e.g., “the man is seen”)." },
+      { "question": "MIDDLE VOICE", "answer": "the subject acts upon itself or for its own benefit (e.g., “the man bathes himself,” “the man buys [for himself]”)." },
+      { "question": "INFINITIVE",   "answer": "a non-finite verb form (lacking person, number, and mood) that names the verbal action itself; it expresses tense and voice only, and is usually translated as “to + verb” (e.g., “to educate”)." },
+      { "question": "postpositive", "answer": "a word (often a small particle or conjunction) that never comes first in its clause, e.g. δέ, γάρ, μέν." },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    // options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - nouns vs verbs",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "a noun", "answer": "has a declension and is declined" },
+      { "question": "a verb", "answer": "has a conjugation and is conjugated" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - most verb forms have these dimensions",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "1st dimension", "answer": "person" },
+      { "question": "2nd dimension", "answer": "number" },
+      { "question": "3rd dimension", "answer": "tense (which can show TIME and ASPECT)" },
+      { "question": "4th dimension", "answer": "mood" },
+      { "question": "5th dimension", "answer": "voice" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - PERSON",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "first person",   "answer": "if the subject is 'I' or 'we'" },
+      { "question": "second person",  "answer": "if the subject is 'you'" },
+      { "question": "third person",   "answer": "if the subject is 'he,' 'she,' 'it,' 'they,' 'the man,' 'the men,' etc" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - NUMBER",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "singular", "answer": `when the subject is a single person or thing ("I," "you," "he," "she," "it," "Homer," etc.),` },
+      { "question": "plural",   "answer": `when the subject is more than one person or thing ("we," "you," "they," "the men," etc.).` },
+      { "question": "dual",     "answer": "which indicates a pair of subjects" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - TENSE",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "Time",   "answer": `is present, past, or future` },
+      { "question": "Aspect", "answer": `indicates how the occurrence of the action is viewed: whether the action simply occurs, is in progress, is repeated, or is already completed` },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - TENSE / ASPECT",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "simple aspect",                "answer": `presents the action plainly and simply` },
+      { "question": "progressive/repeated aspect",  "answer": `presents the action as being in progress, repeated or habitual` },
+      { "question": "completed aspect",             "answer": `presents the action as already completed` },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - TENSE (seven tenses)",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "present tense", "answer": `describes an action in present time with progressive/repeated aspect ("I am falling"; "I fall [habitually]").` },
+      { "question": "future tense",  "answer": `describes an action in future time and can have either simple aspect ("I shall fall") or progressive/repeated aspect ("I shall be falling"; "I shall fall [habitually]").` },
+      { "question": "perfect tense", "answer": `describes an action in present time and always has completed aspect ("I have fallen").` },
+      { "question": "pluperfect tense", "answer": `, describes an action in past time and always has completed aspect ("I had fallen").` },
+      { "question": "future perfect tense", "answer": `describes an action in future time and always has completed aspect ("I shall have fallen"). This tense is rare in Greek and is not given in this text.` },
+      { "question": "imperfect tense", "answer": `describes an action in past time and always has progressive/repeated aspect ("I was falling"; "I used to fall," "I fell [habitually]").` },
+      { "question": "aorist tense", "answer": `describes an action in past time and always has simple aspect ("I fell"). It describes an event which happens once and for all.` },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - TENSE (meanings)",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
+    questions: [
+      { "question": "which one is not a tense?", "answer": "PRESENT TIME + SIMPLE ASPECT" },
+      { "question": "PRESENT TENSE", "answer": "PRESENT TIME + PROGRESSIVE/REPEATED ASPECT - I am falling, I fall (habitually)" },
+      { "question": "PERFECT TENSE", "answer": "PRESENT TIME + COMPLETED ASPECT - I have fallen" },
+      { "question": "AORIST TENSE", "answer": "PAST TIME + SIMPLE ASPECT - I fell" },
+      { "question": "IMPERFECT TENSE", "answer": "PAST TIME + PROGRESSIVE/REPEATED ASPECT - I was falling, I used to fall, I fell (habitually)" },
+      { "question": "PLUPERFECT TENSE", "answer": "PAST TIME + COMPLETED ASPECT - I had fallen" },
+      { "question": "FUTURE TENSE", "answer": "FUTURE TIME + SIMPLE ASPECT - I shall fall" },
+      { "question": "FUTURE TENSE", "answer": "FUTURE TIME + PROGRESSIVE/REPEATED ASPECT - I was falling, I used to fall, I fell (habitually)" },
+      { "question": "FUTURE PERFECT TENSE", "answer": "FUTURE TIME + COMPLETED ASPECT - I shall have fallen" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - TENSE (primary/secondary)",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
+    questions: [
+      { "question": "primary tenses", "answer": "present time or future time - present, future, perfect, and future perfect tenses" },
+      { "question": "secondary tenses", "answer": "past time - aorist, imperfect, and pluperfect tenses" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - MOOD",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
+    questions: [
+      { "question": "indicative mood", "answer": "is the mood of factual statements and factual questions." },
+      { "question": "subjunctive mood", "answer": "cannot be translated according to any fixed formula. Their meaning varies considerably with the type of clause or sentence in which they appear.  If we see..., ... in order that we may see..., Let us see!" },
+      { "question": "optative mood", "answer": "cannot be translated according to any fixed formula.  If we should see..., We might see..., May we always see the truth!" },
+      { "question": "imperative mood", "answer": "gives a command.   Look! See!" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs Overview - VOICE",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
+    questions: [
+      { "question": "active voice",  "answer": "The subject can be performing the action" },
+      { "question": "passive voice", "answer": "Receiving the action from some outside agency" },
+      { "question": "middle voice",  "answer": "Performing the action with a special personal involvement" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - tense stems (1-6)",
+    // question: "PRINCIPAL PARTS of Verbs - tense stems (1-6)",
+    questions: [
+      { "question": "1st (I)", "answer": "present indicative active" },
+      { "question": "2nd (II)", "answer": "future indicative active" },
+      { "question": "3rd (III)", "answer": "aorist indicative active" },
+      { "question": "4th (IV)", "answer": "perfect indicative active" },
+      { "question": "5th (V)", "answer": "perfect indicative passive" },
+      { "question": "6th (VI)", "answer": "aorist indicative passive" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - tense stems (1-6 + stem)",
+    // question: "Verbs - PRINCIPAL PARTS - tense stems (1-6 + stem)",
+    questions: [
+      { "question": "1st (I) παιδεύ-", "answer": "present indicative active" },
+      { "question": "2nd (II) παιδεύσ-", "answer": "future indicative active" },
+      { "question": "3rd (III) ἐπαιδεύσ-", "answer": "aorist indicative active" },
+      { "question": "4th (IV) πεπαιδεύκ-", "answer": "perfect indicative active" },
+      { "question": "5th (V) πεπαιδεύ-", "answer": "perfect indicative passive" },
+      { "question": "6th (VI) ἐπαιδεύ-", "answer": "aorist indicative passive" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - indentification (ending/begining to dimension)",
+    // question: "Verbs - indentification (ending/begining)",
+    questions: [
+      { "question": "the verb ending tells us:", "answer": "person, number" },
+      { "question": "the verb beginning (the tense stem) tells us:", "answer": "tense, mood, voice" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - Principle Parts - indentification (dimension to ending/begining)",
+    // question: "Verbs - indentification (dimension)",
+    questions: [
+      { "question": "person - is located in the verb's:", "answer": "ending" },
+      { "question": "number - is located in the verb's:", "answer": "ending" },
+      { "question": "tense - is located in the verb's:",  "answer": "beginning (tense stem)" },
+      { "question": "mood - is located in the verb's:",   "answer": "beginning (tense stem)" },
+      { "question": "voice - is located in the verb's:",  "answer": "beginning (tense stem)" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - time/aspect meanings",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
+    questions: [
+      { "question": "PRESENT TIME + SIMPLE ASPECT", "answer": "<nothing>" },
+      { "question": "PRESENT TIME + PROGRESSIVE/REPEATED ASPECT", "answer": "PRESENT TENSE" },
+      { "question": "PRESENT TIME + COMPLETED ASPECT", "answer": "PERFECT TENSE" },
+      { "question": "PAST TIME + SIMPLE ASPECT", "answer": "AORIST TENSE" },
+      { "question": "PAST TIME + PROGRESSIVE/REPEATED ASPECT", "answer": "IMPERFECT TENSE" },
+      { "question": "PAST TIME + COMPLETED ASPECT", "answer": "PLUPERFECT TENSE" },
+      { "question": "FUTURE TIME + SIMPLE ASPECT", "answer": "FUTURE TENSE" },
+      { "question": "FUTURE TIME + PROGRESSIVE/REPEATED ASPECT", "answer": "FUTURE TENSE" },
+      { "question": "FUTURE TIME + COMPLETED ASPECT", "answer": "FUTURE PERFECT TENSE" },
     ]
   }) + `</script>` + '\n'
   //  verb stems
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Verb stems",
-    question: "Verb stems",
+    title: "Unit 2: Verbs - 4 Principle Parts - tense stems",
+    // question: "Verb - Principle Parts - tense stems (4 of them)",
     questions: [
       { "question": "PRESENT INDICATIVE ACTIVE", "answer": "παιδεύ-" },
+      { "question": "AORIST INDICATIVE ACTIVE", "answer": "επαιδεύσ-" },
       { "question": "IMPERFECT INDICATIVE ACTIVE", "answer": "ἐπαιδεύ-" },
       { "question": "FUTURE INDICATIVE ACTIVE", "answer": "παιδεύσ-" },
-      { "question": "AORIST INDICATIVE ACTIVE", "answer": "επαιδεύσ-" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - 4 Principle Parts - to - sets of endings",
+    // question: "Verb - Principle Parts - stems (4 of them)",
+    questions: [
+      { "question": "PRESENT INDICATIVE ACTIVE",    "answer": "-ω, -εις, -ει, -ομεν, -ετε, -ουσι(ν)" },
+      { "question": "IMPERFECT INDICATIVE ACTIVE",  "answer": "-ον, -ες, -ε(ν), -ομεν, -ετε, -ον" },
+      { "question": "FUTURE INDICATIVE ACTIVE",     "answer": "-ω, -εις, -ει, -ομεν, -ετε, -ουσι(ν)" },
+      { "question": "AORIST INDICATIVE ACTIVE",     "answer": "-α, -ας, -ε(ν), -αμεν, -ατε, -αν" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - sets of endings - to - 4 Principle Parts",
+    // question: "Verb - Principle Parts - stems (4 of them)",
+    questions: [
+      { "question": "-ω, -εις, -ει, -ομεν, -ετε, -ουσι(ν)",   "answer": "PRESENT INDICATIVE ACTIVE" },
+      { "question": "-ον, -ες, -ε(ν), -ομεν, -ετε, -ον",      "answer": "IMPERFECT INDICATIVE ACTIVE" },
+      { "question": "-ω, -εις, -ει, -ομεν, -ετε, -ουσι(ν)",   "answer": "FUTURE INDICATIVE ACTIVE" },
+      { "question": "-α, -ας, -ε(ν), -αμεν, -ατε, -αν",       "answer": "AORIST INDICATIVE ACTIVE" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - 4 Principle Parts - to - sets of tense stem + endings",
+    // question: "Verb - Principle Parts - stems (4 of them)",
+    questions: [
+      { "question": "PRESENT INDICATIVE ACTIVE",    "answer": "παιδεύω, παιδεύεις, παιδεύει, παιδεύομεν, παιδεύετε, παιδεύουσι" },
+      { "question": "IMPERFECT INDICATIVE ACTIVE",  "answer": "ἐπαιδεύον, ἐπαιδεύες, ἐπαιδεύε(ν), ἐπαιδεύομεν, ἐπαιδεύετε, ἐπαιδεύον" },
+      { "question": "FUTURE INDICATIVE ACTIVE",     "answer": "παιδεύσω, παιδεύσεις, παιδεύσει, παιδεύσομεν, παιδεύσετε, παιδεύσουσι" },
+      { "question": "AORIST INDICATIVE ACTIVE",     "answer": "ἐπαιδεύσα, ἐπαιδεύσας, ἐπαιδεύσε(ν), ἐπαιδεύσαμεν, ἐπαιδεύσατε, ἐπαιδεύσαν" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - sets of tense stem + endings - to - 4 Principle Parts",
+    // question: "Verb - Principle Parts - stems (4 of them)",
+    questions: [
+      { "question": "παιδεύω, παιδεύεις, παιδεύει, παιδεύομεν, παιδεύετε, παιδεύουσι",    "answer": "PRESENT INDICATIVE ACTIVE" },
+      { "question": "ἐπαιδεύον, ἐπαιδεύες, ἐπαιδεύε(ν), ἐπαιδεύομεν, ἐπαιδεύετε, ἐπαιδεύον",  "answer": "IMPERFECT INDICATIVE ACTIVE" },
+      { "question": "παιδεύσω, παιδεύσεις, παιδεύσει, παιδεύσομεν, παιδεύσετε, παιδεύσουσι",     "answer": "FUTURE INDICATIVE ACTIVE" },
+      { "question": "ἐπαιδεύσα, ἐπαιδεύσας, ἐπαιδεύσε(ν), ἐπαιδεύσαμεν, ἐπαιδεύσατε, ἐπαιδεύσαν",     "answer": "AORIST INDICATIVE ACTIVE" },
     ]
   }) + `</script>` + '\n'
   // PRESENT INDICATIVE ACTIVE
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
     title: "Unit 2: Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (endings)",
-    question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (endings)",
+    // question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (endings)",
     questions: [
-      { "question": "First Person Singular", "answer": "-ω" },
+      { "question": "First Person Singular",  "answer": "-ω" },
       { "question": "Second Person Singular", "answer": "-εις" },
-      { "question": "Third Person Singular", "answer": "-ει" },
-      { "question": "First Person Plural", "answer": "-ομεν" },
-      { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "Third Person Plural", "answer": "-ουσι(ν)" },
+      { "question": "Third Person Singular",  "answer": "-ει" },
+      { "question": "First Person Plural",    "answer": "-ομεν" },
+      { "question": "Second Person Plural",   "answer": "-ετε" },
+      { "question": "Third Person Plural",    "answer": "-ουσι(ν)" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (paideu/παιδεύ)",
-    question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    title: "Unit 2: Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (meaning -> παιδεύ + ending)",
+    // question: "Verbs - Principle Parts - PRESENT INDICATIVE ACTIVE (paideu/παιδεύ)",
     questions: [
-      { "question": "I am educating, I educate", "answer": "παιδεύω" },
-      { "question": "you are educating, you educate", "answer": "παιδεύεις" },
+      { "question": "I am educating, I educate",                  "answer": "παιδεύω" },
+      { "question": "you are educating, you educate",             "answer": "παιδεύεις" },
       { "question": "he/she/it is educating, he/she/it educates", "answer": "παιδεύει" },
-      { "question": "we are educating, we educate", "answer": "παιδεύομεν" },
-      { "question": "you are educating, you educate", "answer": "παιδεύετε" },
-      { "question": "they are educating, they educate", "answer": "παιδεύουσι" },
+      { "question": "we are educating, we educate",               "answer": "παιδεύομεν" },
+      { "question": "you are educating, you educate",             "answer": "παιδεύετε" },
+      { "question": "they are educating, they educate",           "answer": "παιδεύουσι" },
     ]
   }) + `</script>` + '\n'
   // IMPERFECT INDICATIVE ACTIVE
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
     title: "Unit 2: Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (endings)",
-    question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (endings)",
+    // question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (endings)",
     questions: [
-      { "question": "First Person Singular", "answer": "-ον" },
+      { "question": "First Person Singular",  "answer": "-ον" },
       { "question": "Second Person Singular", "answer": "-ες" },
-      { "question": "Third Person Singular", "answer": "-ε(ν)" },
-      { "question": "First Person Plural", "answer": "-ομεν" },
-      { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "Third Person Plural", "answer": "-ον" },
+      { "question": "Third Person Singular",  "answer": "-ε(ν)" },
+      { "question": "First Person Plural",    "answer": "-ομεν" },
+      { "question": "Second Person Plural",   "answer": "-ετε" },
+      { "question": "Third Person Plural",    "answer": "-ον" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (paideu/παιδεύ)",
-    question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    title: "Unit 2: Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (meaning -> ἐπαιδεύ + ending)",
+    // question: "Verbs - Principle Parts - IMPERFECT INDICATIVE ACTIVE (paideu/παιδεύ)",
+    
     questions: [
-      { "question": "I was educating, I used to educate, I educated (habitually)",                  "answer": "ἐπαιδεύον" },
-      { "question": "you were educating, you used to educate, you educated (habitually)",             "answer": "ἐπαιδεύες" },
-      { "question": "he/she/it was educating, he/she/it used to educate, he/she/it educated (habitually)", "answer": "ἐπαιδεύε(ν)" },
-      { "question": "we were educating, we used to educate, we educated (habitually)",               "answer": "ἐπαιδεύομεν" },
-      { "question": "you were educating, you used to educate, you educated (habitually)",             "answer": "ἐπαιδεύετε" },
-      { "question": "they were educating, they used to educate, you educated (habitually)",           "answer": "ἐπαιδεύον" },
+      { "question": "I was educating, I used to educate, I educated (habitually)",                          "answer": "ἐπαιδεύον" },
+      { "question": "you were educating, you used to educate, you educated (habitually)",                   "answer": "ἐπαιδεύες" },
+      { "question": "he/she/it was educating, he/she/it used to educate, he/she/it educated (habitually)",  "answer": "ἐπαιδεύε(ν)" },
+      { "question": "we were educating, we used to educate, we educated (habitually)",                      "answer": "ἐπαιδεύομεν" },
+      { "question": "you were educating, you used to educate, you educated (habitually)",                   "answer": "ἐπαιδεύετε" },
+      { "question": "they were educating, they used to educate, you educated (habitually)",                 "answer": "ἐπαιδεύον" },
     ]
   }) + `</script>` + '\n'
   // FUTURE INDICATIVE ACTIVE
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
     title: "Unit 2: Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (endings)",
-    question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (endings)",
+    // question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (endings)",
     questions: [
-      { "question": "First Person Singular", "answer": "-ω" },
+      { "question": "First Person Singular",  "answer": "-ω" },
       { "question": "Second Person Singular", "answer": "-εις" },
-      { "question": "Third Person Singular", "answer": "-ει" },
-      { "question": "First Person Plural", "answer": "-ομεν" },
-      { "question": "Second Person Plural", "answer": "-ετε" },
-      { "question": "Third Person Plural", "answer": "-ουσι(ν)" },
+      { "question": "Third Person Singular",  "answer": "-ει" },
+      { "question": "First Person Plural",    "answer": "-ομεν" },
+      { "question": "Second Person Plural",   "answer": "-ετε" },
+      { "question": "Third Person Plural",    "answer": "-ουσι(ν)" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (paideus/παιδεύσ)",
-    question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (paideus/παιδεύσ)",
+    title: "Unit 2: Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (meaning -> παιδεύσ + ending)",
+    // question: "Verbs - Principle Parts - FUTURE INDICATIVE ACTIVE (paideus/παιδεύσ)",
     questions: [
-      { "question": "I shall educate, I shall be educating", "answer": "παιδεύσω" },
-      { "question": "you will educate, you will be educating", "answer": "παιδεύσεις" },
-      { "question": "he/she/it will educate, he/she/it will be educating", "answer": "παιδεύσει" },
-      { "question": "we shall educate, we shall be educating", "answer": "παιδεύσομεν" },
-      { "question": "you will educate, you will be educating", "answer": "παιδεύσετε" },
-      { "question": "they will educate, they will be educating", "answer": "παιδεύσουσι" },
+      { "question": "I shall educate, I shall be educating",                "answer": "παιδεύσω" },
+      { "question": "you will educate, you will be educating",              "answer": "παιδεύσεις" },
+      { "question": "he/she/it will educate, he/she/it will be educating",  "answer": "παιδεύσει" },
+      { "question": "we shall educate, we shall be educating",              "answer": "παιδεύσομεν" },
+      { "question": "you will educate, you will be educating",              "answer": "παιδεύσετε" },
+      { "question": "they will educate, they will be educating",            "answer": "παιδεύσουσι" },
     ]
   }) + `</script>` + '\n'
   // AORIST INDICATIVE ACTIVE
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
     title: "Unit 2: Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (endings)",
-    question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (endings)",
+    // question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (endings)",
     questions: [
-      { "question": "First Person Singular", "answer": "-α" },
+      { "question": "First Person Singular",  "answer": "-α" },
       { "question": "Second Person Singular", "answer": "-ας" },
-      { "question": "Third Person Singular", "answer": "-ε(ν)" },
-      { "question": "First Person Plural", "answer": "-αμεν" },
-      { "question": "Second Person Plural", "answer": "-ατε" },
-      { "question": "Third Person Plural", "answer": "-αν" },
+      { "question": "Third Person Singular",  "answer": "-ε(ν)" },
+      { "question": "First Person Plural",    "answer": "-αμεν" },
+      { "question": "Second Person Plural",   "answer": "-ατε" },
+      { "question": "Third Person Plural",    "answer": "-αν" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
-    title: "Unit 2: Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
-    question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    title: "Unit 2: Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (meaning -> επαιδεύσ + ending)",
+    // question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
     questions: [
-      { "question": "I educated", "answer": "ἐπαιδεύσα" },
-      { "question": "you educated", "answer": "ἐπαιδεύσας" },
-      { "question": "he/she/it educated", "answer": "ἐπαιδεύσε(ν)" },
-      { "question": "we educated", "answer": "ἐπαιδεύσαμεν" },
-      { "question": "you educated", "answer": "ἐπαιδεύσατε" },
-      { "question": "they educated", "answer": "ἐπαιδεύσαν" },
+      { "question": "I educated",           "answer": "ἐπαιδεύσα" },
+      { "question": "you educated",         "answer": "ἐπαιδεύσας" },
+      { "question": "he/she/it educated",   "answer": "ἐπαιδεύσε(ν)" },
+      { "question": "we educated",          "answer": "ἐπαιδεύσαμεν" },
+      { "question": "you educated",         "answer": "ἐπαιδεύσατε" },
+      { "question": "they educated",        "answer": "ἐπαιδεύσαν" },
     ]
   }) + `</script>` + '\n'
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - QUESTIONS",
+    // question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    questions: [
+      { "question": "ὁ ἃνθρωπος παιδεύει",   "answer": "the man is educating" },
+      { "question": "ὁ ἃνθρωπος παιδεύει;",   "answer": "is the man educating?" },
+      { "question": "ὁ ἃνθρωπος παιδεύει;",   "answer": "does the man educate?" },
+      { "question": "ἆρα ἃνθρωπος παιδεύει;",   "answer": "is the man educating?" },
+      { "question": "ἆρα ἃνθρωπος παιδεύει;",   "answer": "does the man educate?" },
+    ]
+  }) + `</script>` + '\n'  
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - INFINITIVES AND THEIR USE",
+    // question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    questions: [
+      { "question": "finite",       "answer": `they "limit" the meaning of the verb to a definite person and number` },
+      { "question": "non-finite",   "answer": "forms which do not specify person or number." },
+      { "question": "infinitive",   "answer": "lacks person, number, and mood, and has only tense and voice. Its function is to name a verbal action." },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Verbs - INFINITIVES AND THEIR USE (continued)",
+    // question: "Verbs - Principle Parts - AORIST INDICATIVE ACTIVE (epaideus/επαιδεύσ)",
+    questions: [
+      { "question": "PRESENT INFINITIVE ACTIVE", "answer": `it indicates aspect only (always progressive/repeated).   To form the present infinitive active, add to the present tense stem the ending -ειν (to be educating)` },
+      { "question": "AORIST INFINITIVE ACTIVE",  "answer": "it indicates aspect only.   To this stem add the ending -αι. (to educate)" },
+    ]
+  }) + `</script>` + '\n'  
+  data += `<script type="application/json">` + JSON.stringify({
+    // options: { "inorder": true, "first_question": 0 },
     title: "Unit 2: Vocab Meanings",
-    question: "Vocab Meanings",
+    // question: "Vocab Meanings",
     questions: [
       { "question": "ἄγγελος, ἀγγέλου, ὁ", "answer": "messenger" },
       { "question": "από (prep.)  +gen.", "answer": "from, away from" },
       { "question": "ἆρα (particle)", "answer": "introduces a question" },
       { "question": "γάρ (postpositive conj.)", "answer": "for (explanatory)" },
       { "question": "δέ (postpositive conj.)", "answer": "but" },
-      { "question": "ἐξ (indeclinable numeral)", "answer": "six" },
+      { "question": "ἓξ (indeclinable numeral)", "answer": "six" },
       { "question": "εὖ (adv.)", "answer": "well" },
       { "question": "ζῷον, ζῴου, τό", "answer": "animal (zoo)" },
       { "question": "ἤ (conj.)", "answer": "or" },
-      { "question": "ή ...ἤ (conjs.)", "answer": "either ...or" },
+      { "question": "ή ... ἤ (conjs.)", "answer": "either ...or" },
       { "question": "κελεύω, κελεύσω, ἐκέλευσα,κεκέλευκα, κεκέλευσμαι, ἐκελεύσθην", "answer": "order, command" },
       { "question": "λύω, λύσω, ἔλυσα, λέλυκα, λέλυμαι, ἐλύθην", "answer": "unbind, free, release; dissolve; destroy" },
-      { "question": "μέν . . . δέ (postpositive conjs.)", "answer": "on the one hand... on the other hand" },
+      { "question": "μέν ... δέ (postpositive conjs.)", "answer": "on the one hand... on the other hand" },
       { "question": "νῦν (adv.)", "answer": "now" },
       { "question": "ξένος, ξένου, ὁ", "answer": "foreigner, guest-friend, host, stranger" },
       { "question": "οὐ, οὐκ, οὐχ (adv.)", "answer": "not" },
@@ -1173,10 +1441,38 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
       { "question": "παρά (prep.) + gen.", "answer": "from (the side of)" },
       { "question": "παρά (prep.) + dat.", "answer": "at (the side of), at the house of" },
       { "question": "παρά (prep.) + acc.", "answer": "to (the side of), beside; contrary to" },
-      // { "question": "", "answer": "" },
-      // { "question": "", "answer": "" },
-      // { "question": "", "answer": "" },
-      // { "question": "", "answer": "" },
+      { "question": "πέμπω, πέμψω, ἔπεμψα, πέπομφα, πέπεμμαι, ἐπέμφθην", "answer": "send" },
+      { "question": "πέντε (indeclinable numeral)", "answer": "five" },
+      { "question": "πόλεμος, πολέμου, ὁ", "answer": "war" },
+      { "question": "πρό (prep.)    +gen.", "answer": "before; in front of" },
+      { "question": "στέφανος, στεφάνου, ὁ", "answer": "crown, wreath" },
+      { "question": "φίλος, φίλου, ὁ", "answer": "friend" },
+      { "question": "φιλία, φιλίας, ἡ", "answer": "friendship" },
+      { "question": "χρυσός, χρυσοῦ, ὁ", "answer": "gold" },
+    ]
+  }) + `</script>` + '\n'
+  data += `<script type="application/json">` + JSON.stringify({
+    // options: { "inorder": true, "first_question": 0 },
+    title: "Unit 2: Vocab COGNATES AND DERIVATIVES",
+    // question: "Vocab COGNATES AND DERIVATIVES",
+    questions: [
+      { "question": "ἄγγελος", "answer": "angel (a messenger of God)" },
+      { "question": "ἀπό", "answer": "apogee (farthest point from the earth)" },
+      { "question": "ἕξ", "answer": "six; hexagon" },
+      { "question": "εὖ", "answer": "eugenics (science of well-produced babies) " },
+      { "question": "ζῷον", "answer": "zoology (the study of animals)" },
+      { "question": "λύω", "answer": "loose" },
+      { "question": "νῦν", "answer": "now" },
+      { "question": "ξένος", "answer": "xenophobia (fear of strangers or foreigners)" },
+      { "question": "οὐ", "answer": "utopia (no-place, an imaginary society)" },
+      { "question": "παρά", "answer": "parallel (describes lines beside each other); paradox (what is true contrary to opinion)" },
+      { "question": "πέμπω", "answer": "pomp" },
+      { "question": "πέντε", "answer": "five; pentagon" },
+      { "question": "πόλεμος", "answer": "polemic (a warlike pronouncement)" },
+      { "question": "πρό", "answer": "prologue (something spoken before)" },
+      { "question": "στέφανος", "answer": "Stephen" },
+      { "question": "φίλος", "answer": "Philadelphia; philosophy (love of wisdom) " },
+      { "question": "χρυσός", "answer": "chrysanthemum (golden flower)" },
     ]
   }) + `</script>` + '\n'
 
