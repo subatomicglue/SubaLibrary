@@ -967,6 +967,16 @@ module.exports["buildPage_" + app_name] = (req, app_name) => {
   }) + `</script>` + '\n'
 
   // Unit 1
+  data += `<script type="application/json">` + JSON.stringify({
+    options: { "inorder": true, "first_question": 0 },
+    title: "Unit 1: Nouns Overview - noun forms have these dimensions",
+    // question: "Verbs - indentification (in order)",
+    questions: [
+      { "question": "1st dimension", "answer": "gender" },
+      { "question": "2nd dimension", "answer": "number" },
+      { "question": "3rd dimension", "answer": "case" },
+    ]
+  }) + `</script>` + '\n'
   data += require(`${settings.WIKI_DIR}/greek-units.json`)["unit1"]["quizzes"].map( r => `<script type="application/json">` + JSON.stringify(r) + `</script>` ).join( "\n" ) + '\n';
   data += `<script type="application/json">` + JSON.stringify({
     options: { "inorder": true, "first_question": 0 },
