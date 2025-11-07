@@ -1,4 +1,4 @@
-const { markdownToHtml, htmlToMarkdown, splitTopicQueryHash } = require('./markdown')
+const { markdownToHtml, htmlToMarkdown, splitTopicQueryHash, extractFirstImage } = require('./markdown')
 
 // ==================== MARKDOWN TESTING ==============================================================================
 
@@ -479,6 +479,70 @@ testSplitTopicQueryHash( "#Hash", ["", "", "Hash"] )
 testSplitTopicQueryHash( "Topic?searchterm=bok#Hash", ["Topic", "searchterm=bok", "Hash"] )
 testSplitTopicQueryHash( "Topic?searchterm=bok", ["Topic", "searchterm=bok", ""] )
 testSplitTopicQueryHash( "?searchterm=bok#Hash", ["", "searchterm=bok", "Hash"] )
+
+function testExtractFirstImage( markdown, maxLines, expectsImage ) {
+  const foundimage = extractFirstImage( markdown, maxLines );
+  const pass = (expectsImage && foundimage) || (!expectsImage && !foundimage);
+  if (!pass) {
+    console.log( "[markdown.js] extractFirstImage test failed" )
+    console.log( "-------markdown-------" )
+    console.log( markdown )
+    console.log( "-------Expected Image-------" )
+    console.log( expectsImage ? "an image URL" : "no image URL" )
+    console.log( "-------Found Image-------" )
+    console.log( foundimage ? foundimage : "undefined" )
+    return false;
+  }
+  return true;
+}
+
+testExtractFirstImage(``, 10, false)
+testExtractFirstImage(`hello world`, 10, false)
+testExtractFirstImage(`![image](http://example.com/hello.png)`, 10, false) // intentionally never match absolute URLs
+testExtractFirstImage(`![image](/hello.png)`, 10, true)
+testExtractFirstImage(`
+hi
+hi blah
+hi asdl
+![image](/hello.png)
+
+blah
+bha
+`, 10, true)
+console.log( testExtractFirstImage(`# heading
+![image](/hello.png)`, 10, true) );
+
+testExtractFirstImage(`# heading
+![image](/hello.png)
+`, 10, true)
+
+testExtractFirstImage(`# heading
+![image](/hello.png)
+
+# heading 2
+`, 10, true)
+
+testExtractFirstImage(`# heading
+# heading 2
+![image](/hello.png)
+`, 10, false)
+
+testExtractFirstImage(`# heading
+# heading 2
+
+![image](/hello.png)
+`, 10, false)
+
+testExtractFirstImage(`# heading
+blah, blah blah
+
+# heading 2
+blah, blah blah
+![image](/hello.png)
+
+# heading 3
+blah, blah blah
+`, 10, false)
 
 
 } // if (isBrowser())

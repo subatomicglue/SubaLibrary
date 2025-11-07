@@ -878,11 +878,18 @@ function extractFirstImage(markdown, maxLines) {
   const topNRegex = new RegExp(`^(?:.*(?:\\r?\\n|$)){0,${maxLines}}`);
   const limitedTextMatch = markdown.match(topNRegex);
   if (!limitedTextMatch) return undefined;
-  const limitedText = limitedTextMatch[0];
+  let limitedText = limitedTextMatch[0];
+
+  // Cut everything after the 2nd heading (including the 2nd heading itself)
+  limitedText = limitedText
+    .replace(/^\s+/,'')             // Trim leading whitespace
+    .replace(/^#+ [^\n]*\n/, '')    // Remove the first heading line
+    .replace(/#+ [\s\S]*$/, '');    // Remove everything from the next heading onward
 
   // Combined regex:
   // - Markdown: ![alt](url)
   // - HTML: <img src="url" ...> or <img src='url' ...>
+  // - intentionally never match absolute URLs (http:// or https://)
   const imageRegex = /!\[[^\]]*\]\(([^)]+)\)|<img[^>]+src\s*=\s*["']([^"']+)["']/i;
 
   const match = limitedText.match(imageRegex);
@@ -891,8 +898,6 @@ function extractFirstImage(markdown, maxLines) {
   const foundimage = match ? (match[1] || match[2]) : undefined;
   return foundimage && foundimage.match(/^\//) && foundimage; // only return relative URLs
 }
-
-
 
 module.exports.markdownToHtml = markdownToHtml;
 module.exports.htmlToMarkdown = htmlToMarkdown;
