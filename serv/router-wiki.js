@@ -280,7 +280,7 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   let markdown = fs.readFileSync( filePath, "utf8" );
   const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
     userdata: USERS_WHITELIST,
-  }), topic, req, extractFirstImage( markdown, 6 ) );
+  }), topic, req, extractFirstImage( markdown, 10 ) );
   res.send( html );
 });
 

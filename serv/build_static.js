@@ -285,7 +285,7 @@ fs.readdirSync(inputDir).forEach(file => {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
       userdata: SETTINGS.USERS_WHITELIST,
-    }), topic, req, extractFirstImage( markdown, 6 ), syncer.getFileTimestamp(fullPath) );
+    }), topic, req, extractFirstImage( markdown, 10 ), syncer.getFileTimestamp(fullPath) );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                  // copy the topic html over
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
 
@@ -365,6 +365,7 @@ function genRedirectPage(link) {
   <head>
     <meta http-equiv="refresh"   content="0; url=${link}">
     <meta property="og:url"      content="${link}">
+    <link rel="canonical"        href="${link}">
     <meta property="twitter:url" content="${link}">
     <title>Redirecting…</title>
   </head>
