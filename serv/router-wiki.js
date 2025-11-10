@@ -284,6 +284,88 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   res.send( html );
 });
 
+// RENAME
+// GET /wiki/rename/:topic?  — show rename form
+// POST /wiki/rename         — perform rename (includes versioned files)
+router.get("/rename/:topic?", guardForProdHostOnly(HOSTNAME_FOR_EDITS), (req, res) => {
+  const topic = sanitizeTopic(decodeURIComponent(req.params.topic || "index"));
+  const filePath = sanitize(WIKI_DIR_LATEST, `${topic}.md`).fullPath;
+
+  // topic not found
+  if (!fs.existsSync(filePath)) {
+    logger.info(`[wiki] ${userLogDisplay(req)} /rename GET — topic not found: ${topic}`);
+    return res.status(404).send(`<p>Topic "${topic}" not found.</p><a href="${req.baseUrl}${view_route}/${topic}">Go Back</a>`);
+  }
+
+  const formHtml = `
+    <h1>Rename Topic</h1>
+    <form method="POST" action="${req.baseUrl}/rename">
+      <input type="hidden" name="oldTopic" value="${topic}" />
+      <label>New Topic Name:</label><br/>
+      <input type="text" name="newTopic" value="${topic}" required/><br/><br/>
+      <button type="submit">Rename</button>
+    </form>
+    <p><a href="${req.baseUrl}${view_route}/${topic}">Cancel</a></p>
+  `;
+  res.send(formHtml);
+});
+
+router.post("/rename", guardForProdHostOnly(HOSTNAME_FOR_EDITS), express.urlencoded({ extended: true }), (req, res) => {
+  const oldTopic = sanitizeTopic(decodeURIComponent(req.body.oldTopic || ""));
+  const newTopic = sanitizeTopic(decodeURIComponent(req.body.newTopic || ""));
+
+  if (!oldTopic || !newTopic) {
+    logger.warn(`[wiki] ${userLogDisplay(req)} /rename POST — missing topic(s): old='${oldTopic}' new='${newTopic}'`);
+    return res.status(400).send("Invalid request. Both old and new topic names are required.");
+  }
+
+  const oldPath = sanitize(WIKI_DIR_LATEST, `${oldTopic}.md`).fullPath;
+  const newPath = sanitize(WIKI_DIR_LATEST, `${newTopic}.md`).fullPath;
+
+  // topic not found
+  if (!fs.existsSync(oldPath)) {
+    logger.info(`[wiki] ${userLogDisplay(req)} /rename POST — old topic not found: ${oldTopic}`);
+    return res.status(404).send(`<p>Topic "${oldTopic}" not found.</p>`);
+  }
+
+  // check for potential collision(s) when renaming to the newTopic name.
+  const versionedCollisions = fs.readdirSync(WIKI_DIR_VERSIONED).filter(f => f.match(new RegExp(`^${newTopic}\\.\\d+\\.md$`)));
+  if (fs.existsSync(newPath) || versionedCollisions.length > 0) {
+    logger.warn(`[wiki] ${userLogDisplay(req)} /rename POST — new topic already exists: ${newTopic}`);
+    return res.status(409).send(`<p>Topic "${newTopic}" already exists.</p><BR>exists=${fs.existsSync(newPath)}<BR>versionedCollisions=${JSON.stringify(versionedCollisions)}`);
+  }
+
+  try {
+    // --- Rename the main (latest) file ---
+    fs.renameSync(oldPath, newPath);
+    logger.info(`[wiki] ${userLogDisplay(req)} /rename POST — renamed '${oldTopic}.md' → '${newTopic}.md'`);
+
+    // --- Rename any versioned files ---
+    const versionedFiles = fs.readdirSync(WIKI_DIR_VERSIONED).filter(f => f.match(new RegExp(`^${oldTopic}\\.\\d+\\.md$`)));
+    versionedFiles.forEach(file => {
+      const oldVersionPath = sanitize(WIKI_DIR_VERSIONED, file).fullPath;
+      const versionMatch = file.match(/\.(\d+)\.md$/);
+      const version = versionMatch ? versionMatch[1] : null;
+      if (!version) return; // skip malformed
+      const newVersionFile = `${newTopic}.${version}.md`;
+      const newVersionPath = sanitize(WIKI_DIR_VERSIONED, newVersionFile).fullPath;
+
+      fs.renameSync(oldVersionPath, newVersionPath);
+      logger.info(`[wiki] ${userLogDisplay(req)} /rename POST — versioned '${file}' → '${newVersionFile}'`);
+    });
+
+    // --- Done ---
+    logger.info(`[wiki] ${userLogDisplay(req)} /rename POST — completed rename of '${oldTopic}' and all versioned files to '${newTopic}'`);
+    writeToChangeLog( req, `Renamed Topic '[${oldTopic}](${req.baseUrl}${view_route}/${oldTopic})' to '[${newTopic}](${req.baseUrl}${view_route}/${newTopic})'` )
+    return res.redirect(`${req.baseUrl}${view_route}/${newTopic}`);
+
+  } catch (err) {
+    logger.error(`[wiki] ${userLogDisplay(req)} /rename POST — rename failed: ${err.message}`);
+    return res.status(500).send("Failed to rename topic due to server error.");
+  }
+});
+
+
 // DIFF
 // GET ${req.baseUrl}${diff_route}/:topic?/:version_new/:version_old/  (get the page view as HTML)
 router.get(`${diff_route}/:topic?/:version_new/:version_old/`, (req, res) => {
