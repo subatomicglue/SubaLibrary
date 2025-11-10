@@ -881,10 +881,10 @@ function extractFirstImage(markdown, maxLines) {
   let limitedText = limitedTextMatch[0];
 
   // Cut everything after the 2nd heading (including the 2nd heading itself)
-  limitedText = limitedText
-    .replace(/^\s+/,'')             // Trim leading whitespace
-    .replace(/^#+ [^\n]*\n/, '')    // Remove the first heading line
-    .replace(/#+ [\s\S]*$/, '');    // Remove everything from the next heading onward
+  if (limitedText.match(/(^|\n)#+ [^\n]*\n/))  // if there's at least one heading
+      limitedText = limitedText
+        .replace(/^[\s\S]*?^#+ [^\n]*\n/m, '')    // Remove up to the first heading line
+        .replace(/(?!\n)#+ [\s\S]*$/, '');       // Remove everything from the next heading onward
 
   // Combined regex:
   // - Markdown: ![alt](url)

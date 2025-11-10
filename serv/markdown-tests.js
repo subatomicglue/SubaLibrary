@@ -545,6 +545,27 @@ blah, blah blah
 `, 10, false)
 
 
+
+testExtractFirstImage(`[< back](BokBok)
+
+# bokbokbok
+
+=+=
+![image](/wiki/uploads/1756586904553.jpeg)
+=+=
+
+asdejlkjasd
+asdjklfl
+asdjkl
+asdj
+lasdjk
+loadDataJSONfjl
+kasj
+asdfklj
+
+`, 10, true)
+
+
 } // if (isBrowser())
 
 module.exports.init = () => {};
