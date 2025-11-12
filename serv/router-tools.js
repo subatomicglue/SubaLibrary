@@ -12,6 +12,7 @@ function toolsPageVars(req, app_name, t=new Date() ) {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${require('./settings').TITLE}`,
     SOCIAL_TITLE: `${require('./settings').TITLE} - ${req.baseUrl}${app_name != "" ? "/" + app_name : ''}`,
+    SOCIAL_IMAGE: `${req.canonicalUrlRoot}/${assets_magic}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
     BACKBUTTON_PATH: `/`,
     BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
     BACKBUTTON_IMAGE: `/${assets_magic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
