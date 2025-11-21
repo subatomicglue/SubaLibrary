@@ -334,7 +334,7 @@ syncer.writeFileIfChanged(undefined, searchPath, searchHTML )
 
 // write out search-youtube
 const searchYoutubePath = path.join(outputDir, "wiki/search-youtube")
-const searchYoutubeHTML = require( `./router-wiki.js` ).buildPageSearch( new Req("search-youtube", "/wiki", "/" ) )
+const searchYoutubeHTML = require( `./router-wiki.js` ).buildPageYoutubeSearch( new Req("search-youtube", "/wiki", "/" ) )
 syncer.writeFileIfChanged(undefined, searchYoutubePath, searchYoutubeHTML )
 
 // write out greek/quizzes
