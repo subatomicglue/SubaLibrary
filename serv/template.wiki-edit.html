@@ -539,8 +539,8 @@
           function stripCurrentWikiView(url, convert_to_markdown_link=false) {
             // matches: http(s)://<anyhost>.(<basedomain>|localhost)/wiki/(edit|view)/<TITLE>[?query]
             const BASE_DOMAIN = "<%=CANONICAL_URL_DOMAIN%>";
-            console.log( "stripCurrentWikiView:", url )
-            console.log( "BASE_DOMAIN:", BASE_DOMAIN )
+            // console.log( "stripCurrentWikiView:", url )
+            // console.log( "BASE_DOMAIN:", BASE_DOMAIN )
 
             try {
               const u = new URL(url);
