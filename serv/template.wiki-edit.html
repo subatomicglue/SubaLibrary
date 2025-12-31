@@ -555,7 +555,7 @@
 
               const title = decodeURIComponent(m[2]); // everything after /wiki/(edit|view)/
               const result = u.search ? `${title}${u.search}` : title;
-              return `[${result}](${result})`;
+              return `[${result.replace(/\?.*$/, '')}](${result})`;
             } catch {
               return url;
             }
