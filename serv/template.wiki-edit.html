@@ -537,7 +537,6 @@
 
           function stripCurrentWikiView(url) {
             // matches: http(s)://<anyhost>.(<basedomain>|localhost)/wiki/(edit|view)/<TITLE>[?query]
-            // NOTE: replace BASE_DOMAIN with your real base domain, e.g. "hypatiagnostikoi.com"
             const BASE_DOMAIN = "<%=CANONICAL_URL_DOMAIN%>";
             console.log( "stripCurrentWikiView:", url )
             console.log( "BASE_DOMAIN:", BASE_DOMAIN )
@@ -556,7 +555,7 @@
 
               const title = decodeURIComponent(m[2]); // everything after /wiki/(edit|view)/
               const result = u.search ? `${title}${u.search}` : title;
-              return `[result](result)`;
+              return `[${result}](${result})`;
             } catch {
               return url;
             }
