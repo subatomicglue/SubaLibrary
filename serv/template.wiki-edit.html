@@ -450,6 +450,7 @@
       dragHandle.addEventListener('touchstart', beginResize, { passive: false });
       //////////////////////////   resize handle  //////////////////////////
 
+
       ////////////////////////// paste handler /////////////////////////////
       textarea.addEventListener("paste", async (event) => {
         try {
@@ -497,6 +498,7 @@
           }
 
           function handleUrlPaste(pastedText) {
+            pastedText = stripCurrentWikiView(pastedText);
             const selectionStart = textarea.selectionStart;
             const selectionEnd = textarea.selectionEnd;
 
@@ -532,6 +534,34 @@
               .filter(data => typeof data === 'string' && data.trim() !== '');
             return data[0] || '';
           }
+
+          function stripCurrentWikiView(url) {
+            // matches: http(s)://<anyhost>.(<basedomain>|localhost)/wiki/(edit|view)/<TITLE>[?query]
+            // NOTE: replace BASE_DOMAIN with your real base domain, e.g. "hypatiagnostikoi.com"
+            const BASE_DOMAIN = "<%=CANONICAL_URL_DOMAIN%>";
+            console.log( "stripCurrentWikiView:", url )
+            console.log( "BASE_DOMAIN:", BASE_DOMAIN )
+
+            try {
+              const u = new URL(url);
+
+              const isHttp = (u.protocol === "http:" || u.protocol === "https:");
+              const hostOk =
+                u.hostname === "localhost" ||
+                u.hostname.endsWith("." + BASE_DOMAIN.replace(/^[^\.]*./, ""));
+
+              const m = u.pathname.match(/^\/wiki\/(edit|view)\/(.+)$/);
+
+              if (!isHttp || !hostOk || !m) return url;
+
+              const title = decodeURIComponent(m[2]); // everything after /wiki/(edit|view)/
+              const result = u.search ? `${title}${u.search}` : title;
+              return `[result](result)`;
+            } catch {
+              return url;
+            }
+          }
+
         } catch (error) {
           console.log( "PASTE ERROR: ", error )
         }

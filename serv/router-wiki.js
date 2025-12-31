@@ -739,6 +739,10 @@ router.put('/search', express.json(), (req, res) => {
     const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
     if (searchTerm == "") return res.json([]);
 
+    const queryWords = searchTerm.split(',').filter(Boolean);
+    const hasUsableTerms = queryWords.some(term => term.trim().length > 0);
+    if (!hasUsableTerms) return res.json([]);
+
     // Read all markdown files in the directory
     let results = []
     fs.readdirSync(WIKI_DIR).filter( file => regex_match_fullversion_md.test(file) ).forEach(file => {
@@ -747,9 +751,8 @@ router.put('/search', express.json(), (req, res) => {
       const filePath = path.join(WIKI_DIR, file);
       const topic = path.basename(file, '.md');
       const content = fs.readFileSync(filePath, 'utf8').toLowerCase();
-      let context = "";
-      
       let score = 0;
+      /*
       let content_matches = topic.match(new RegExp(`.{0,10}${searchTerm}.{0,10}`, 'gi')) || [];
       if (0 < content_matches.length) {
         score += 10 * content_matches.length;
@@ -765,6 +768,42 @@ router.put('/search', express.json(), (req, res) => {
         score += 1 * content_matches.length;
         context += `<ul>`+content_matches.filter(r => undefined == r.match( /^#{1,6} .*?$/ )).map( r=>`<li>Body: ...${r.replace(new RegExp(`(${searchTerm})`),'<b>$1</b>')}...`).join( "<BR>" )+`</ul>`
       }
+      */
+      const titleMatches = [];
+      const headingMatches = [];
+      const bodyMatches = [];
+
+      queryWords.forEach(rawTerm => {
+        const term = rawTerm.trim();
+        if (!term) return;
+        const escapedTerm = escapeRegex(term);
+        const highlightRegex = new RegExp(`(${escapedTerm})`, 'gi');
+
+        let content_matches = topic.match(new RegExp(`.{0,10}${escapedTerm}.{0,10}`, 'gi')) || [];
+        if (0 < content_matches.length) {
+          score += 10 * content_matches.length;
+          titleMatches.push(`<li>Title "${topic.replace(highlightRegex,'<b>$1</b>')}" includes "${term}"</li>`);
+        }
+
+        content_matches = content.match(new RegExp(`^#{1,6} .*${escapedTerm}.*$`, 'gm')) || [];
+        if (0 < content_matches.length) {
+          score += 4 * content_matches.length;
+          headingMatches.push(...content_matches.map(r => `<li>Heading: ${r.replace(highlightRegex,'<b>$1</b>')}`));
+        }
+
+        content_matches = content.match(new RegExp(`.{0,10}${escapedTerm}.{0,10}`, 'gi')) || [];
+        if (0 < content_matches.length) {
+          score += 1 * content_matches.length;
+          bodyMatches.push(...content_matches
+            .filter(r => undefined == r.match( /^#{1,6} .*?$/ ))
+            .map(r => `<li>Body: ...${r.replace(highlightRegex,'<b>$1</b>')}...`));
+        }
+      });
+
+      let context = "";
+      if (titleMatches.length) context += `<ul>${titleMatches.join("")}</ul>`;
+      if (headingMatches.length) context += `<ul>${headingMatches.join("<BR>")}</ul>`;
+      if (bodyMatches.length) context += `<ul>${bodyMatches.join("<BR>")}</ul>`;
 
       // Only add to results if there's a score
       if (score > 0) {

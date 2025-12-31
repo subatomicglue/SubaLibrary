@@ -1,10 +1,20 @@
 <script>
   /////////////////////////////////////////
   // Mark search terms and scroll logic
-  function markupSearchTerms(term) {
-    if (!term) return;
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 
-    const searchRegex = new RegExp(term, 'gi');
+  function parseSearchTerms(term) {
+    if (!term) return [];
+    return term.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  function markupSearchTerms(term) {
+    const terms = parseSearchTerms(term);
+    if (terms.length === 0) return;
+
+    const searchRegex = new RegExp(terms.map(escapeRegex).join('|'), 'gi');
     const container = document.getElementById('the-scroll-page');
     if (!container) return;
 
