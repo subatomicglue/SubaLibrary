@@ -39,9 +39,68 @@
     <h1 id="TITLE"><%=TITLE%></h1>
     <p id="DESCRIPTION"><%=DESCRIPTION%></p>
     <form id="searchForm">
-        <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
-        <button id="submitButton" type="submit">Search</button>&nbsp;<span id="buttonContainer"></span>
+      <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter search term" required>
+      <button id="submitButton" type="submit">Search</button>&nbsp;
+      <details class="search-help">
+        <summary class="search-help__summary">+ search help</summary>
+        <div class="search-help__body">
+              <div class="search-help__row">
+                <div class="search-help__label">example: <code>&lt;specific word&gt;</code></div>
+                <div class="search-help__example"><a href="?searchterm=there"><code>there</code></a></div>
+              </div>
+
+              <div class="search-help__row">
+                <div class="search-help__label">example: <code>&lt;specific phrase&gt;</code></div>
+                <div class="search-help__example"><a href="?searchterm=there was"><code>there was</code></a></div>
+              </div>
+
+              <div class="search-help__row">
+                <div class="search-help__label">example: <code>&lt;keyword1&gt;,&lt;keyword2&gt;</code></div>
+                <div class="search-help__example"><a href="?searchterm=there,was"><code>there,was</code></a></div>
+              </div>
+        </div>
+      </details>
+      &nbsp;<span id="buttonContainer"></span>
     </form>
+    <div id="search-help-body-container"></div>
+    
+    <style>
+      .search-help {
+        display: inline-flex;
+        align-items: center;
+        margin: 0.5rem 0;
+        gap: 0.25rem;
+      }
+      .search-help__summary {
+        cursor: pointer;
+        display: inline-flex;
+        user-select: none;
+        font-weight: 600;
+      }
+      .search-help__summary::marker { content: ""; }
+      .search-help__summary::-webkit-details-marker { display: none; }
+
+      .search-help__body {
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        background: #444;
+        box-sizing: border-box;
+        width: 100%;
+      }
+      #search-help-body-container {
+        display: none;
+        width: 100%;
+      }
+      #search-help-body-container.active {
+        display: block;
+      }
+      .search-help__row { margin: 0.4rem 0; }
+      .search-help__label { opacity: 0.85; margin-bottom: 0.2rem; }
+      .search-help__example code { font-weight: 700; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    </style>
     <ul id="results"></ul>
 
     <script>
@@ -50,6 +109,9 @@
       const buttonContainer = document.getElementById('buttonContainer');
       const DESCRIPTION = "<%=DESCRIPTION%>";
       const descriptionParagraph = document.getElementById('DESCRIPTION');
+      const searchHelp = document.querySelector('.search-help');
+      const searchHelpBody = document.querySelector('.search-help__body');
+      const searchHelpBodyContainer = document.getElementById('search-help-body-container');
 
       function getSearchTermFromURL() {
         const url = new URL(window.location.href);
@@ -142,6 +204,18 @@
           submitButton.style.cursor = 'pointer';
         }
       };
+
+      if (searchHelp && searchHelpBody && searchHelpBodyContainer) {
+        searchHelp.addEventListener('toggle', () => {
+          if (searchHelp.open) {
+            searchHelpBodyContainer.appendChild(searchHelpBody);
+            searchHelpBodyContainer.classList.add('active');
+          } else {
+            searchHelp.appendChild(searchHelpBody);
+            searchHelpBodyContainer.classList.remove('active');
+          }
+        });
+      }
 
       if (st && st != "") {
         document.getElementById('submitButton').click()

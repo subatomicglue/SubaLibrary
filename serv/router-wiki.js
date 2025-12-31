@@ -772,6 +772,7 @@ router.put('/search', express.json(), (req, res) => {
       const titleMatches = [];
       const headingMatches = [];
       const bodyMatches = [];
+      const matchedTerms = new Set();
 
       queryWords.forEach(rawTerm => {
         const term = rawTerm.trim();
@@ -781,29 +782,51 @@ router.put('/search', express.json(), (req, res) => {
 
         let content_matches = topic.match(new RegExp(`.{0,10}${escapedTerm}.{0,10}`, 'gi')) || [];
         if (0 < content_matches.length) {
-          score += 10 * content_matches.length;
-          titleMatches.push(`<li>Title "${topic.replace(highlightRegex,'<b>$1</b>')}" includes "${term}"</li>`);
+          matchedTerms.add(term);
+          const highlightedTitle = topic.replace(highlightRegex,'<b>$1</b>');
+          const matchOccurrences = content_matches.length;
+          const matchScore = 10 * matchOccurrences;
+          score += matchScore;
+          titleMatches.push({ score: matchScore, html: `<li>Title "${highlightedTitle}" includes "${term}"</li>` });
         }
 
         content_matches = content.match(new RegExp(`^#{1,6} .*${escapedTerm}.*$`, 'gm')) || [];
         if (0 < content_matches.length) {
-          score += 4 * content_matches.length;
-          headingMatches.push(...content_matches.map(r => `<li>Heading: ${r.replace(highlightRegex,'<b>$1</b>')}`));
+          matchedTerms.add(term);
+          content_matches.forEach(r => {
+            const highlightedHeading = r.replace(highlightRegex,'<b>$1</b>');
+            const matchOccurrences = (r.match(highlightRegex) || []).length || 1;
+            const matchScore = 4 * matchOccurrences;
+            score += matchScore;
+            headingMatches.push({ score: matchScore, html: `<li>Heading: ${highlightedHeading}` });
+          });
         }
 
         content_matches = content.match(new RegExp(`.{0,10}${escapedTerm}.{0,10}`, 'gi')) || [];
         if (0 < content_matches.length) {
-          score += 1 * content_matches.length;
-          bodyMatches.push(...content_matches
+          matchedTerms.add(term);
+          content_matches
             .filter(r => undefined == r.match( /^#{1,6} .*?$/ ))
-            .map(r => `<li>Body: ...${r.replace(highlightRegex,'<b>$1</b>')}...`));
+            .forEach(r => {
+              const highlightedBody = r.replace(highlightRegex,'<b>$1</b>');
+              const matchOccurrences = (r.match(highlightRegex) || []).length || 1;
+              const matchScore = 1 * matchOccurrences;
+              score += matchScore;
+              bodyMatches.push({ score: matchScore, html: `<li>Body: ...${highlightedBody}...` });
+            });
         }
       });
 
+      score += matchedTerms.size * 25;
+
+      const sortMatches = (items) => items
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.html);
+
       let context = "";
-      if (titleMatches.length) context += `<ul>${titleMatches.join("")}</ul>`;
-      if (headingMatches.length) context += `<ul>${headingMatches.join("<BR>")}</ul>`;
-      if (bodyMatches.length) context += `<ul>${bodyMatches.join("<BR>")}</ul>`;
+      if (titleMatches.length) context += `<ul>${sortMatches(titleMatches).join("")}</ul>`;
+      if (headingMatches.length) context += `<ul>${sortMatches(headingMatches).join("<BR>")}</ul>`;
+      if (bodyMatches.length) context += `<ul>${sortMatches(bodyMatches).join("<BR>")}</ul>`;
 
       // Only add to results if there's a score
       if (score > 0) {
