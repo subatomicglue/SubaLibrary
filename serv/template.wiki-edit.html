@@ -498,16 +498,17 @@
           }
 
           function handleUrlPaste(pastedText) {
-            pastedText = stripCurrentWikiView(pastedText);
             const selectionStart = textarea.selectionStart;
             const selectionEnd = textarea.selectionEnd;
 
             if (selectionStart !== selectionEnd) {
               // Text is selected, format as markdown link
+              pastedText = stripCurrentWikiView(pastedText, false);
               const selectedText = textarea.value.substring(selectionStart, selectionEnd);
               const markdown = `[${selectedText}](${pastedText})`;
               insertMarkdown(markdown);
             } else {
+              pastedText = stripCurrentWikiView(pastedText, true);
               // No text selected, paste plain URL
               insertMarkdown(pastedText);
             }
@@ -535,7 +536,7 @@
             return data[0] || '';
           }
 
-          function stripCurrentWikiView(url) {
+          function stripCurrentWikiView(url, convert_to_markdown_link=false) {
             // matches: http(s)://<anyhost>.(<basedomain>|localhost)/wiki/(edit|view)/<TITLE>[?query]
             const BASE_DOMAIN = "<%=CANONICAL_URL_DOMAIN%>";
             console.log( "stripCurrentWikiView:", url )
@@ -555,7 +556,7 @@
 
               const title = decodeURIComponent(m[2]); // everything after /wiki/(edit|view)/
               const result = u.search ? `${title}${u.search}` : title;
-              return `[${result.replace(/\?.*$/, '')}](${result})`;
+              return convert_to_markdown_link ? `[${result.replace(/\?.*$/, '')}](${result})` : result;
             } catch {
               return url;
             }
