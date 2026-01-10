@@ -288,7 +288,7 @@
     if (term && term != '') markupSearchTerms(term);
     addSearchControl(term);
     if (term && term != '') 
-      scrollToMark(0);
+      requestAnimationFrame(() => scrollToMark(0));
   }
 
   // close the search
