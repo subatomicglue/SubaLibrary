@@ -1,5 +1,5 @@
 const express = require('express');
-const fs = require('fs');
+const fs = require('./FileSystem');
 const path = require('path');
 const { HTTPS_PORT } = require('./settings');
 const sanitizer = require('./sanitizer');

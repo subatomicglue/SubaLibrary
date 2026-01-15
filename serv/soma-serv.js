@@ -3,7 +3,8 @@ const express = require('express');
 const http = require('http');
 const https = require('https');
 const path = require('path');
-const fs = require('fs');
+const nativeFs = require('fs');
+const fs = require('./FileSystem');
 const tls = require('tls');
 const pm2 = require('pm2');
 const os = require('os');
@@ -520,14 +521,14 @@ const CERT_PATH = {
 // Function to load the cert files
 function loadCerts() {
   return {
-    key: fs.readFileSync(CERT_PATH.privkey),
-    cert: fs.readFileSync(CERT_PATH.cert)
+    key: nativeFs.readFileSync(CERT_PATH.privkey),
+    cert: nativeFs.readFileSync(CERT_PATH.cert)
   };
 }
 
 // Watch the certs directory for changes
 let currentCerts = loadCerts();
-fs.watch(CERT_DIR, { encoding: 'utf8' }, (eventType, filename) => {
+nativeFs.watch(CERT_DIR, { encoding: 'utf8' }, (eventType, filename) => {
   if (filename === 'cert.pem' || filename === 'privkey.pem') {
     logger.info(`[SERVER] Certificate file changed: ${filename}. Reloading...`);
     currentCerts = loadCerts();  // Update the certs on change

@@ -1,4 +1,4 @@
-const fs = require("fs");
+const fs = require("./FileSystem");
 const path = require("path");
 const express = require("express");
 const router = express.Router();
@@ -991,7 +991,7 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 // Function to generate sitemap entries from wiki files
 async function getSitemapEntries( baseUrl = "", endpoint = "/wiki" ) {
   //const currentTime = (new Date()).toISOString().slice(0, 10);
-  const fs_async = require( "fs/promises" );
+  const fs_async = fs.promises;
   const files = await fs_async.readdir(WIKI_DIR);
 
   // Filter markdowns

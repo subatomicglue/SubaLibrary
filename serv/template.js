@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('./FileSystem');
 const path = require('path');
 const { fs_readFileSync_cached } = require('./common');
 

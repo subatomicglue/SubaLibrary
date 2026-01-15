@@ -8,6 +8,8 @@ const {
   LOGS_DIR,
 } = require('./settings');
 
+// Purpose: A watchdog script that periodically checks a local service's /status endpoint and restarts it if unresponsive.
+
 const CHECK_URL = "https://localhost/status";
 const TIMEOUT_MS = 5000; // 5-second timeout
 const RESTART_CMD = "npm run restart";

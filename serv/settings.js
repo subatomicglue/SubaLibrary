@@ -30,4 +30,5 @@ module.exports = {
   // few extras we want in our settings
   USERS_WHITELIST,
   SECRET_PASSCODE,
+  FILESYSTEM_DRIVER: (process.env.FILESYSTEM_DRIVER || config.FILESYSTEM_DRIVER || 'local').toLowerCase(),
 };

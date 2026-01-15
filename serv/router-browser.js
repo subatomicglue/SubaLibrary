@@ -1,5 +1,5 @@
 const path = require('path');
-const fs = require('fs');
+const fs = require('./FileSystem');
 const os = require('os');
 const mime = require('mime-types');
 const express = require("express");
@@ -290,5 +290,4 @@ function init(l, browser_dir) {
 // Plug into Express
 module.exports.router = router;
 module.exports.init = init;
-
 

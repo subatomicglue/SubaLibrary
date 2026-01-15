@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// Purpose: A command-line nodejs script to add or update CNAME records in AWS Route 53
+
 const AWS = require('aws-sdk');
 const process = require('process');
 

@@ -1,5 +1,5 @@
 const path = require('path');
-const fs = require('fs');
+const fs = require('./FileSystem');
 const os = require('os');
 const mime = require('mime-types');
 const express = require("express");

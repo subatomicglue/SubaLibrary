@@ -3,6 +3,8 @@
 const https = require('https');
 const AWS = require('aws-sdk');
 
+// Purpose: A command-line nodejs script to update A records in AWS Route 53
+
 ///////////////////////////////////////////////////////
 /////////////// CONFIG ////////////////////////////////
 const config = require('./soma-serv.json');
