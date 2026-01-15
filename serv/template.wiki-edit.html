@@ -70,17 +70,17 @@
 
     // for autoscroll of the preview
     function getFirstVisibleHeader(textarea, mirrorDiv) {
-      const VERBOSE = true;
+      const VERBOSE = false;
       const scrollTop = textarea.scrollTop;
       const spans = Array.from(mirrorDiv.childNodes);
 
       for (let i = 0; i < spans.length; i++) {
         const span = spans[i];
-        VERBOSE && console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
+        //console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
         if (span.offsetTop >= scrollTop && /^#+\s+.*?\n?$/.test(span.textContent)) {
           let title = span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" );
-          let header = __sanitizeForHTMLParam( title );
-          VERBOSE && console.log( "title:", title, "header:", header )
+          let header = __sanitizeForHTMLParam( title, { is_id: true } ); // must match how header ids are generated in markdownToHtml()
+          VERBOSE && console.log( `title:"${title}" header:"${header}"` );
           return header;
         }
       }
