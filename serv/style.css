@@ -20,6 +20,9 @@ a { text-decoration: none;
   /* color: #e59205; */
   /* color: lightblue; */
 }
+blockquote a {
+  color: #773377;
+}
 pre {
   white-space: pre;
   margin: 0; padding: 1rem;
