@@ -21,7 +21,8 @@ a { text-decoration: none;
   /* color: lightblue; */
 }
 blockquote a {
-  color: #773377;
+  /* color: #773377; */
+  color: #aaaaaa;
 }
 pre {
   white-space: pre;
