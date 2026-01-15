@@ -70,14 +70,18 @@
 
     // for autoscroll of the preview
     function getFirstVisibleHeader(textarea, mirrorDiv) {
+      const VERBOSE = true;
       const scrollTop = textarea.scrollTop;
       const spans = Array.from(mirrorDiv.childNodes);
 
       for (let i = 0; i < spans.length; i++) {
         const span = spans[i];
-        //console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
+        VERBOSE && console.log( "span", span.offsetTop >= scrollTop, /^#+\s+.*$/.test(span.textContent), `"${span.textContent}"` )
         if (span.offsetTop >= scrollTop && /^#+\s+.*?\n?$/.test(span.textContent)) {
-          return __sanitizeForHTMLParam( span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" ) );
+          let title = span.textContent.replace(/^#+\s+(.*?)\n?$/, "$1" );
+          let header = __sanitizeForHTMLParam( title );
+          VERBOSE && console.log( "title:", title, "header:", header )
+          return header;
         }
       }
 
@@ -91,11 +95,11 @@
       if (header != null && header != textarea_last_heading) {
         textarea_last_heading = header
         const anchor = document.getElementById(textarea_last_heading);
-        console.log( "scroll to:", textarea_last_heading, anchor)
+        console.log( `scroll to:"${textarea_last_heading}"  anchor:"${anchor}"`);
         if (anchor) {
           anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
-          console.log( "[ERROR] anchor not found in the DOM: ", textarea_last_heading )
+          console.log( `[ERROR] anchor not found in the DOM: "${textarea_last_heading}"`);
         }
       }
     }
