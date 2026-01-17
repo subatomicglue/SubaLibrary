@@ -1,0 +1,175 @@
+<style>
+  .transcript-page { line-height: 1.5; display: flex; flex-direction: column; gap: 1rem; }
+  .transcript-meta { font-size: 0.9rem; opacity: 0.85; }
+  .transcript-gap-form { display: inline-flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; flex-wrap: wrap; }
+  .transcript-gap-form input { width: 5rem; }
+  .transcript-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  .transcript-toggle-link { padding: 0.35rem 0.85rem; border: 1px solid #666; background: #fff; color: #000; border-radius: 0.35rem; text-decoration: none; }
+  .transcript-block { border: 1px solid #444; border-radius: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.02); }
+  .transcript-block header { font-weight: 600; margin-bottom: 0.5rem; }
+  .transcript-block--paragraph header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .transcript-line { display: flex; flex-direction: column; margin-bottom: 0.35rem; }
+  .transcript-line__time { font-size: 0.85rem; opacity: 0.8; }
+  .transcript-line__text { margin-left: 0.25rem; }
+  .transcript-warning { color: #ff6b6b; font-weight: 600; }
+  .transcript-warning--inline { margin-left: 0.75rem; font-weight: 500; }
+  .transcript-toc { border: 1px solid #555; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 0.75rem; background: rgba(255,255,255,0.03); }
+  .transcript-toc ul { list-style: disc; margin: 0.3rem 0 0 1.2rem; padding: 0; }
+  .transcript-toc li { font-size: 0.9rem; margin-bottom: 0.35rem; }
+  .copy-section-button,
+  #copy-all-paragraphs { padding: 0.3rem 0.75rem; background: #fff; border: 1px solid #666; border-radius: 0.3rem; color: #000; cursor: pointer; transition: background 0.2s, color 0.2s; }
+  .copy-section-button:hover,
+  #copy-all-paragraphs:hover { background: #ddd; }
+  .transcript-note + .copy-all-wrapper { margin-top: 0.5rem; }
+
+  @media (min-width: 720px) {
+    .transcript-line { flex-direction: row; gap: 0.75rem; align-items: baseline; }
+    .transcript-line__text { margin-left: 0; }
+  }
+</style>
+
+<div class="transcript-page">
+  <h1>Transcript: <%=SAFE_TITLE%></h1>
+  <div class="transcript-meta">
+    <a href="https://youtu.be/<%=VIDEO_ID%>">Watch on YouTube</a>
+    &nbsp;|&nbsp; Language: <%=LANGUAGE_LABEL%>
+  </div>
+  <div class="transcript-controls">
+    <form method="GET" action="<%=JUMP_FORM_ACTION%>" class="transcript-navigation" id="transcript-jump-form">
+      <label>
+        Jump to video ID:
+        <input type="text" name="videoId" value="<%=VIDEO_ID%>" pattern="[A-Za-z0-9_\-]{11}" required>
+      </label>
+      <input type="hidden" name="gapSeconds" value="<%=GAP_SECONDS%>">
+      <%=JUMP_FORM_VIEWMODE_INPUT optional%>
+      <button type="submit">Go</button>
+    </form>
+    <a class="transcript-toggle-link" href="<%=TOGGLE_URL%>"><%=TOGGLE_LABEL%></a>
+  </div>
+
+  <form method="GET" class="transcript-gap-form" id="transcript-gap-form" action="<%=GAP_FORM_ACTION%>" style="<%=GAP_FORM_STYLE%>">
+    <label>
+      Pause threshold (seconds):
+      <input type="number" min="1" max="<%=MAX_GAP_SECONDS%>" name="gapSeconds" value="<%=GAP_SECONDS%>">
+    </label>
+    <input type="hidden" name="viewMode" value="paragraphs">
+    <button type="submit">Apply</button>
+    <span class="transcript-warning transcript-warning--inline" style="<%=NO_SPLIT_STYLE%>">nothing to split</span>
+  </form>
+
+  <div class="transcript-summary"><%=SUMMARY_TEXT%></div>
+
+  <div class="transcript-view transcript-view--timestamps" style="<%=TIMESTAMP_VIEW_STYLE%>">
+    <%=TIMESTAMP_HTML%>
+  </div>
+
+  <div class="transcript-view transcript-view--paragraphs" style="<%=PARAGRAPH_VIEW_STYLE%>">
+    <%=TOC_HTML optional%>
+    <p class="transcript-note">
+      Note: YouTube / yt-dlp emit contiguous subtitle entries even when speakers pause, so we only get paragraph splits when there’s a rare hard timing gap. Without adding heavy heuristics (punctuation, capitalization, etc.), we’re limited to whatever timing hints exist in the source.
+    </p>
+    <p class="copy-all-wrapper"><button type="button" id="copy-all-paragraphs">Copy all paragraphs</button></p>
+    <%=PARAGRAPHS_HTML%>
+  </div>
+</div>
+
+<div id="status" class="toast-status" aria-live="polite"></div>
+<%include "template.toast.html"%>
+
+<script>
+(function() {
+  function toast(message, color, duration) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(message, { color, duration });
+    } else {
+      console.log(message);
+    }
+  }
+
+  function announceSuccess() {
+    toast('Copied to clipboard!', '#9cff9c', 2500);
+  }
+
+  function announceNothing() {
+    toast('Nothing to copy.', '#ffb347', 2500);
+  }
+
+  function announceFailure() {
+    toast('Copy failed.', '#ff6b6b', 2500);
+  }
+
+  function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    try {
+      const success = document.execCommand('copy');
+      if (success) {
+        announceSuccess();
+      } else {
+        announceFailure();
+      }
+    } catch (err) {
+      announceFailure();
+    }
+    document.body.removeChild(textarea);
+  }
+
+  function copyTextToClipboard(text) {
+    if (!text || !text.trim()) {
+      announceNothing();
+      return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(announceSuccess).catch(function() {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function initCopyButtons() {
+    const copyAllBtn = document.getElementById('copy-all-paragraphs');
+    const paragraphViewContainer = document.querySelector('.transcript-view--paragraphs');
+    const copySectionButtons = document.querySelectorAll('.copy-section-button');
+
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function() {
+        const sections = paragraphViewContainer ? Array.from(paragraphViewContainer.querySelectorAll('.transcript-block[data-section-text]')) : [];
+        const combined = sections.map(function(section) {
+          return section.dataset.sectionText || '';
+        }).filter(Boolean).join('\\n\\n');
+        copyTextToClipboard(combined);
+      });
+    }
+
+    copySectionButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sectionId = btn.dataset.sectionId;
+        if (!sectionId) {
+          announceNothing();
+          return;
+        }
+        const sectionEl = document.getElementById(sectionId);
+        const text = sectionEl ? sectionEl.dataset.sectionText : '';
+        copyTextToClipboard(text);
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCopyButtons);
+  } else {
+    initCopyButtons();
+  }
+})();
+</script>

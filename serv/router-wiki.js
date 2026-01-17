@@ -920,162 +920,39 @@ router.get('/search-youtube/transcript/:videoId', async (req, res) => {
           ${paragraphData.tocEntries.map(entry => `<li><a href="#${entry.id}">${escapeHtml(entry.label)}</a></li>`).join("")}
         </ul>
       </nav>` : "";
-    const noSplitWarningInline = (initialViewMode === 'paragraphs' && !hasSplits && gapSeconds > 0)
-      ? `<span class="transcript-warning transcript-warning--inline">nothing to split</span>`
-      : "";
 
-    const transcriptStyles = `
-<style>
-.transcript-page { line-height: 1.5; display: flex; flex-direction: column; gap: 1rem; }
-.transcript-meta { font-size: 0.9rem; opacity: 0.85; }
-.transcript-gap-form { display: inline-flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; flex-wrap: wrap; }
-.transcript-gap-form input { width: 5rem; }
-.transcript-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
-.transcript-toggle-link { padding: 0.35rem 0.85rem; border: 1px solid #666; background: #fff; color: #000; border-radius: 0.35rem; text-decoration: none; }
-.transcript-block { border: 1px solid #444; border-radius: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.02); }
-.transcript-block header { font-weight: 600; margin-bottom: 0.5rem; }
-.transcript-block--paragraph header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.transcript-line { display: flex; flex-direction: column; margin-bottom: 0.35rem; }
-.transcript-line__time { font-size: 0.85rem; opacity: 0.8; }
-.transcript-line__text { margin-left: 0.25rem; }
-.transcript-warning { color: #ff6b6b; font-weight: 600; }
-.transcript-toc { border: 1px solid #555; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 0.75rem; background: rgba(255,255,255,0.03); }
-.transcript-toc ul { list-style: disc; margin: 0.3rem 0 0 1.2rem; padding: 0; }
-.transcript-toc li { font-size: 0.9rem; margin-bottom: 0.35rem; }
-.copy-section-button,
-#copy-all-paragraphs { padding: 0.3rem 0.75rem; background: #fff; border: 1px solid #666; border-radius: 0.3rem; color: #000; cursor: pointer; transition: background 0.2s, color 0.2s; }
-.copy-section-button:hover,
-#copy-all-paragraphs:hover { background: #ddd; }
-.transcript-warning--inline { margin-left: 0.75rem; font-weight: 500; }
+    const isParagraphMode = initialViewMode === 'paragraphs';
+    const timestampViewStyle = isParagraphMode ? 'display:none;' : '';
+    const paragraphViewStyle = isParagraphMode ? '' : 'display:none;';
+    const gapFormStyle = isParagraphMode ? '' : 'display:none;';
+    const summaryText = `${groups.length} section${groups.length === 1 ? "" : "s"} using a ${gapSeconds}s break threshold.`;
+    const noSplitStyle = (isParagraphMode && !hasSplits && gapSeconds > 0) ? '' : 'display:none;';
+    const jumpFormViewModeInput = isParagraphMode ? `<input type="hidden" name="viewMode" value="paragraphs">` : '';
+    const timestampHtml = sectionsHtml || '<p>No transcript entries available.</p>';
+    const paragraphHtml = paragraphsHtml || '<p>No transcript entries available.</p>';
 
-@media (min-width: 720px) {
-  .transcript-line { flex-direction: row; gap: 0.75rem; align-items: baseline; }
-  .transcript-line__text { margin-left: 0; }
-}
-</style>`;
-
-    const transcriptHtml = `
-${transcriptStyles}
-<div class="transcript-page">
-  <h1>Transcript: ${safeTitle}</h1>
-  <div class="transcript-meta">
-    <a href="https://youtu.be/${videoId}" target="_blank" rel="noopener">Watch on YouTube</a>
-    &nbsp;|&nbsp; Language: ${escapeHtml(match.meta.language || 'unknown')}
-  </div>
-  <div class="transcript-controls">
-    <form method="GET" action="${req.baseUrl}/search-youtube/transcript" class="transcript-navigation" id="transcript-jump-form">
-      <label>
-        Jump to video ID:
-        <input type="text" name="videoId" value="${escapeHtml(videoId)}" pattern="[A-Za-z0-9_\\-]{11}" required>
-      </label>
-      <input type="hidden" name="gapSeconds" value="${escapeHtml(String(gapSeconds))}">
-      ${initialViewMode === 'paragraphs' ? `<input type="hidden" name="viewMode" value="paragraphs">` : ''}
-      <button type="submit">Go</button>
-    </form>
-    <a class="transcript-toggle-link" href="${toggleUrl}">${toggleLabel}</a>
-  </div>
-  ${initialViewMode === 'paragraphs' ? `
-  <form method="GET" class="transcript-gap-form" id="transcript-gap-form" action="${req.baseUrl}/search-youtube/transcript/${videoId}">
-    <label>
-      Pause threshold (seconds):
-      <input type="number" min="1" max="${MAX_TRANSCRIPT_GAP_SECONDS}" name="gapSeconds" value="${escapeHtml(String(gapSeconds))}">
-    </label>
-    <input type="hidden" name="viewMode" value="paragraphs">
-    <button type="submit">Apply</button>
-    ${noSplitWarningInline}
-  </form>` : ``}
-  <div class="transcript-summary">
-    ${groups.length} section${groups.length === 1 ? "" : "s"} using a ${gapSeconds}s break threshold.
-  </div>
-  <div class="transcript-view transcript-view--timestamps" style="${initialViewMode === 'paragraphs' ? 'display:none;' : ''}">${sectionsHtml || '<p>No transcript entries available.</p>'}</div>
-  <div class="transcript-view transcript-view--paragraphs" style="${initialViewMode === 'paragraphs' ? '' : 'display:none;'}">
-    ${hasSplits ? tocHtml : ""}
-    <p class="transcript-note">
-      Note: YouTube / yt-dlp emit contiguous subtitle entries even when speakers pause, so we only get paragraph splits when there’s a rare hard timing gap. Without adding heavy heuristics (punctuation, capitalization, etc.), we’re limited to whatever timing hints exist in the source.
-    </p>
-    <p><button type="button" id="copy-all-paragraphs">Copy all paragraphs</button></p>
-    ${paragraphsHtml || '<p>No transcript entries available.</p>'}
-  </div>
-</div>`;
-
-    const toggleScript = `
-<script>
-(function() {
-  function copyTextToClipboard(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function() {
-        alert('Copied to clipboard!');
-      }).catch(function() {
-        fallbackCopy(text);
-      });
-    } else {
-      fallbackCopy(text);
-    }
-  }
-
-  function fallbackCopy(text) {
-    var textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.top = '-9999px';
-    textarea.style.left = '-9999px';
-    textarea.setAttribute('readonly', '');
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-    try {
-      document.execCommand('copy');
-      alert('Copied to clipboard!');
-    } catch (err) {
-      alert('Copy failed.');
-    }
-    document.body.removeChild(textarea);
-  }
-
-  function initCopyButtons() {
-    var copyAllBtn = document.getElementById('copy-all-paragraphs');
-    var copySectionButtons = document.querySelectorAll('.copy-section-button');
-    var paragraphViewContainer = document.querySelector('.transcript-view--paragraphs');
-
-    if (copyAllBtn) {
-      copyAllBtn.addEventListener('click', function() {
-        var sections = paragraphViewContainer ? Array.from(paragraphViewContainer.querySelectorAll('.transcript-block[data-section-text]')) : [];
-        var combined = sections.map(function(section) {
-          return section.dataset.sectionText || '';
-        }).filter(Boolean).join('\\n\\n');
-        if (combined.trim().length === 0) {
-          alert('Nothing to copy.');
-          return;
-        }
-        copyTextToClipboard(combined);
-      });
-    }
-
-    copySectionButtons.forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var sectionId = btn.dataset.sectionId;
-        if (!sectionId) return;
-        var sectionEl = document.getElementById(sectionId);
-        var text = sectionEl ? sectionEl.dataset.sectionText : '';
-        if (!text) {
-          alert('Nothing to copy.');
-          return;
-        }
-        copyTextToClipboard(text);
-      });
+    const transcriptHtml = template.file("template.yt-transcript.html", {
+      SAFE_TITLE: safeTitle,
+      VIDEO_ID: escapeHtml(videoId),
+      LANGUAGE_LABEL: escapeHtml(match.meta.language || 'unknown'),
+      JUMP_FORM_ACTION: escapeHtml(`${req.baseUrl}/search-youtube/transcript`),
+      JUMP_FORM_VIEWMODE_INPUT: jumpFormViewModeInput,
+      TOGGLE_URL: escapeHtml(toggleUrl),
+      TOGGLE_LABEL: escapeHtml(toggleLabel),
+      GAP_FORM_ACTION: escapeHtml(`${req.baseUrl}/search-youtube/transcript/${videoId}`),
+      GAP_FORM_STYLE: gapFormStyle,
+      GAP_SECONDS: escapeHtml(String(gapSeconds)),
+      MAX_GAP_SECONDS: escapeHtml(String(MAX_TRANSCRIPT_GAP_SECONDS)),
+      NO_SPLIT_STYLE: noSplitStyle,
+      SUMMARY_TEXT: escapeHtml(summaryText),
+      TIMESTAMP_VIEW_STYLE: timestampViewStyle,
+      PARAGRAPH_VIEW_STYLE: paragraphViewStyle,
+      TIMESTAMP_HTML: timestampHtml,
+      TOC_HTML: tocHtml,
+      PARAGRAPHS_HTML: paragraphHtml
     });
-  }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCopyButtons);
-  } else {
-    initCopyButtons();
-  }
-})();
-</script>`;
-
-    res.send(wrapWithFrame(transcriptHtml + toggleScript, frameTopic, req));
+    res.send(wrapWithFrame(transcriptHtml, frameTopic, req));
   } catch (error) {
     logger.error(`[wiki] ${userLogDisplay(req)} transcript error ${error.stack || error}`);
     res.status(500).send("Unable to load transcript.");
