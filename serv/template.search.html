@@ -33,6 +33,20 @@
         color: #aaaaaa;
       }
       a { text-decoration: none; color: lightblue; }
+      .search-result { margin-bottom: 1rem; }
+      .search-result__heading { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.35rem; }
+      .search-result__heading a { color: lightblue; }
+      .transcript-button {
+        border: 1px solid #666;
+        border-radius: 0.35rem;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.85rem;
+        color: #6fb1ff;
+        background: #444;
+        display: inline-flex;
+        align-items: center;
+      }
+      .search-result__body ul { margin: 0; padding-left: 1.25rem; }
     </style>
 </head>
 <body>
@@ -188,7 +202,37 @@
           else
             results.forEach(result => {
               const li = document.createElement('li');
-              li.innerHTML = `<a href="${result.link}">${result.title}</a>${result.body}`;
+              li.className = 'search-result';
+
+              const heading = document.createElement('div');
+              heading.className = 'search-result__heading';
+
+              if (result.link) {
+                const linkEl = document.createElement('a');
+                linkEl.href = result.link;
+                linkEl.textContent = result.title;
+                heading.appendChild(linkEl);
+              } else {
+                const textEl = document.createElement('span');
+                textEl.textContent = result.title;
+                heading.appendChild(textEl);
+              }
+
+              if (result.transcriptUrl) {
+                const transcriptBtn = document.createElement('a');
+                transcriptBtn.href = result.transcriptUrl;
+                transcriptBtn.className = 'transcript-button';
+                transcriptBtn.textContent = '[View full transcript]';
+                heading.appendChild(transcriptBtn);
+              }
+
+              li.appendChild(heading);
+
+              const body = document.createElement('div');
+              body.className = 'search-result__body';
+              body.innerHTML = result.body;
+              li.appendChild(body);
+
               resultsList.appendChild(li);
             });
 
