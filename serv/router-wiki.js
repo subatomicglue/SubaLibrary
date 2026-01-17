@@ -176,11 +176,143 @@ router.get(`/`, (req, res) => {
   res.redirect(`${req.baseUrl}${view_route}`);  // Redirects to another route in the same app
 });
 
-function escapeHtml(str) {
-  return str
+function escapeHtml(str = "") {
+  return String(str)
     .replace(/&/g, '&amp;')  // Must come first
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+const transcriptFilenameRegex = /^(.+)-([-\w]{11})\.([a-z]{2})\.srt\.json$/i;
+const DEFAULT_TRANSCRIPT_GAP_SECONDS = 8;
+const MAX_TRANSCRIPT_GAP_SECONDS = 60;
+
+function parseTranscriptFilename(fileName) {
+  const match = fileName.match(transcriptFilenameRegex);
+  if (!match) return {};
+  const [, title, videoId, language] = match;
+  return { title, videoId, language };
+}
+
+function formatTranscriptText(text = "") {
+  return escapeHtml(text).replace(/\n/g, '<br>');
+}
+
+function srtTimestampToSeconds(timestamp) {
+  if (typeof timestamp !== "string") return 0;
+  const parts = timestamp.split(/[:,]/);
+  if (parts.length !== 4) return 0;
+  const [hours, minutes, seconds, millis] = parts.map(Number);
+  return (hours * 3600) + (minutes * 60) + seconds + ((millis || 0) / 1000);
+}
+
+function linkifyTimestamp(timestamp, videoId) {
+  if (!timestamp) return "";
+  const seconds = Math.max(0, Math.floor(srtTimestampToSeconds(timestamp)));
+  const label = escapeHtml(timestamp);
+  if (!videoId) return label;
+  return `<a href="https://youtu.be/${videoId}?t=${seconds}">${label}</a>`;
+}
+
+async function getSubtitlesForFile(fileName) {
+  if (subsCache.has(fileName)) {
+    return subsCache.get(fileName);
+  }
+  const fileData = await fs.promises.readFile(path.join(YOUTUBE_TRANSCRIPTS_DIR, fileName), 'utf8');
+  const subtitles = JSON.parse(fileData);
+  subsCache.set(fileName, subtitles);
+  return subtitles;
+}
+
+  async function findTranscriptFileByVideoId(videoId) {
+  if (!videoId) return null;
+  const files = await fs.promises.readdir(YOUTUBE_TRANSCRIPTS_DIR);
+  for (const file of files) {
+    const meta = parseTranscriptFilename(file);
+    if (meta.videoId === videoId) {
+      return { file, meta };
+    }
+  }
+  return null;
+}
+
+function groupSubtitlesByPause(subtitles, gapSeconds = DEFAULT_TRANSCRIPT_GAP_SECONDS) {
+  const groups = [];
+  let currentGroup = [];
+  let lastEnd = null;
+
+  subtitles.forEach(sub => {
+    const startSeconds = srtTimestampToSeconds(sub.start);
+    const endSeconds = srtTimestampToSeconds(sub.end);
+    if (currentGroup.length && (startSeconds - lastEnd) >= gapSeconds) {
+      groups.push(currentGroup);
+      currentGroup = [];
+    }
+    currentGroup.push({
+      ...sub,
+      startSeconds,
+      endSeconds,
+    });
+    lastEnd = endSeconds;
+  });
+
+  if (currentGroup.length) {
+    groups.push(currentGroup);
+  }
+
+  return groups;
+}
+
+function buildTranscriptSectionsHtml(groups, videoId) {
+  return groups.map((group, idx) => {
+    const blockStart = group[0]?.start || "";
+    const blockEnd = group[group.length - 1]?.end || "";
+    const lines = group.map(sub => {
+      return `
+        <div class="transcript-line">
+          <span class="transcript-line__time">${linkifyTimestamp(sub.start, videoId)} → ${linkifyTimestamp(sub.end, videoId)}</span>
+          <span class="transcript-line__text">${formatTranscriptText(sub.text)}</span>
+        </div>`;
+    }).join("");
+
+    return `
+      <section class="transcript-block transcript-block--timestamp">
+        <header>Section ${idx + 1}: ${linkifyTimestamp(blockStart, videoId)} &ndash; ${linkifyTimestamp(blockEnd, videoId)}</header>
+        ${lines}
+      </section>`;
+  }).join("");
+}
+
+function buildTranscriptParagraphsHtml(groups, videoId) {
+  const rawSections = [];
+  const tocEntries = [];
+  const html = groups.map((group, idx) => {
+    const blockStart = group[0]?.start || "";
+    const blockEnd = group[group.length - 1]?.end || "";
+    const sectionId = `paragraph-section-${idx + 1}`;
+    const sectionLabel = `Section ${idx + 1}: ${blockStart || ""} – ${blockEnd || ""}`;
+    tocEntries.push({ id: sectionId, label: sectionLabel });
+    const paragraph = group
+      .map(sub => (sub.text || "").trim())
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    rawSections.push(paragraph);
+    if (!paragraph) return '';
+
+    return `
+      <section class="transcript-block transcript-block--paragraph" id="${sectionId}" data-section-text="${escapeHtml(paragraph)}">
+        <header>
+          <span>Section ${idx + 1}: ${linkifyTimestamp(blockStart, videoId)} &ndash; ${linkifyTimestamp(blockEnd, videoId)}</span>
+          <button type="button" class="copy-section-button" data-section-id="${sectionId}">Copy this paragraph</button>
+        </header>
+        <p>${formatTranscriptText(paragraph)}</p>
+      </section>`;
+  }).join("");
+  return { html, tocEntries, rawSections };
 }
 
 const { diffLines, diffWords } = require( 'diff' );
@@ -728,6 +860,228 @@ router.get('/search-youtube', (req, res) => {
   res.send( buildPageYoutubeSearch( req ) )
 });
 
+// GET /search-youtube/transcript/:videoId: Logged-in transcript view
+router.get('/search-youtube/transcript', (req, res) => {
+  const rawVideoId = (req.query.videoId || "").trim();
+  if (!rawVideoId.match(/^[-\w]{11}$/)) {
+    return res.redirect(`${req.baseUrl}/search`);
+  }
+  const params = new URLSearchParams(req.query);
+  params.delete('videoId');
+  const suffix = params.toString();
+  const redirectUrl = `${req.baseUrl}/search-youtube/transcript/${rawVideoId}${suffix ? `?${suffix}` : ''}`;
+  return res.redirect(redirectUrl);
+});
+
+router.get('/search-youtube/transcript/:videoId', async (req, res) => {
+  if (!isLoggedIn(req)) {
+    logger.info(`[wiki] ${userLogDisplay(req)} transcript denied (not logged in)`);
+    return res.status(403).send(`Login required to view transcripts. <a href="/">Back to home</a>`);
+  }
+
+  const videoId = (req.params.videoId || "").trim();
+  if (!videoId.match(/^[-\w]{11}$/)) {
+    return res.status(400).send("Invalid video id.");
+  }
+
+  if (!fs.existsSync(YOUTUBE_TRANSCRIPTS_DIR) || !fs.statSync(YOUTUBE_TRANSCRIPTS_DIR).isDirectory()) {
+    return res.status(404).send("Transcript storage unavailable.");
+  }
+
+  try {
+    const match = await findTranscriptFileByVideoId(videoId);
+    if (!match) {
+      return res.status(404).send("Transcript not found.");
+    }
+
+    const subtitles = await getSubtitlesForFile(match.file);
+    const rawGapSeconds = sanitizeFloat(req.query.gapSeconds);
+    const gapSeconds = (rawGapSeconds > 0 ? Math.min(rawGapSeconds, MAX_TRANSCRIPT_GAP_SECONDS) : DEFAULT_TRANSCRIPT_GAP_SECONDS);
+    const requestedViewMode = (req.query.viewMode || "").toString().toLowerCase();
+    const initialViewMode = requestedViewMode === "paragraphs" ? "paragraphs" : "timestamps";
+    const groups = groupSubtitlesByPause(subtitles, gapSeconds);
+    const hasSplits = groups.length > 1;
+    const sectionsHtml = buildTranscriptSectionsHtml(groups, videoId);
+    const paragraphData = buildTranscriptParagraphsHtml(groups, videoId);
+    const paragraphsHtml = paragraphData.html;
+    const safeTitle = escapeHtml(match.meta.title || videoId);
+    const sanitizedTopicTitle = sanitizeTopic(match.meta.title || videoId) || `Transcript-${videoId}`;
+    const frameTopic = `Transcript - ${sanitizedTopicTitle.substring(0, 120)}`;
+    const toggleViewMode = initialViewMode === 'paragraphs' ? 'timestamps' : 'paragraphs';
+    const toggleLabel = initialViewMode === 'paragraphs' ? 'Show timestamp view' : 'Show concatenated view';
+    const toggleParams = new URLSearchParams();
+    toggleParams.set('gapSeconds', gapSeconds);
+    if (toggleViewMode === 'paragraphs') toggleParams.set('viewMode', 'paragraphs');
+    const toggleUrl = `${req.baseUrl}/search-youtube/transcript/${videoId}?${toggleParams.toString()}`;
+    const tocHtml = (hasSplits && paragraphData.tocEntries.length) ? `
+      <nav class="transcript-toc">
+        <strong>Sections</strong>
+        <ul>
+          ${paragraphData.tocEntries.map(entry => `<li><a href="#${entry.id}">${escapeHtml(entry.label)}</a></li>`).join("")}
+        </ul>
+      </nav>` : "";
+    const noSplitWarningInline = (initialViewMode === 'paragraphs' && !hasSplits && gapSeconds > 0)
+      ? `<span class="transcript-warning transcript-warning--inline">nothing to split</span>`
+      : "";
+
+    const transcriptStyles = `
+<style>
+.transcript-page { line-height: 1.5; display: flex; flex-direction: column; gap: 1rem; }
+.transcript-meta { font-size: 0.9rem; opacity: 0.85; }
+.transcript-gap-form { display: inline-flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; flex-wrap: wrap; }
+.transcript-gap-form input { width: 5rem; }
+.transcript-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.transcript-toggle-link { padding: 0.35rem 0.85rem; border: 1px solid #666; background: #fff; color: #000; border-radius: 0.35rem; text-decoration: none; }
+.transcript-block { border: 1px solid #444; border-radius: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.02); }
+.transcript-block header { font-weight: 600; margin-bottom: 0.5rem; }
+.transcript-block--paragraph header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.transcript-line { display: flex; flex-direction: column; margin-bottom: 0.35rem; }
+.transcript-line__time { font-size: 0.85rem; opacity: 0.8; }
+.transcript-line__text { margin-left: 0.25rem; }
+.transcript-warning { color: #ff6b6b; font-weight: 600; }
+.transcript-toc { border: 1px solid #555; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 0.75rem; background: rgba(255,255,255,0.03); }
+.transcript-toc ul { list-style: disc; margin: 0.3rem 0 0 1.2rem; padding: 0; }
+.transcript-toc li { font-size: 0.9rem; margin-bottom: 0.35rem; }
+.copy-section-button,
+#copy-all-paragraphs { padding: 0.3rem 0.75rem; background: #fff; border: 1px solid #666; border-radius: 0.3rem; color: #000; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.copy-section-button:hover,
+#copy-all-paragraphs:hover { background: #ddd; }
+.transcript-warning--inline { margin-left: 0.75rem; font-weight: 500; }
+
+@media (min-width: 720px) {
+  .transcript-line { flex-direction: row; gap: 0.75rem; align-items: baseline; }
+  .transcript-line__text { margin-left: 0; }
+}
+</style>`;
+
+    const transcriptHtml = `
+${transcriptStyles}
+<div class="transcript-page">
+  <h1>Transcript: ${safeTitle}</h1>
+  <div class="transcript-meta">
+    <a href="https://youtu.be/${videoId}" target="_blank" rel="noopener">Watch on YouTube</a>
+    &nbsp;|&nbsp; Language: ${escapeHtml(match.meta.language || 'unknown')}
+  </div>
+  <div class="transcript-controls">
+    <form method="GET" action="${req.baseUrl}/search-youtube/transcript" class="transcript-navigation" id="transcript-jump-form">
+      <label>
+        Jump to video ID:
+        <input type="text" name="videoId" value="${escapeHtml(videoId)}" pattern="[A-Za-z0-9_\\-]{11}" required>
+      </label>
+      <input type="hidden" name="gapSeconds" value="${escapeHtml(String(gapSeconds))}">
+      ${initialViewMode === 'paragraphs' ? `<input type="hidden" name="viewMode" value="paragraphs">` : ''}
+      <button type="submit">Go</button>
+    </form>
+    <a class="transcript-toggle-link" href="${toggleUrl}">${toggleLabel}</a>
+  </div>
+  ${initialViewMode === 'paragraphs' ? `
+  <form method="GET" class="transcript-gap-form" id="transcript-gap-form" action="${req.baseUrl}/search-youtube/transcript/${videoId}">
+    <label>
+      Pause threshold (seconds):
+      <input type="number" min="1" max="${MAX_TRANSCRIPT_GAP_SECONDS}" name="gapSeconds" value="${escapeHtml(String(gapSeconds))}">
+    </label>
+    <input type="hidden" name="viewMode" value="paragraphs">
+    <button type="submit">Apply</button>
+    ${noSplitWarningInline}
+  </form>` : ``}
+  <div class="transcript-summary">
+    ${groups.length} section${groups.length === 1 ? "" : "s"} using a ${gapSeconds}s break threshold.
+  </div>
+  <div class="transcript-view transcript-view--timestamps" style="${initialViewMode === 'paragraphs' ? 'display:none;' : ''}">${sectionsHtml || '<p>No transcript entries available.</p>'}</div>
+  <div class="transcript-view transcript-view--paragraphs" style="${initialViewMode === 'paragraphs' ? '' : 'display:none;'}">
+    ${hasSplits ? tocHtml : ""}
+    <p class="transcript-note">
+      Note: YouTube / yt-dlp emit contiguous subtitle entries even when speakers pause, so we only get paragraph splits when there’s a rare hard timing gap. Without adding heavy heuristics (punctuation, capitalization, etc.), we’re limited to whatever timing hints exist in the source.
+    </p>
+    <p><button type="button" id="copy-all-paragraphs">Copy all paragraphs</button></p>
+    ${paragraphsHtml || '<p>No transcript entries available.</p>'}
+  </div>
+</div>`;
+
+    const toggleScript = `
+<script>
+(function() {
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        alert('Copied to clipboard!');
+      }).catch(function() {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    try {
+      document.execCommand('copy');
+      alert('Copied to clipboard!');
+    } catch (err) {
+      alert('Copy failed.');
+    }
+    document.body.removeChild(textarea);
+  }
+
+  function initCopyButtons() {
+    var copyAllBtn = document.getElementById('copy-all-paragraphs');
+    var copySectionButtons = document.querySelectorAll('.copy-section-button');
+    var paragraphViewContainer = document.querySelector('.transcript-view--paragraphs');
+
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function() {
+        var sections = paragraphViewContainer ? Array.from(paragraphViewContainer.querySelectorAll('.transcript-block[data-section-text]')) : [];
+        var combined = sections.map(function(section) {
+          return section.dataset.sectionText || '';
+        }).filter(Boolean).join('\\n\\n');
+        if (combined.trim().length === 0) {
+          alert('Nothing to copy.');
+          return;
+        }
+        copyTextToClipboard(combined);
+      });
+    }
+
+    copySectionButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var sectionId = btn.dataset.sectionId;
+        if (!sectionId) return;
+        var sectionEl = document.getElementById(sectionId);
+        var text = sectionEl ? sectionEl.dataset.sectionText : '';
+        if (!text) {
+          alert('Nothing to copy.');
+          return;
+        }
+        copyTextToClipboard(text);
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCopyButtons);
+  } else {
+    initCopyButtons();
+  }
+})();
+</script>`;
+
+    res.send(wrapWithFrame(transcriptHtml + toggleScript, frameTopic, req));
+  } catch (error) {
+    logger.error(`[wiki] ${userLogDisplay(req)} transcript error ${error.stack || error}`);
+    res.status(500).send("Unable to load transcript.");
+  }
+});
+
 // PUT /search: Handle the search request
 // {
 //   method: 'PUT',
@@ -872,15 +1226,7 @@ router.put('/search-youtube', express.json(), async (req, res) => {
     const filePromises = files
       .filter(file => file.endsWith('.json'))
       .map(async file => {
-        let subtitles;
-
-        if (subsCache.has(file)) {
-          subtitles = subsCache.get(file);
-        } else {
-          const fileData = await fs.promises.readFile(path.join(YOUTUBE_TRANSCRIPTS_DIR, file), 'utf8');
-          subtitles = JSON.parse(fileData);
-          subsCache.set(file, subtitles);
-        }
+        const subtitles = await getSubtitlesForFile(file);
 
         // count the matches in that one file's subtitles...
         const matches = subtitles
@@ -915,7 +1261,6 @@ router.put('/search-youtube', express.json(), async (req, res) => {
           .filter(Boolean);
 
         if (matches.length > 0) {
-          //const fileScore = matches.reduce((acc, cur) => acc + (cur.matchCount*1) + (cur.uniqueCount*5) - ((queryWords - cur.uniqueCount) * 100), 0);
           const fileStats = matches.reduce((acc, cur) => {
             for (const [word, count] of Object.entries(cur.found_words)) {
               acc.found_words[word] = (acc.found_words[word] || 0) + count;
@@ -927,23 +1272,6 @@ router.put('/search-youtube', express.json(), async (req, res) => {
           const fileScore = (matchCount*1) + (uniqueCount*5) - ((queryWords.length - uniqueCount) * 100);
           //console.log( file, fileScore )
 
-          function srtTimestampToSeconds(timestamp) {
-            // expects format HH:MM:SS,mmm
-            const parts = timestamp.split(/[:,]/); // split on colon and comma
-            if (parts.length !== 4) return 0; // fallback
-            
-            const [hours, minutes, seconds, millis] = parts.map(Number);
-            return hours * 3600 + minutes * 60 + seconds;
-          }
-          function linkifyTimestamps(textLine, videoId) {
-            const timestampRegex = /(\d{2}:\d{2}:\d{2},\d{3})/g;
-          
-            return textLine.replace(timestampRegex, (match) => {
-              const seconds = srtTimestampToSeconds(match);
-              return `<a href="https://youtu.be/${videoId}?t=${seconds}">${match}</a>`;
-            });
-          }
-
           // parse video ID from filename
           //console.log( file )
           const idMatch = file.match(/^(.+)-([-\w]{11})\.([a-z][a-z])\.srt\.json$/);
@@ -953,18 +1281,20 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 
           // format lines
           const lines = matches.map(m => {
-            return `  <li>${linkifyTimestamps( m.start, videoId )} → ${linkifyTimestamps( m.end, videoId )} - ${m.text}`;
+            return `  <li>${linkifyTimestamp( m.start, videoId )} → ${linkifyTimestamp( m.end, videoId )} - ${m.text}`;
           });
 
           // results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
           if (title == null || title == "null") {
             console.log( `null: file:"${file}" matches:${idMatch ? idMatch.length : 0} ${JSON.stringify( idMatch )}`, )
           }
+          const transcriptUrl = (isLoggedIn(req) && videoId) ? `${req.baseUrl}/search-youtube/transcript/${videoId}` : null;
           return {
             topic: "youtube",
             title: `${title} (score:${fileScore} hits:${matchCount})`,
             link: videoUrl,
             score: fileScore,
+            transcriptUrl,
             body: '<ul>\n' + lines.join( "\n") + '\n</ul>'
           };
         } else {
