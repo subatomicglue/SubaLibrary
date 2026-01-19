@@ -54,7 +54,7 @@
     </label>
     <input type="hidden" name="viewMode" value="paragraphs">
     <button type="submit">Apply</button>
-    <span class="transcript-warning transcript-warning--inline" style="<%=NO_SPLIT_STYLE%>">nothing to split</span>
+    <span class="transcript-warning transcript-warning--inline" style="<%=NO_SPLIT_STYLE%>">nothing to split (youtube doesn't give us the data in a split way)</span>
   </form>
 
   <div class="transcript-summary"><%=SUMMARY_TEXT%></div>
@@ -65,9 +65,6 @@
 
   <div class="transcript-view transcript-view--paragraphs" style="<%=PARAGRAPH_VIEW_STYLE%>">
     <%=TOC_HTML optional%>
-    <p class="transcript-note" style="border:1px solid #000; padding:0.5rem;">
-      Note: YouTube / yt-dlp emit contiguous subtitle entries even when speakers pause, so we only get paragraph splits when there’s a rare hard timing gap. Without adding heavy heuristics (punctuation, capitalization, etc.), we’re limited to whatever timing hints exist in the source.
-    </p>
     <p>
       A note about YouTube auto-transcripts:
     </p>
