@@ -65,8 +65,21 @@
 
   <div class="transcript-view transcript-view--paragraphs" style="<%=PARAGRAPH_VIEW_STYLE%>">
     <%=TOC_HTML optional%>
-    <p class="transcript-note">
+    <p class="transcript-note" style="border:1px solid #000; padding:0.5rem;">
       Note: YouTube / yt-dlp emit contiguous subtitle entries even when speakers pause, so we only get paragraph splits when there’s a rare hard timing gap. Without adding heavy heuristics (punctuation, capitalization, etc.), we’re limited to whatever timing hints exist in the source.
+    </p>
+    <p>
+      A note about YouTube auto-transcripts:
+    </p>
+    <p>
+      Problems:
+      <ul>
+      <li>people mumble or stutter a lot, causes errors in the youtube auto-transcript</li>
+      <li>people end sentences with e.g. "right?" a lot (may be nice to remove for readability)</li>
+      <li>youtube can't understand foreign-language words (e.g. Greek, Latin, etc), often resolves them incorrectly</li>
+      <li>youtube doesn't mark WHO is speaking, so you can't follow who said what.</li>
+      </ul>
+      Each one of these is worth the time in hand correction...
     </p>
     <p class="copy-all-wrapper"><button type="button" id="copy-all-paragraphs">Copy all paragraphs</button></p>
     <%=PARAGRAPHS_HTML%>
