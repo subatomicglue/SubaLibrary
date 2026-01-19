@@ -37,8 +37,8 @@
   <div class="transcript-controls">
     <form method="GET" action="<%=JUMP_FORM_ACTION%>" class="transcript-navigation" id="transcript-jump-form">
       <label>
-        Jump to video ID:
-        <input type="text" name="videoId" value="<%=VIDEO_ID%>" pattern="[A-Za-z0-9_\-]{11}" required>
+        Jump to video ID or URL:
+        <input type="text" name="videoId" value="<%=VIDEO_ID%>" placeholder="dQw4w9WgXcQ or https://youtu.be/..." pattern="([A-Za-z0-9_\-]{11}|https?://.+)" required>
       </label>
       <input type="hidden" name="gapSeconds" value="<%=GAP_SECONDS%>">
       <%=JUMP_FORM_VIEWMODE_INPUT optional%>

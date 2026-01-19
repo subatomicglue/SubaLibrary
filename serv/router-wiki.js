@@ -186,6 +186,7 @@ function escapeHtml(str = "") {
 }
 
 const transcriptFilenameRegex = /^(.+)-([-\w]{11})\.([a-z]{2})\.srt\.json$/i;
+const YOUTUBE_ID_REGEX = /^[-\w]{11}$/;
 const DEFAULT_TRANSCRIPT_GAP_SECONDS = 8;
 const MAX_TRANSCRIPT_GAP_SECONDS = 60;
 
@@ -214,6 +215,36 @@ function linkifyTimestamp(timestamp, videoId) {
   const label = escapeHtml(timestamp);
   if (!videoId) return label;
   return `<a href="https://youtu.be/${videoId}?t=${seconds}">${label}</a>`;
+}
+
+function extractYoutubeVideoId(input = "") {
+  if (typeof input !== "string") return "";
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (YOUTUBE_ID_REGEX.test(trimmed)) return trimmed;
+
+  try {
+    const url = new URL(trimmed);
+    const searchCandidates = ['v', 'vi'];
+    for (const key of searchCandidates) {
+      const value = url.searchParams.get(key);
+      if (value && YOUTUBE_ID_REGEX.test(value)) return value;
+    }
+
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    for (let i = pathSegments.length - 1; i >= 0; i--) {
+      const seg = pathSegments[i];
+      if (YOUTUBE_ID_REGEX.test(seg)) return seg;
+    }
+  } catch (err) {
+    // not a URL, fall through
+  }
+
+  const inlineMatch = trimmed.match(/[-\w]{11}/);
+  if (inlineMatch && YOUTUBE_ID_REGEX.test(inlineMatch[0])) {
+    return inlineMatch[0];
+  }
+  return "";
 }
 
 async function getSubtitlesForFile(fileName) {
@@ -850,14 +881,14 @@ function buildPageYoutubeSearch( req, options = {} ) {
       <h3>Jump straight to a transcript</h3>
       <form method="GET" action="${actionUrl}" class="transcript-jump__form">
         <label>
-          YouTube video ID:
-          <input type="text" name="videoId" pattern="[A-Za-z0-9_\\-]{11}" required>
+          YouTube video ID or URL:
+          <input type="text" name="videoId" placeholder="dQw4w9WgXcQ or https://youtu.be/..." pattern="([A-Za-z0-9_\-]{11}|https?://.+)" required>
         </label>
         <input type="hidden" name="gapSeconds" value="${defaultGap}">
         <input type="hidden" name="viewMode" value="paragraphs">
         <button type="submit">View transcript</button>
       </form>
-      <p class="transcript-jump__hint">Paste the 11-character ID (e.g., <code>dQw4w9WgXcQ</code>) to open the private transcript view.</p>
+      <p class="transcript-jump__hint">Paste either the 11-character ID or any YouTube link—we’ll grab the ID for you.</p>
     </div>`;
   }
 
@@ -888,14 +919,15 @@ router.get('/search-youtube', (req, res) => {
 
 // GET /search-youtube/transcript/:videoId: Logged-in transcript view
 router.get('/search-youtube/transcript', (req, res) => {
-  const rawVideoId = (req.query.videoId || "").trim();
-  if (!rawVideoId.match(/^[-\w]{11}$/)) {
+  const rawVideoId = (req.query.videoId || "").toString();
+  const normalizedVideoId = extractYoutubeVideoId(rawVideoId);
+  if (!normalizedVideoId) {
     return res.redirect(`${req.baseUrl}/search`);
   }
   const params = new URLSearchParams(req.query);
   params.delete('videoId');
   const suffix = params.toString();
-  const redirectUrl = `${req.baseUrl}/search-youtube/transcript/${rawVideoId}${suffix ? `?${suffix}` : ''}`;
+  const redirectUrl = `${req.baseUrl}/search-youtube/transcript/${normalizedVideoId}${suffix ? `?${suffix}` : ''}`;
   return res.redirect(redirectUrl);
 });
 
@@ -906,7 +938,7 @@ router.get('/search-youtube/transcript/:videoId', async (req, res) => {
   }
 
   const videoId = (req.params.videoId || "").trim();
-  if (!videoId.match(/^[-\w]{11}$/)) {
+  if (!videoId.match(YOUTUBE_ID_REGEX)) {
     return res.status(400).send("Invalid video id.");
   }
 
