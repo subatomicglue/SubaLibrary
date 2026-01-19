@@ -59,6 +59,7 @@
         <button type="button" class="search-help__summary" onclick="toggleSearchHelp()">+ search help</button>
       </span>
     </form>
+    <%=TRANSCRIPT_JUMP_HTML optional%>
     <div id="search-help-body" class="search-help__body">
       <div class="search-help__row">
         <div class="search-help__label">example: <code>&lt;specific word&gt;</code></div>
@@ -111,6 +112,47 @@
       .search-help__label { opacity: 0.85; margin-bottom: 0.2rem; }
       .search-help__example code { font-weight: 700; }
       code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .transcript-jump {
+        margin: 1rem 0 1.5rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid #555;
+        border-radius: 0.5rem;
+        background: #2a2a2a;
+      }
+      .transcript-jump__form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: flex-end;
+        margin-top: 0.5rem;
+      }
+      .transcript-jump__form label {
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        gap: 0.35rem;
+      }
+      .transcript-jump__form input[type="text"] {
+        min-width: 14rem;
+        padding: 0.4rem;
+        border-radius: 0.3rem;
+        border: 1px solid #777;
+        background: #1e1e1e;
+        color: #fff;
+      }
+      .transcript-jump__form button {
+        border-radius: 0.35rem;
+        border: 1px solid #3b82f6;
+        background: #1d4ed8;
+        color: #fff;
+        padding: 0.4rem 0.9rem;
+        cursor: pointer;
+      }
+      .transcript-jump__hint {
+        margin: 0.35rem 0 0;
+        font-size: 0.85rem;
+        opacity: 0.75;
+      }
     </style>
     <ul id="results"></ul>
 

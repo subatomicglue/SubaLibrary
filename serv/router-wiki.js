@@ -809,7 +809,10 @@ router.post( "/upload/image", guardForProdHostOnly(HOSTNAME_FOR_EDITS), uploadIm
 
 ///////////////////// SEARCH ///////////////////////////////////////////////////
 
-function __buildPageSearch( req, title = "Search", endpoint = "search", description, search_buttons ) {
+function __buildPageSearch( req, title = "Search", endpoint = "search", description, search_buttons, extras = {} ) {
+  const {
+    transcriptJumpHtml = ''
+  } = extras || {};
   // if building for static host (www) while edithost is different, search only lives on edithost, so need to qualify what domain...
   let use_domain = req.prodMode && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC;
   let optional_domain = (use_domain ? `https://${HOSTNAME_FOR_EDITS}.${DOMAINS[0]}` : "");
@@ -822,7 +825,8 @@ function __buildPageSearch( req, title = "Search", endpoint = "search", descript
     optional_domain: optional_domain,
     DESCRIPTION: description,
     ADDITIONAL_SEARCH_BUTTONS: search_buttons,
-    ASSETS_MAGIC: assets_magic
+    ASSETS_MAGIC: assets_magic,
+    TRANSCRIPT_JUMP_HTML: transcriptJumpHtml
   });
 }
 
@@ -835,12 +839,34 @@ function buildPageSearch( req ) {
   )
 }
 
-function buildPageYoutubeSearch( req ) {
+function buildPageYoutubeSearch( req, options = {} ) {
+  const { showTranscriptJump = false } = options;
+  let transcriptJumpHtml = '';
+  if (showTranscriptJump) {
+    const actionUrl = escapeHtml(`${req.baseUrl}/search-youtube/transcript`);
+    const defaultGap = escapeHtml(String(DEFAULT_TRANSCRIPT_GAP_SECONDS));
+    transcriptJumpHtml = `
+    <div class="transcript-jump">
+      <h3>Jump straight to a transcript</h3>
+      <form method="GET" action="${actionUrl}" class="transcript-jump__form">
+        <label>
+          YouTube video ID:
+          <input type="text" name="videoId" pattern="[A-Za-z0-9_\\-]{11}" required>
+        </label>
+        <input type="hidden" name="gapSeconds" value="${defaultGap}">
+        <input type="hidden" name="viewMode" value="paragraphs">
+        <button type="submit">View transcript</button>
+      </form>
+      <p class="transcript-jump__hint">Paste the 11-character ID (e.g., <code>dQw4w9WgXcQ</code>) to open the private transcript view.</p>
+    </div>`;
+  }
+
   return __buildPageSearch( req,
     "Search (YouTube Transcripts)",
     "search-youtube",//<%=optional_domain%>
     `Keep in mind that YouTube has transcription errors in: words that aren't pronounced clearly, audio dropouts, and especially non-english words (obliterated typically, misspelled at best)<BR><BR><b>tldr:</b> Dont expect any Greek words to work.<BR>This is a critical problem with YouTube's auto transcription, and why hand transcription is superior.<BR><BR>Or head over to <a href='${req.baseUrl}/search?searchterm=\${searchterm}'>wiki search</a>`,
-    JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS )
+    JSON.stringify( ADDITIONAL_YOUTUBE_SEARCH_BUTTONS ),
+    { transcriptJumpHtml }
   )
 }
 
@@ -857,7 +883,7 @@ router.get('/search-youtube', (req, res) => {
   //const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
   logger.info( `[wiki] ${userLogDisplay(req)} ${req.baseUrl}/search-youtube`)
 
-  res.send( buildPageYoutubeSearch( req ) )
+  res.send( buildPageYoutubeSearch( req, { showTranscriptJump: isLoggedIn(req) } ) )
 });
 
 // GET /search-youtube/transcript/:videoId: Logged-in transcript view
