@@ -127,6 +127,19 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^=!:${}()|\[\]\/\\]/g, '\\$&');
 }
 
+function parseSearchQueryWords(rawSearchTerm = "") {
+  if (!rawSearchTerm) return [];
+  return rawSearchTerm
+    .split(',')
+    .map(part => {
+      const trimmed = part.trim();
+      if (!trimmed) return null;
+      const hasQuotes = trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"');
+      return hasQuotes ? trimmed.slice(1, -1) : trimmed;
+    })
+    .filter(term => term !== null && term.length > 0);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // endpoints
@@ -1028,9 +1041,8 @@ router.put('/search', express.json(), (req, res) => {
     const searchTerm = req.body.searchTerm ? req.body.searchTerm.toLowerCase() : "";
     if (searchTerm == "") return res.json([]);
 
-    const queryWords = searchTerm.split(',').filter(Boolean);
-    const hasUsableTerms = queryWords.some(term => term.trim().length > 0);
-    if (!hasUsableTerms) return res.json([]);
+    const queryWords = parseSearchQueryWords(searchTerm);
+    if (!queryWords.length) return res.json([]);
 
     // Read all markdown files in the directory
     let results = []
@@ -1063,9 +1075,7 @@ router.put('/search', express.json(), (req, res) => {
       const bodyMatches = [];
       const matchedTerms = new Set();
 
-      queryWords.forEach(rawTerm => {
-        const term = rawTerm.trim();
-        if (!term) return;
+      queryWords.forEach(term => {
         const escapedTerm = escapeRegex(term);
         const highlightRegex = new RegExp(`(${escapedTerm})`, 'gi');
 
@@ -1119,7 +1129,13 @@ router.put('/search', express.json(), (req, res) => {
 
       // Only add to results if there's a score
       if (score > 0) {
-        results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
+        results.push({
+          topic,
+          score,
+          title: `${topic}`,
+          link: `${req.baseUrl}${view_route}/${topic}?searchterm=${encodeURIComponent(searchTerm)}`,
+          body: `${context}`
+        });
       }
     });
 
@@ -1154,7 +1170,8 @@ router.put('/search-youtube', express.json(), async (req, res) => {
 
     const files = await fs.promises.readdir(YOUTUBE_TRANSCRIPTS_DIR);
 
-    const queryWords = searchTerm.split(',').filter(Boolean); // multiple terms if commas are used, otherwise single unsplit term
+    const queryWords = parseSearchQueryWords(searchTerm); // multiple terms if commas are used, otherwise single unsplit term
+    if (!queryWords.length) return res.json([]);
     //const queryWords = [ searchTerm ]; // no splitting, one term only.
 
     // parallel
@@ -1179,7 +1196,8 @@ router.put('/search-youtube', express.json(), async (req, res) => {
               // highlight
               let highlighted = sub.text;
               for (const word of queryWords) {
-                const re = new RegExp(`(${word})`, "ig");
+                const escapedWord = escapeRegex(word);
+                const re = new RegExp(`(${escapedWord})`, "ig");
                 highlighted = highlighted.replace(re, "<b>$1</b>");
               }
               return {
@@ -1219,7 +1237,7 @@ router.put('/search-youtube', express.json(), async (req, res) => {
             return `  <li>${linkifyTimestamp( m.start, videoId )} → ${linkifyTimestamp( m.end, videoId )} - ${m.text}`;
           });
 
-          // results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${searchTerm}`, body: `${context}` });
+          // results.push({ topic, score, title: `${topic}`, link: `${req.baseUrl}${view_route}/${topic}?searchterm=${encodeURIComponent(searchTerm)}`, body: `${context}` });
           if (title == null || title == "null") {
             console.log( `null: file:"${file}" matches:${idMatch ? idMatch.length : 0} ${JSON.stringify( idMatch )}`, )
           }

@@ -7,7 +7,15 @@
 
   function parseSearchTerms(term) {
     if (!term) return [];
-    return term.split(',').map(t => t.trim()).filter(Boolean);
+    return term
+      .split(',')
+      .map(part => {
+        const trimmed = part.trim();
+        if (!trimmed) return null;
+        const hasQuotes = trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"');
+        return hasQuotes ? trimmed.slice(1, -1) : trimmed;
+      })
+      .filter(Boolean);
   }
 
   function markupSearchTerms(term) {
@@ -229,7 +237,7 @@
     controlDiv.innerHTML = `
       <div class="search-inner" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem; width: 100%;">
         <button id="search-mode" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem;">!!! mode !!!</button>
-        <input id="search-box" type="text" value="${term}" autofocus>
+        <input id="search-box" type="text" value="" autofocus>
         <span id="mark-counter">0/0</span>
         <button id="search-local-prev"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_up_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
         <button id="search-local-next"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_down_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
@@ -241,8 +249,10 @@
     document.getElementById('search-local-prev').addEventListener('click', prevMark);
     document.getElementById('search-local-next').addEventListener('click', nextMark);
     document.getElementById('search-global-enter').addEventListener('click', () => {
-      const searchterm = document.getElementById('search-box').value.trim();
-      const newurl = `<%=SEARCH_URL%>${searchterm != '' ? `?searchterm=${searchterm}` : ''}`
+      const rawValue = document.getElementById('search-box').value;
+      const searchterm = rawValue.trim();
+      const encodedTerm = encodeURIComponent(searchterm);
+      const newurl = `<%=SEARCH_URL%>${searchterm !== '' ? `?searchterm=${encodedTerm}` : ''}`
       console.log( newurl )
       window.location.href = newurl;
     });
@@ -250,6 +260,7 @@
     focusSearchEditBox();
 
     const searchBox = document.getElementById('search-box');
+    searchBox.value = term; // may have quotes in term, e.g. dont set the DOM innerHTML attribute with `${term}`
     searchBox.addEventListener('input', () => {
       const newTerm = searchBox.value.trim();
       if (newTerm === '') {
