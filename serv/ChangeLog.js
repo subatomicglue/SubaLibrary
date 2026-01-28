@@ -28,7 +28,7 @@ function mergeLines(logLines) {
       pageName = editedFormatMatch[4];
       versionInfo = editedFormatMatch[5];
 
-      if (currentMerge && currentMerge.pageName === pageName) {
+      if (currentMerge && currentMerge.pageName === pageName && currentMerge.userLink === userLink) {
         currentMerge.versions.push(versionInfo);
         currentMerge.endTime = currentMerge.endTime > endTime ? currentMerge.endTime : endTime; // Update the earliest time
         currentMerge.startTime = currentMerge.startTime < startTime ? currentMerge.startTime : startTime; // Update the latest time
@@ -97,6 +97,14 @@ testMergeLines( `[2025-09-19 17:31:44] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c
 [2025-09-19 17:31:44] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v39](/wiki/diff/article 1/39/38#diff)
 `,
 `[2025-09-24 11:54:24] [{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}](WikiUser-{{ user:d09a41fa-8a18-4776-88f3-aabc507c2d0b }}) : Edited '[article 1](/wiki/view/article 1)' to [v46](/wiki/diff/article 1/46/45#diff) [v45](/wiki/diff/article 1/45/44#diff) [v44](/wiki/diff/article 1/44/43#diff) [v43](/wiki/diff/article 1/43/42#diff) [v42](/wiki/diff/article 1/42/41#diff) [v41](/wiki/diff/article 1/41/40#diff) [v40](/wiki/diff/article 1/40/39#diff) [v39](/wiki/diff/article 1/39/38#diff)
+`
+);
+
+testMergeLines( `[2025-09-19 17:31:44] [{{ user:11111111-1111-1111-1111-111111111111 }}](WikiUser-{{ user:11111111-1111-1111-1111-111111111111 }}) : Edited '[article 2](/wiki/view/article 2)' to [v2](/wiki/diff/article 2/2/1#diff)
+[2025-09-19 18:31:44] [{{ user:22222222-2222-2222-2222-222222222222 }}](WikiUser-{{ user:22222222-2222-2222-2222-222222222222 }}) : Edited '[article 2](/wiki/view/article 2)' to [v3](/wiki/diff/article 2/3/2#diff)
+`,
+`[2025-09-19 18:31:44] [{{ user:22222222-2222-2222-2222-222222222222 }}](WikiUser-{{ user:22222222-2222-2222-2222-222222222222 }}) : Edited '[article 2](/wiki/view/article 2)' to [v3](/wiki/diff/article 2/3/2#diff)
+[2025-09-19 17:31:44] [{{ user:11111111-1111-1111-1111-111111111111 }}](WikiUser-{{ user:11111111-1111-1111-1111-111111111111 }}) : Edited '[article 2](/wiki/view/article 2)' to [v2](/wiki/diff/article 2/2/1#diff)
 `
 );
 
