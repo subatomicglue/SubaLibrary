@@ -291,7 +291,7 @@
   function onSearch() {
     // clean up if already up
     if (isSearching()) {
-      onCancel();
+      onCancel( { clear_url: false } );
     }
 
     // invoke the search box
@@ -303,7 +303,7 @@
   }
 
   // close the search
-  function onCancel() {
+  function onCancel( options = { clear_url: true } ) {
     const searchBox = document.getElementById('search-box');
     const controlDiv = document.getElementById('searchcontrol');
 
@@ -315,7 +315,8 @@
     // Update counter display
     updateCounterDisplay();
     // Remove searchterm from URL (no reload)
-    clearSearchTermFromURL();
+    if (options.clear_url)
+      clearSearchTermFromURL();
     // Hide the search control bar if desired:
     controlDiv.style.display = 'none';
   }
