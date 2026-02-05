@@ -323,12 +323,14 @@ function markdownToHtml(markdown, baseUrl, options = {} ) {
       return generateMarkdownTOC(cmd == "toc-all" ? markdown : markdown_after_toc) + markdown_after_toc;
     });
 
-    // markdown to html - headings and horizontal rules
+    // markdown to html
     markdown = processTables( processBlockQuotes( transformCustomBlocks( processBulletLists( markdown ) ) ) )
-      .replace(/^(#{1,6})\s+([^\n]*)$/gm, (match, hashes, title) => {  // # Heading Levels 1-6
+      // headings
+      .replace(/^(#{1,6})[^\S\r\n]+([^\n]*)$/gm, (match, hashes, title) => {  // # Heading Levels 1-6
         //console.log( `[debug:]    "${title}" -- "#${sanitizeForHTMLParam(title, {is_id: true})}"` )
         return `<h${hashes.length} id=\"${sanitizeForHTMLParam( title, {is_id:true} )}\">${title}<a title="Permalink to this heading" href="#${sanitizeForHTMLParam(title, {is_id: true})}"><span class="copy-icon" role="button" aria-label="Link Icon"></span></a></h${hashes.length}><intentional newline>`
       })
+      // horizontal rules
       .replace(/^------+$/gm, "<hr><intentional newline>")
   }
 
