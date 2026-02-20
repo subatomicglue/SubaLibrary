@@ -11,7 +11,6 @@ body {
 }
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: var(--page-title-height, 0px);
 }
 /* Disable zoom */
 html, body {

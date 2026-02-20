@@ -65,6 +65,24 @@
   // Navigation logic
   let currentIndex = 0;
 
+  function getNavOffset() {
+    const style = getComputedStyle(document.documentElement);
+    const value = parseFloat(style.getPropertyValue('--page-title-height'));
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function scrollElementWithNavOffset(element, behavior = 'smooth') {
+    if (!element) return;
+    const navOffset = getNavOffset();
+    const rect = element.getBoundingClientRect();
+    const absoluteTop = window.scrollY + rect.top;
+    window.scrollTo({
+      top: absoluteTop - navOffset,
+      left: window.scrollX,
+      behavior
+    });
+  }
+
   function scrollToMark(index) {
     const marks = document.querySelectorAll('mark');
 
@@ -74,7 +92,7 @@
     //if (index < 0 || index >= marks.length) return;
 
     currentIndex = ((index % marks.length) + marks.length) % marks.length;
-    marks[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollElementWithNavOffset(marks[currentIndex]);
 
     // set the style on the marks
     let counter = 0;
@@ -111,6 +129,7 @@
         counter.textContent = `${currentIndex + 1}/${marks.length}`;
       }
     }
+    updateSearchInstanceInURL(marks.length === 0 ? null : (currentIndex + 1));
   }
 
   function nextMark() {
@@ -175,6 +194,7 @@
     const url = new URL(window.location.href);
     if (term === '') {
       url.searchParams.delete('searchterm');
+      url.searchParams.delete('searchinstance');
       storeScrollPosition();
       window.history.pushState({}, document.title, url.toString());
     } else {
@@ -183,6 +203,23 @@
     }
   }
   const debouncedUpdateSearchTermInURL = debounce(updateSearchTermInURL, 100);
+
+  function getSearchInstanceFromURL() {
+    const url = new URL(window.location.href);
+    const value = parseInt(url.searchParams.get('searchinstance'), 10);
+    if (!Number.isFinite(value) || value <= 1) return 0;
+    return value - 1;
+  }
+
+  function updateSearchInstanceInURL(instance) {
+    const url = new URL(window.location.href);
+    if (!instance || instance <= 1) {
+      url.searchParams.delete('searchinstance');
+    } else {
+      url.searchParams.set('searchinstance', instance);
+    }
+    window.history.replaceState({}, document.title, url.toString());
+  }
 
   function storeScrollPosition() {
     const scrollPosition = window.scrollY || window.pageYOffset;
@@ -298,8 +335,8 @@
     const term = getSearchTermFromURL();
     if (term && term != '') markupSearchTerms(term);
     addSearchControl(term);
-    if (term && term != '') 
-      requestAnimationFrame(() => scrollToMark(0));
+    if (term && term != '')
+      requestAnimationFrame(() => scrollToMark(getSearchInstanceFromURL()));
   }
 
   // close the search
@@ -335,15 +372,27 @@
   }
 
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function applySearchStateFromURL({ restoreScroll = false } = {}) {
     const term = getSearchTermFromURL();
-    if (term) {
-      // pop up search box.
-      search();
+    if (term && term !== '') {
+      search({ force: true });
       toggleMode(search_mode_local_text);
     } else {
-      restoreScrollPosition(); // if set from previous page navigation, restore it
+      if (isSearching()) {
+        onCancel({ clear_url: false });
+      }
+      if (restoreScroll) {
+        restoreScrollPosition();
+      }
     }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    applySearchStateFromURL({ restoreScroll: true });
+  });
+
+  window.addEventListener('popstate', () => {
+    applySearchStateFromURL({ restoreScroll: true });
   });
 
   document.addEventListener('keydown', (e) => {

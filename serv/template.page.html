@@ -52,8 +52,15 @@
           const hash = decodeURIComponent(location.hash.slice(1));
           if (!hash) return;
           const target = document.getElementById(hash);
-          if (target && typeof target.scrollIntoView === "function") {
-            target.scrollIntoView({ behavior: 'auto', block: 'start' });
+          if (!target) return;
+          const navHeight = pageTitle ? (pageTitle.offsetHeight || 0) : 0;
+          const rect = target.getBoundingClientRect();
+          if (rect.top < navHeight) {
+            window.scrollBy({
+              top: rect.top - navHeight,
+              left: 0,
+              behavior: 'auto'
+            });
           }
         } catch (hashError) {
           console.log(hashError);
