@@ -8,8 +8,8 @@
         <%include "style.css"%>
     </style>
 </head>
-<body style="padding: 0; margin: 0;" >
-  <div id="page" style="max-width: 100%; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: 0; margin: 0;">
+<body style="margin: 0;" >
+  <div id="page" style="max-width: 100%; width: 100%; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; padding: 0; margin: 0;">
     <div id="page-title" style="max-width: 100%; width:100%; background:#333; color: #fff; margin: 0;">
       <div class="heading-container" style="">
         <div class="heading-row">
@@ -45,6 +45,38 @@
         const url = new URL(signinLink.href);
         url.searchParams.set("referrer", encodeURIComponent(window.location.pathname + window.location.search));
         signinLink.href = url.toString();
+      }
+      const adjustHashOffset = () => {
+        if (!location.hash) return;
+        try {
+          const hash = decodeURIComponent(location.hash.slice(1));
+          if (!hash) return;
+          const target = document.getElementById(hash);
+          if (target && typeof target.scrollIntoView === "function") {
+            target.scrollIntoView({ behavior: 'auto', block: 'start' });
+          }
+        } catch (hashError) {
+          console.log(hashError);
+        }
+      };
+
+      const pageTitle = document.getElementById('page-title');
+      if (pageTitle) {
+        const updateNavOffset = () => {
+          const height = pageTitle.offsetHeight || 0;
+          document.documentElement.style.setProperty('--page-title-height', `${height}px`);
+          adjustHashOffset();
+        };
+        updateNavOffset();
+        window.addEventListener('hashchange', () => {
+          requestAnimationFrame(adjustHashOffset);
+        });
+        if (typeof ResizeObserver !== "undefined") {
+          const resizeObserver = new ResizeObserver(updateNavOffset);
+          resizeObserver.observe(pageTitle);
+        } else {
+          window.addEventListener("resize", updateNavOffset);
+        }
       }
     } catch (error) {
       console.log( error )

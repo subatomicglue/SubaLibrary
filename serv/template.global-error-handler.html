@@ -53,15 +53,17 @@
 })();
 </script>
 <script>
-  // Prevent pinch zoom on mobile browsers
+  // Prevent pinch zoom on mobile browsers (only when explicitly requested)
   document.addEventListener('gesturestart', function (event) {
+    if (!window.preventzoom) return;
     event.preventDefault();
   });
 
   let lastTouchEnd = 0;
 
-  // Prevent double-tap zoom
+  // Prevent double-tap zoom (only when explicitly requested)
   document.addEventListener('touchend', function (event) {
+    if (!window.preventzoom) return;
     const now = new Date().getTime();
     if (now - lastTouchEnd <= 300) { // 300 ms threshold for double-tap
       event.preventDefault();

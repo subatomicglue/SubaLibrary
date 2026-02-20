@@ -1,6 +1,17 @@
-body { font-family: Arial, sans-serif; padding: 0;}
+:root {
+  --page-title-height: 0px;
+}
+[id] {
+  scroll-margin-top: var(--page-title-height, 0px);
+}
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: var(--page-title-height, 0px) 0 0 0;
+}
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--page-title-height, 0px);
 }
 /* Disable zoom */
 html, body {
@@ -59,15 +70,14 @@ pre {
 }
 
 .scroll-parent {
-  overflow: hidden;
+  overflow: visible;
 }
-.scroll-child-browser {
-  height: 100%;
-  overflow: scroll;
+.scroll-child-browser,
+.scroll-child-wiki {
+  height: auto;
+  overflow: visible;
 }
 .scroll-child-wiki {
-  height: 100%;
-  overflow-y: scroll; /* Enable vertical scrolling */
   overflow-x: hidden; /* Disable horizontal scrolling */
 }
 table, td {
@@ -157,6 +167,27 @@ blockquote {
 pre, tt, .pre-coloring {
   background-color: #eeeeee;
   color: #222222;
+}
+
+@media print {
+  html, body, #page {
+    height: auto !important;
+    min-height: auto !important;
+  }
+  #page-title {
+    display: none !important;
+  }
+  :root {
+    --page-title-height: 0px !important;
+  }
+  body {
+    padding-top: 0 !important;
+  }
+  .scroll-parent,
+  .scroll-child-browser,
+  .scroll-child-wiki {
+    overflow: visible !important;
+  }
 }
 tt {
   font-family: monospace, 'Courier New', Courier;
@@ -304,6 +335,13 @@ td:empty::before {
 #searchcontrol #mark-counter {
   font-size: 1rem;
   padding: 0.25rem 0 0 0.25rem;  /* top right bottom left */
+}
+#page-title {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 .buttonsvg {
   width: 1.5rem;
