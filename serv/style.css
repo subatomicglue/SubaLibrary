@@ -182,6 +182,20 @@ pre, tt, .pre-coloring {
   body {
     padding-top: 0 !important;
   }
+
+  /* Avoid breaking inside these elements when printing */
+  table,
+  pre,
+  blockquote {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Avoid breaking inside these elements when printing */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
   .scroll-parent,
   .scroll-child-browser,
   .scroll-child-wiki {
