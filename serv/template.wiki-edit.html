@@ -209,18 +209,27 @@
     }
     let autosaveLastSaved = ""
     function autosaveMarkdown() {
-      const autosave_item = {
-        content: document.getElementById('markdown').value,
-        version: markdown_version // whatever was loaded in (from autosave, or from server)
+      try {
+        const autosave_item = {
+          content: document.getElementById('markdown').value,
+          version: markdown_version // whatever was loaded in (from autosave, or from server)
+        }
+
+        // avoid setting if it didn't change.
+        if (autosave_item.content === autosaveLastSaved) return
+        autosaveLastSaved = autosave_item.content
+
+        //console.log( LS_KEY, autosave_item )
+        localStorage.setItem(LS_KEY, JSON.stringify( autosave_item ));
+        status( 'autosaved...', "#aaff00", 1000 )
+      } catch (err) {
+        console.warn("Unable to autosave markdown", err);
+        const previewPane = document.getElementById("preview");
+        if (previewPane) {
+          previewPane.innerHTML = `<p class="error">ERROR: autosaveMarkdown().   name: ${err.name}, error: ${err.message || err}</p>`;
+        }
+        status( `Unable to autosave markdown: ${err.name}`, "#ffaaaa", 5000 );
       }
-
-      // avoid setting if it didn't change.
-      if (autosave_item.content === autosaveLastSaved) return
-      autosaveLastSaved = autosave_item.content
-
-      //console.log( LS_KEY, autosave_item )
-      localStorage.setItem(LS_KEY, JSON.stringify( autosave_item ));
-      status( 'autosaved...', "#aaff00", 1000 )
     }
     function autosaveMarkdownClear() {
       localStorage.removeItem(LS_KEY);
@@ -391,6 +400,33 @@
 
 
       //////////////////////////   resize handle  //////////////////////////
+      let dragWatchdog = null;
+      function startResizeDragWatchdog() {
+        clearTimeout(dragWatchdog);
+        dragWatchdog = setTimeout(() => {
+          console.warn("drag watchdog fired");
+          status( "Resize taking too long, resetting...", "#ff0000", 5000 );
+          endResize();
+        }, 3000);
+      }
+      function stopResizeDragWatchdog() {
+        clearTimeout(dragWatchdog);
+        dragWatchdog = null;
+      }
+
+      function attachResizeListeners() {
+        document.addEventListener('mousemove', whileResize);
+        document.addEventListener('mouseup', endResize);
+        document.addEventListener('touchmove', whileResize, { passive: false });
+        document.addEventListener('touchend', endResize);
+      }
+      function detachResizeListeners() {
+        document.removeEventListener('mousemove', whileResize);
+        document.removeEventListener('mouseup', endResize);
+        document.removeEventListener('touchmove', whileResize, { passive: false });
+        document.removeEventListener('touchend', endResize);
+      }
+
       let isDragging = false;
       let initialXY = [0, 0];
       let initialFlex = { markdown: 50, preview: 50 };
@@ -405,11 +441,14 @@
         initialFlex = { markdown: markdownBasis, preview: previewBasis };
 
         event.preventDefault();
+        startResizeDragWatchdog(); // safety in case the end drag event doesn't fire for some reason (e.g. mouse leaves the window, or something goes wrong in the code during the drag)
+        attachResizeListeners(); // attach listeners on demand, only during the drag, to avoid unnecessary listeners during normal operation of the editor
       }
 
 
       function whileResize(event) {
         if (!isDragging) return;
+        startResizeDragWatchdog(); // reset the watchdog timer on every move, so it only fires if there has been no movement
         const point = event.touches ? event.touches[0] : event;
 
         const dx = point.clientX - initialXY[0];
@@ -444,12 +483,10 @@
       function endResize() {
         isDragging = false;
         document.body.style.cursor = 'default';
+        stopResizeDragWatchdog(); // stop the watchdog when the drag ends successfully
+        detachResizeListeners(); // clean up event listeners when drag ends
       }
 
-      document.addEventListener('mousemove', whileResize);
-      document.addEventListener('mouseup', endResize);
-      document.addEventListener('touchmove', whileResize, { passive: false });
-      document.addEventListener('touchend', endResize);
       dragHandle.addEventListener('mousedown', beginResize);
       dragHandle.addEventListener('touchstart', beginResize, { passive: false });
       //////////////////////////   resize handle  //////////////////////////
@@ -753,6 +790,11 @@
             localStorage.setItem( `undo:${this.pageKey}`, JSON.stringify(data) );
           } catch (err) {
             console.warn("Unable to save undo history", err);
+            const previewPane = document.getElementById("preview");
+            if (previewPane) {
+              previewPane.innerHTML = `<p class="error">ERROR:  saveToLocalStorage  name: ${err.name}, error: ${err.message || err}</p>`;
+            }
+            status( `Unable to save undo history: ${err.name}`, "#ffaaaa", 5000 );
           }
         }
 
@@ -766,11 +808,17 @@
             }
           } catch (err) {
             console.warn("Unable to load undo history", err);
+            status( `Unable to load undo history: ${err.message}`, "#ffaaaa", 5000 );
           }
         }
 
         clear() {
-          localStorage.removeItem(`undo:${this.pageKey}`);
+          try {
+            localStorage.removeItem(`undo:${this.pageKey}`);
+          } catch (err) {
+            console.warn("Unable to clear undo history", err);
+            status( `Unable to clear undo history: ${err.message}`, "#ffaaaa", 5000 );
+          }
         }
       }
 
