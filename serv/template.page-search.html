@@ -192,6 +192,7 @@
 
   function updateSearchTermInURL(term) {
     const url = new URL(window.location.href);
+    url.hash = '';
     if (term === '') {
       url.searchParams.delete('searchterm');
       url.searchParams.delete('searchinstance');
@@ -212,6 +213,7 @@
 
   function updateSearchInstanceInURL(instance) {
     const url = new URL(window.location.href);
+    url.hash = '';
     if (!instance || instance <= 1) {
       url.searchParams.delete('searchinstance');
     } else {
