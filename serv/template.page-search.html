@@ -106,6 +106,13 @@
     updateCounterDisplay();
   }
 
+  function clearHashForSearchNavigation() {
+    if (!window.location.hash) return;
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.pushState({}, document.title, url.toString());
+  }
+
   function isSearching() {
     const controlDiv = document.getElementById('searchcontrol');
     return controlDiv.style.display != 'none'
@@ -135,12 +142,14 @@
   function nextMark() {
     const marks = document.querySelectorAll('mark');
     //if (currentIndex < (marks.length - 1)) {
+      clearHashForSearchNavigation();
       scrollToMark(currentIndex + 1);
     //}
   }
 
   function prevMark() {
     //if (currentIndex > 0) {
+      clearHashForSearchNavigation();
       scrollToMark(currentIndex - 1);
     //}
   }
@@ -192,7 +201,6 @@
 
   function updateSearchTermInURL(term) {
     const url = new URL(window.location.href);
-    url.hash = '';
     if (term === '') {
       url.searchParams.delete('searchterm');
       url.searchParams.delete('searchinstance');
@@ -213,7 +221,6 @@
 
   function updateSearchInstanceInURL(instance) {
     const url = new URL(window.location.href);
-    url.hash = '';
     if (!instance || instance <= 1) {
       url.searchParams.delete('searchinstance');
     } else {
@@ -321,9 +328,12 @@
 
     // invoke the search box
     const term = getSearchTermFromURL();
-    if (term && term != '') markupSearchTerms(term);
+    if (term && term != '')
+      markupSearchTerms(term);
     addSearchControl(term);
     if (term && term != '')
+      updateCounterDisplay();
+    if (term && term != '' && !window.location.hash)
       requestAnimationFrame(() => scrollToMark(getSearchInstanceFromURL()));
   }
 
