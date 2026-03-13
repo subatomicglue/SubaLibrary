@@ -596,8 +596,10 @@
               if (!isHttp || !hostOk || !m) return url;
 
               const title = decodeURIComponent(m[2]); // everything after /wiki/(edit|view)/
-              const result = u.search ? `${title}${u.search}` : title;
-              return convert_to_markdown_link ? `[${result.replace(/\?.*$/, '')}](${result})` : result;
+              let result = title;
+              if (u.search) result += u.search;
+              if (u.hash) result += u.hash;
+              return convert_to_markdown_link ? `[${result.replace(/([?#]).*$/, '')}](${result})` : result;
             } catch {
               return url;
             }
