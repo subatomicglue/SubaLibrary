@@ -702,6 +702,8 @@ router.get("/markdown/:topic/:version?", guardForProdHostOnly(HOSTNAME_FOR_EDITS
     return res.status(404).send("Topic not found.");
   }
 
+  // Ensure UTF-8 so browsers don't guess ISO-8859-1 and garble non-ASCII text.
+  res.set("Content-Type", "text/plain; charset=utf-8");
   res.sendFile(filePath);
 });
 
