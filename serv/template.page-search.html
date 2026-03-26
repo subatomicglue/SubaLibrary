@@ -326,6 +326,9 @@
       onCancel( { clear_url: false } );
     }
 
+    // Clear any anchor to avoid conflict with ?searchterm navigation
+    clearHashForSearchNavigation();
+
     // invoke the search box
     const term = getSearchTermFromURL();
     if (term && term != '')
