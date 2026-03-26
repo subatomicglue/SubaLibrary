@@ -20,7 +20,7 @@ METADATA_FOR_HTML="--metadata-directive REPLACE --metadata x-amz-meta-referrer-p
 cd ../serv && ./build_static.js; cd -
 aws s3 sync ../serv/build/root/ "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/wiki/view/ "s3://$BUCKET_NAME/wiki/view/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
-aws s3 sync ../serv/build/wiki/markdown/ "s3://$BUCKET_NAME/wiki/markdown/" --cache-control 'no-cache' --content-type 'text/plain' $METADATA_FOR_HTML
+aws s3 sync ../serv/build/wiki/markdown/ "s3://$BUCKET_NAME/wiki/markdown/" --cache-control 'no-cache' --content-type 'text/plain; charset=utf-8' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/tools/ "s3://$BUCKET_NAME/tools/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
 
 # weird s3 quirk:  /wiki doesn't point to /wiki/index.html, so have to write that index into /wiki as s3 file object
@@ -53,4 +53,3 @@ aws s3 cp ../serv/build/sitemap.xml "s3://$BUCKET_NAME/" --cache-control 'no-cac
 aws s3 cp ../serv/build/wiki/search "s3://$BUCKET_NAME/wiki/" --cache-control 'no-cache' --content-type 'text/html'
 aws s3 cp ../serv/build/wiki/search-youtube "s3://$BUCKET_NAME/wiki/" --cache-control 'no-cache' --content-type 'text/html'
 aws s3 cp ../serv/build/greek/quizzes "s3://$BUCKET_NAME/greek/quizzes" --cache-control 'no-cache' --content-type 'text/html'
-
