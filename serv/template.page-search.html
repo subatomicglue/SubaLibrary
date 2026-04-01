@@ -300,8 +300,13 @@
         updateCounterDisplay();
       } else {
         markupSearchTerms(newTerm);
+        const marks = document.querySelectorAll('mark');
         currentIndex = 0;
-        scrollToMark(0);
+        if (marks.length > 0) {
+          scrollToMark(0);
+        } else {
+          updateCounterDisplay();
+        }
       }
 
       debouncedUpdateSearchTermInURL( newTerm )
