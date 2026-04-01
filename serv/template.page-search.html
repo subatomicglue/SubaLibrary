@@ -139,6 +139,29 @@
     updateSearchInstanceInURL(marks.length === 0 ? null : (currentIndex + 1));
   }
 
+  function setCounterToMarkBeforeHash() {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const target = document.getElementById(hash.slice(1));
+    if (!target) return;
+
+    const marks = Array.from(document.querySelectorAll('mark'));
+    if (marks.length === 0) {
+      updateCounterDisplay();
+      return;
+    }
+
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    let idx = 0;
+    for (let i = 0; i < marks.length; i++) {
+      const markTop = marks[i].getBoundingClientRect().top + window.scrollY;
+      if (markTop <= targetTop) idx = i;
+      else break;
+    }
+    currentIndex = idx;
+    updateCounterDisplay();
+  }
+
   function nextMark() {
     const marks = document.querySelectorAll('mark');
     //if (currentIndex < (marks.length - 1)) {
@@ -294,6 +317,7 @@
     const searchBox = document.getElementById('search-box');
     searchBox.value = term; // may have quotes in term, e.g. dont set the DOM innerHTML attribute with `${term}`
     searchBox.addEventListener('input', () => {
+      clearHashForSearchNavigation();
       const newTerm = searchBox.value.trim();
       if (newTerm === '') {
         clearMarks();
@@ -302,10 +326,9 @@
         markupSearchTerms(newTerm);
         const marks = document.querySelectorAll('mark');
         currentIndex = 0;
+        updateCounterDisplay();
         if (marks.length > 0) {
           scrollToMark(0);
-        } else {
-          updateCounterDisplay();
         }
       }
 
@@ -325,14 +348,15 @@
 
 
   // start the search
-  function onSearch() {
+  function onSearch(options = { clear_hash: true }) {
+    const clear_hash = options && options.clear_hash !== undefined ? options.clear_hash : true;
     // clean up if already up
     if (isSearching()) {
-      onCancel( { clear_url: false } );
+      onCancel( { clear_url: false, clear_hash } );
     }
 
     // Clear any anchor to avoid conflict with ?searchterm navigation
-    clearHashForSearchNavigation();
+    if (clear_hash) clearHashForSearchNavigation();
 
     // invoke the search box
     const term = getSearchTermFromURL();
@@ -346,7 +370,8 @@
   }
 
   // close the search
-  function onCancel( options = { clear_url: true } ) {
+  function onCancel( options = { clear_url: true, clear_hash: true } ) {
+    const clear_hash = options && options.clear_hash !== undefined ? options.clear_hash : true;
     const searchBox = document.getElementById('search-box');
     const controlDiv = document.getElementById('searchcontrol');
 
@@ -360,6 +385,8 @@
     // Remove searchterm from URL (no reload)
     if (options.clear_url)
       clearSearchTermFromURL();
+    if (clear_hash)
+      clearHashForSearchNavigation();
     // Hide the search control bar if desired:
     controlDiv.style.display = 'none';
   }
@@ -381,11 +408,14 @@
   function applySearchStateFromURL() {
     const term = getSearchTermFromURL();
     if (term && term !== '') {
-      search({ force: true });
+      search({ force: true, clear_hash: false });
       toggleMode(search_mode_local_text);
+      if (window.location.hash) {
+        requestAnimationFrame(() => setCounterToMarkBeforeHash());
+      }
     } else {
       if (isSearching()) {
-        onCancel({ clear_url: false });
+        onCancel({ clear_url: false, clear_hash: false });
       }
     }
   }
@@ -396,6 +426,18 @@
 
   window.addEventListener('popstate', () => {
     applySearchStateFromURL();
+  });
+  window.addEventListener('hashchange', () => {
+    const term = getSearchTermFromURL();
+    if (term && term !== '') {
+      if (isSearching()) {
+        markupSearchTerms(term);
+        currentIndex = 0;
+        requestAnimationFrame(() => setCounterToMarkBeforeHash());
+      } else {
+        search({ force: true, clear_hash: false });
+      }
+    }
   });
 
   document.addEventListener('keydown', (e) => {
@@ -409,7 +451,7 @@
         updateSearchTermInURL(term)
 
       // pop up search box (it'll use whatever's in the ?searchterm= queryparam)
-      search({ force: true });
+      search({ force: true, clear_hash: true });
     }
 
     // handler active only when searching
@@ -433,7 +475,7 @@
       return;
     }
     if (options.force == true) {
-      onSearch();
+      onSearch(options);
       return;
     }
 
