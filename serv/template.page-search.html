@@ -106,6 +106,32 @@
     updateCounterDisplay();
   }
 
+  const scroll_snap_threshold_px = 8;
+  function getMarkScrollTop(mark) {
+    const navOffset = getNavOffset();
+    const rect = mark.getBoundingClientRect();
+    const absoluteTop = window.scrollY + rect.top;
+    return absoluteTop - navOffset;
+  }
+
+  function getNearestMarkIndexAboveScroll(marks, scrollTop) {
+    let idx = -1;
+    for (let i = 0; i < marks.length; i++) {
+      const markTop = getMarkScrollTop(marks[i]);
+      if (markTop < scrollTop - scroll_snap_threshold_px) idx = i;
+      else break;
+    }
+    return idx;
+  }
+
+  function getNearestMarkIndexBelowScroll(marks, scrollTop) {
+    for (let i = 0; i < marks.length; i++) {
+      const markTop = getMarkScrollTop(marks[i]);
+      if (markTop > scrollTop + scroll_snap_threshold_px) return i;
+    }
+    return -1;
+  }
+
   function clearHashForSearchNavigation() {
     if (!window.location.hash) return;
     const url = new URL(window.location.href);
@@ -166,6 +192,14 @@
     const marks = document.querySelectorAll('mark');
     //if (currentIndex < (marks.length - 1)) {
       clearHashForSearchNavigation();
+      if (marks.length > 0) {
+        const scrollTop = window.scrollY;
+        const nearestBelow = getNearestMarkIndexBelowScroll(marks, scrollTop);
+        if (nearestBelow === currentIndex) {
+          scrollToMark(currentIndex);
+          return;
+        }
+      }
       scrollToMark(currentIndex + 1);
     //}
   }
@@ -173,6 +207,15 @@
   function prevMark() {
     //if (currentIndex > 0) {
       clearHashForSearchNavigation();
+      const marks = document.querySelectorAll('mark');
+      if (marks.length > 0) {
+        const scrollTop = window.scrollY;
+        const nearestAbove = getNearestMarkIndexAboveScroll(marks, scrollTop);
+        if (nearestAbove === currentIndex) {
+          scrollToMark(currentIndex);
+          return;
+        }
+      }
       scrollToMark(currentIndex - 1);
     //}
   }
@@ -370,8 +413,8 @@
   }
 
   // close the search
-  function onCancel( options = { clear_url: true, clear_hash: true } ) {
-    const clear_hash = options && options.clear_hash !== undefined ? options.clear_hash : true;
+  function onCancel( options = { clear_url: true, clear_hash: false } ) {
+    const clear_hash = options && options.clear_hash !== undefined ? options.clear_hash : false;
     const searchBox = document.getElementById('search-box');
     const controlDiv = document.getElementById('searchcontrol');
 
