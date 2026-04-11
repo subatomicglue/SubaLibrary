@@ -64,6 +64,26 @@
 
   // Navigation logic
   let currentIndex = 0;
+  let buttonNavigationSessionTimer = null;
+  const buttonNavigationSessionMs = 1200;
+
+  function clearButtonNavigationSession() {
+    if (buttonNavigationSessionTimer) {
+      clearTimeout(buttonNavigationSessionTimer);
+      buttonNavigationSessionTimer = null;
+    }
+  }
+
+  function startButtonNavigationSession() {
+    clearButtonNavigationSession();
+    buttonNavigationSessionTimer = setTimeout(() => {
+      buttonNavigationSessionTimer = null;
+    }, buttonNavigationSessionMs);
+  }
+
+  function isButtonNavigationSessionActive() {
+    return buttonNavigationSessionTimer !== null;
+  }
 
   function getNavOffset() {
     const style = getComputedStyle(document.documentElement);
@@ -166,6 +186,7 @@
   }
 
   function setCounterToMarkBeforeHash() {
+    clearButtonNavigationSession();
     const hash = window.location.hash;
     if (!hash) return;
     const target = document.getElementById(hash.slice(1));
@@ -192,14 +213,21 @@
     const marks = document.querySelectorAll('mark');
     //if (currentIndex < (marks.length - 1)) {
       clearHashForSearchNavigation();
+      if (isButtonNavigationSessionActive()) {
+        startButtonNavigationSession();
+        scrollToMark(currentIndex + 1);
+        return;
+      }
       if (marks.length > 0) {
         const scrollTop = window.scrollY;
         const nearestBelow = getNearestMarkIndexBelowScroll(marks, scrollTop);
         if (nearestBelow === currentIndex) {
+          startButtonNavigationSession();
           scrollToMark(currentIndex);
           return;
         }
       }
+      startButtonNavigationSession();
       scrollToMark(currentIndex + 1);
     //}
   }
@@ -207,15 +235,22 @@
   function prevMark() {
     //if (currentIndex > 0) {
       clearHashForSearchNavigation();
+      if (isButtonNavigationSessionActive()) {
+        startButtonNavigationSession();
+        scrollToMark(currentIndex - 1);
+        return;
+      }
       const marks = document.querySelectorAll('mark');
       if (marks.length > 0) {
         const scrollTop = window.scrollY;
         const nearestAbove = getNearestMarkIndexAboveScroll(marks, scrollTop);
         if (nearestAbove === currentIndex) {
+          startButtonNavigationSession();
           scrollToMark(currentIndex);
           return;
         }
       }
+      startButtonNavigationSession();
       scrollToMark(currentIndex - 1);
     //}
   }
@@ -305,7 +340,8 @@
   const search_mode_global_text = "🌎&nbsp;All&nbsp;Pages";
   const search_mode_local_text = "▼&nbsp;Page";
   // is meant to be called once on init() to initialize.   keep that in mind.
-  function toggleMode(forcemode=undefined) {
+  function toggleMode(forcemode=undefined, options={}) {
+    const should_focus_input = options && options.focus_input !== undefined ? options.focus_input : true;
     const searchMode = document.getElementById('search-mode')
     if (forcemode) {
       searchMode.innerHTML = forcemode
@@ -322,25 +358,27 @@
     document.getElementById('search-local-prev').style.display = searchMode.innerHTML == search_mode_local_text ? 'inline-block' : 'none' 
     document.getElementById('search-local-next').style.display = searchMode.innerHTML == search_mode_local_text ? 'inline-block' : 'none'
     document.getElementById('search-global-enter').style.display = searchMode.innerHTML == search_mode_global_text ? 'inline-block' : 'none'
-    focusSearchEditBox()
+    if (should_focus_input)
+      focusSearchEditBox()
   }
 
   // Add search control UI
   // Helper to clear marks
-  function addSearchControl(term) {
+  function addSearchControl(term, options={}) {
+    const should_focus_input = options && options.focus_input !== undefined ? options.focus_input : true;
     const controlDiv = document.getElementById('searchcontrol');
     if (!controlDiv) return;
 
     controlDiv.style.display = 'block';
     controlDiv.innerHTML = `
-      <div class="search-inner" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem; width: 100%;">
-        <button id="search-mode" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem;">!!! mode !!!</button>
-        <input id="search-box" type="text" value="" autofocus>
-        <span id="mark-counter">0/0</span>
-        <button id="search-local-prev"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_up_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
-        <button id="search-local-next"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_down_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
-        <button id="search-global-enter" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem;">Search</button>
-        <button id="search-clear" title="Clear search" style="font-weight: bold; font-size: 1.2rem; cursor: pointer;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/close_small_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
+      <div class="search-inner" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.3rem; width: 100%; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;">
+        <button id="search-mode" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem; user-select: none; -webkit-user-select: none;">!!! mode !!!</button>
+        <input id="search-box" type="text" value="" style="user-select: text; -webkit-user-select: text;">
+        <span id="mark-counter" style="user-select: none; -webkit-user-select: none;">0/0</span>
+        <button id="search-local-prev" style="user-select: none; -webkit-user-select: none;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_up_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
+        <button id="search-local-next" style="user-select: none; -webkit-user-select: none;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/keyboard_arrow_down_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
+        <button id="search-global-enter" style="width:auto; padding-left: 0.25rem; padding-right: 0.25rem; user-select: none; -webkit-user-select: none;">Search</button>
+        <button id="search-clear" title="Clear search" style="font-weight: bold; font-size: 1.2rem; cursor: pointer; user-select: none; -webkit-user-select: none;"><img class="buttonsvg" src="/<%=ASSETS_MAGIC%>/close_small_24dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg"></button>
       </div>
     `;
 
@@ -354,8 +392,6 @@
       console.log( newurl )
       window.location.href = newurl;
     });
-
-    focusSearchEditBox();
 
     const searchBox = document.getElementById('search-box');
     searchBox.value = term; // may have quotes in term, e.g. dont set the DOM innerHTML attribute with `${term}`
@@ -385,14 +421,15 @@
 
     // mode toggle
     const searchMode = document.getElementById('search-mode')
-    toggleMode(); // init mode
-    searchMode.addEventListener('click', () => toggleMode() );
+    toggleMode(undefined, { focus_input: should_focus_input }); // init mode
+    searchMode.addEventListener('click', () => toggleMode(undefined, { focus_input: true }) );
   }
 
 
   // start the search
   function onSearch(options = { clear_hash: true }) {
     const clear_hash = options && options.clear_hash !== undefined ? options.clear_hash : true;
+    const should_focus_input = options && options.focus_input !== undefined ? options.focus_input : true;
     // clean up if already up
     if (isSearching()) {
       onCancel( { clear_url: false, clear_hash } );
@@ -405,7 +442,7 @@
     const term = getSearchTermFromURL();
     if (term && term != '')
       markupSearchTerms(term);
-    addSearchControl(term);
+    addSearchControl(term, { focus_input: should_focus_input });
     if (term && term != '')
       updateCounterDisplay();
     if (term && term != '' && !window.location.hash)
@@ -451,8 +488,8 @@
   function applySearchStateFromURL() {
     const term = getSearchTermFromURL();
     if (term && term !== '') {
-      search({ force: true, clear_hash: false });
-      toggleMode(search_mode_local_text);
+      search({ force: true, clear_hash: false, focus_input: false });
+      toggleMode(search_mode_local_text, { focus_input: false });
       if (window.location.hash) {
         requestAnimationFrame(() => setCounterToMarkBeforeHash());
       }
@@ -478,7 +515,7 @@
         currentIndex = 0;
         requestAnimationFrame(() => setCounterToMarkBeforeHash());
       } else {
-        search({ force: true, clear_hash: false });
+        search({ force: true, clear_hash: false, focus_input: false });
       }
     }
   });
