@@ -4,7 +4,8 @@ function youtubeTranscriptCleanup(text) {
   // Remove newline directly after timestamps so sentences remain on one line
   text = text.replace(/([0-9]+:[0-9]+(?::[0-9]+)?)[^\S\r\n]*\n+/g, '$1 ');
 
-  const timestampRegex = /^([0-9]+:[0-9]+(?::[0-9]+)?)/;
+  const timestampRegex = /^((?:\d{1,2}:)?\d{1,2}:\d{2})(?:\s*((?:(?:\d+\s+hours?,\s*)?(?:\d+\s+minutes?,\s*)?\d+\s+seconds?)))?/;
+  //const timestampRegex = /^(([0-9]?[0-9]:[0-9])?[0-9](?::[0-9][0-9])?((([0-9]+ hours?, )?[0-9]+ minutes?, )?[0-9]+ seconds)?)/;
   const lines = text.split(/\r?\n/);
   const segments = [];
   let paragraphParts = [];
