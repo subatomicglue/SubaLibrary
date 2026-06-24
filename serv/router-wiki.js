@@ -84,6 +84,7 @@ function renderPageFrame(options = {}) {
     backButtonImage = undefined,
     pageFloatingActions = ``,
     scrollClass = "scroll-child-wiki",
+    bodyWrapperClass = "page-body-wrapper",
     t = new Date(),
   } = options;
   const assetsMagic = req.staticMode ? "assets" : ASSETS_MAGIC;
@@ -102,6 +103,7 @@ function renderPageFrame(options = {}) {
     PAGE_FLOATING_ACTIONS: pageFloatingActions,
     USER: `${req.user}`,
     SCROLL_CLASS: scrollClass,
+    BODY_WRAPPER_CLASS: bodyWrapperClass,
     WHITESPACE: "normal",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: `${req.baseUrl}/search`,
@@ -540,6 +542,7 @@ function buildWikiGraphPage(req, graphData, options = {}) {
       `<a href="${req.baseUrl}${view_route}">/</a>graph-all` :
       `<a href="${req.baseUrl}${view_route}">/</a><a href="${req.baseUrl}/graph">graph</a>/<a href="${req.baseUrl}${view_route}/${encodeURIComponent(graphData.meta.rootTopic)}">${graphData.meta.rootTopic}</a>`,
     body,
+    bodyWrapperClass: "page-body-wrapper page-body-wrapper--flush",
     backButtonPath: `${req.baseUrl}${view_route}`,
     t: options.t,
   });

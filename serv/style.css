@@ -70,11 +70,24 @@ pre {
 
 .scroll-parent {
   overflow: visible;
+  min-height: 0;
 }
 .scroll-child-browser,
 .scroll-child-wiki {
   height: auto;
   overflow: visible;
+}
+.page-body-wrapper {
+  padding: 0;
+  padding-top: 0;
+  margin-top: 0.5em;
+}
+.page-body-wrapper--flush {
+  margin-top: 0;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .scroll-child-wiki {
   overflow-x: hidden; /* Disable horizontal scrolling */
@@ -314,6 +327,8 @@ h6 .copy-icon {
 .wiki-graph-page {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0.75rem;
   gap: 0.75rem;
   box-sizing: border-box;
@@ -483,7 +498,8 @@ h6 .copy-icon {
 }
 
 .wiki-graph-layout {
-  flex: 0 0 auto;
+  display: flex;
+  flex: 1 1 auto;
   min-height: 0;
   align-items: stretch;
   position: relative;
@@ -498,9 +514,9 @@ h6 .copy-icon {
 .wiki-graph-surface {
   position: relative;
   flex: 1 1 auto;
-  height: calc(100dvh - var(--page-title-height, 0px) - 10rem);
-  min-height: 24rem;
-  max-height: calc(100dvh - var(--page-title-height, 0px) - 4rem);
+  min-height: 0;
+  height: auto;
+  max-height: none;
   overflow: hidden;
 }
 
@@ -1086,7 +1102,7 @@ h6 .copy-icon {
 .wiki-graph-image-viewer {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 160;
   background: rgba(12, 16, 23, 0.88);
   backdrop-filter: blur(0.18rem);
   touch-action: none;
@@ -1098,32 +1114,38 @@ h6 .copy-icon {
 }
 
 .wiki-graph-image-viewer__download {
-  position: absolute;
-  top: max(0.55rem, env(safe-area-inset-top, 0px));
+  position: fixed;
+  top: calc(var(--page-title-height, 0px) + max(0.55rem, env(safe-area-inset-top, 0px)));
   right: max(0.7rem, env(safe-area-inset-right, 0px));
-  min-width: 3.6rem;
+  min-width: 4.5rem;
   min-height: 2.5rem;
-  padding: 0.45rem 0.7rem;
+  padding: 0.45rem 0.35rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.96);
+  color: rgba(255, 255, 255, 0.94);
   font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-weight: 400;
+  letter-spacing: 0.05em;
   line-height: 1;
   text-transform: uppercase;
   text-decoration: none;
   background: transparent;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   cursor: pointer;
-  z-index: 61;
+  pointer-events: auto;
+  z-index: 170;
+  box-shadow: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
   -webkit-tap-highlight-color: transparent;
+  opacity: 1;
 }
 
 .wiki-graph-image-viewer__download:hover {
   color: #ffffff;
+  opacity: 0.82;
 }
 
 .wiki-graph-image-viewer__stage {
@@ -1155,11 +1177,11 @@ h6 .copy-icon {
 
 @media screen and (max-width: 48rem), (pointer: coarse) {
   .wiki-graph-image-viewer__download {
-    top: max(0.35rem, env(safe-area-inset-top, 0px));
+    top: calc(var(--page-title-height, 0px) + max(0.35rem, env(safe-area-inset-top, 0px)));
     right: max(0.4rem, env(safe-area-inset-right, 0px));
-    min-width: 4rem;
+    min-width: 4.5rem;
     min-height: 2.7rem;
-    padding: 0.5rem 0.72rem;
+    padding: 0.5rem 0.3rem;
   }
 
   .wiki-graph-image-viewer__image {
@@ -1251,8 +1273,7 @@ h6 .copy-icon {
   }
 
   .wiki-graph-surface {
-    height: calc(100dvh - var(--page-title-height, 0px) - 12rem);
-    min-height: 20rem;
+    min-height: 0;
   }
 
   .wiki-graph-sidebar {
