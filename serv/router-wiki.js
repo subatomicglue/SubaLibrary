@@ -81,21 +81,23 @@ function renderPageFrame(options = {}) {
     body = `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
     backButtonPath = `/`,
     backButtonVisibility = `visible`,
-    backButtonImage = `/${ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
+    backButtonImage = undefined,
     pageFloatingActions = ``,
     scrollClass = "scroll-child-wiki",
     t = new Date(),
   } = options;
+  const assetsMagic = req.staticMode ? "assets" : ASSETS_MAGIC;
+  const resolvedBackButtonImage = backButtonImage || `/${assetsMagic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`;
 
   return template.file( "template.page.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
     SOCIAL_TITLE: `${TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
-    SOCIAL_IMAGE: firstimage ? `${req.canonicalUrlRoot.replace(/\/+$/,'')}${firstimage}` : `${req.canonicalUrlRoot}/${require('./settings').ASSETS_MAGIC}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
-    // ASSETS_MAGIC,
+    SOCIAL_IMAGE: firstimage ? `${req.canonicalUrlRoot.replace(/\/+$/,'')}${firstimage}` : `${req.canonicalUrlRoot}/${assetsMagic}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
+    ASSETS_MAGIC: assetsMagic,
     BACKBUTTON_PATH: backButtonPath,
     BACKBUTTON_VISIBILITY: backButtonVisibility,//`hidden`,
-    BACKBUTTON_IMAGE: backButtonImage,
+    BACKBUTTON_IMAGE: resolvedBackButtonImage,
     PAGE_TITLE: pageTitle,
     PAGE_FLOATING_ACTIONS: pageFloatingActions,
     USER: `${req.user}`,
@@ -124,7 +126,7 @@ function renderPageFrame(options = {}) {
   });
 <\/script>
 `,
-    SEARCH: `<span id="search" onclick='search()'><img src="/${ASSETS_MAGIC}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
+    SEARCH: `<span id="search" onclick='search()'><img src="/${assetsMagic}/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="[search]" title="[search]"></span>`,
     // REFERRER: getReferrerFromReq( req )
     ROBOTS_PREFIX: req.canonicalHost ? `` : 'NO'
   })
