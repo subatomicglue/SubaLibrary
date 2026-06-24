@@ -63,8 +63,15 @@
           </div>
         </div>
       </aside>
+      <div id="wiki-graph-surface-controls" class="wiki-graph-surface-controls">
+        <button type="button" id="wiki-graph-sidebar-restore" class="wiki-graph-sidebar-restore" aria-label="Expand info panel" hidden>Info</button>
+        <a id="wiki-graph-view-link" class="wiki-graph-surface-action" href="<%=GRAPH_VIEW_HREF%>" aria-label="Open page view" title="Open page view">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </a>
+      </div>
     </div>
-    <button type="button" id="wiki-graph-sidebar-restore" class="wiki-graph-sidebar-restore" aria-label="Expand info panel" hidden>Info</button>
   </div>
   <div id="wiki-graph-image-viewer" class="wiki-graph-image-viewer" hidden aria-hidden="true">
     <a id="wiki-graph-image-download" class="wiki-graph-image-viewer__download" href="#" download>DOWNLOAD</a>
@@ -104,6 +111,8 @@
   const imageStage = document.getElementById("wiki-graph-image-stage");
   const imageFull = document.getElementById("wiki-graph-image-full");
   const imageDownload = document.getElementById("wiki-graph-image-download");
+  const viewLink = document.getElementById("wiki-graph-view-link");
+  const surfaceControls = document.getElementById("wiki-graph-surface-controls");
   const sidebarPanel = document.getElementById("wiki-graph-sidebar");
   const sidebarToggle = document.getElementById("wiki-graph-sidebar-toggle");
   const sidebarRestore = document.getElementById("wiki-graph-sidebar-restore");
@@ -112,7 +121,7 @@
   const layoutSelect = document.getElementById("graph-layout-select");
   const nodeScaleInput = document.getElementById("graph-node-scale");
 
-  if (!svg || !surface || !panLayer || !viewport || !labelOverlay || !clustersLayer || !imageViewer || !imageStage || !imageFull || !imageDownload || !sidebarPanel || !sidebarToggle || !sidebarRestore || !GRAPH_DATA || !Array.isArray(GRAPH_DATA.nodes)) return;
+  if (!svg || !surface || !panLayer || !viewport || !labelOverlay || !clustersLayer || !imageViewer || !imageStage || !imageFull || !imageDownload || !viewLink || !surfaceControls || !sidebarPanel || !sidebarToggle || !sidebarRestore || !GRAPH_DATA || !Array.isArray(GRAPH_DATA.nodes)) return;
 
   const state = {
     tx: 0,
@@ -2566,9 +2575,20 @@
       });
     }
     if (sidebarRestore) {
+      sidebarRestore.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+      });
       sidebarRestore.addEventListener("click", event => {
         event.stopPropagation();
         setSidebarCollapsed(false);
+      });
+    }
+    if (surfaceControls) {
+      surfaceControls.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+      });
+      surfaceControls.addEventListener("click", event => {
+        event.stopPropagation();
       });
     }
     if (sidebarPanel) {
@@ -2773,6 +2793,12 @@
       event.stopPropagation();
     });
     imageDownload.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+    viewLink.addEventListener("pointerdown", event => {
+      event.stopPropagation();
+    });
+    viewLink.addEventListener("click", event => {
       event.stopPropagation();
     });
     imageViewer.addEventListener("pointerdown", event => {

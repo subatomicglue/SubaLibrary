@@ -527,6 +527,9 @@ function buildWikiGraphPage(req, graphData, options = {}) {
     GRAPH_NODE_COUNT: `${graphData.meta.graphNodeCount}`,
     GRAPH_PAGE_COUNT: `${graphData.meta.pageCount}`,
     GRAPH_TOPIC_ROUTE_PREFIX: `${req.baseUrl}/graph/`,
+    GRAPH_VIEW_HREF: graphData.meta.includeAllPages ?
+      `${req.baseUrl}${view_route}` :
+      `${req.baseUrl}${view_route}/${encodeURIComponent(graphData.meta.rootTopic)}`,
     GRAPH_ROOT_TOPIC: graphData.meta.rootTopic,
     GRAPH_INCLUDE_ALL_PAGES: graphData.meta.includeAllPages ? "true" : "false",
     GRAPH_CURRENT_HOP_LIMIT_JSON: currentHopLimitJson,

@@ -641,7 +641,8 @@ h6 .copy-icon {
 }
 
 .wiki-graph-sidebar__toggle,
-.wiki-graph-sidebar-restore {
+.wiki-graph-sidebar-restore,
+.wiki-graph-surface-action {
   min-width: 2.4rem;
   min-height: 2.4rem;
   padding: 0.4rem 0.65rem;
@@ -657,6 +658,7 @@ h6 .copy-icon {
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(37, 51, 74, 0.08);
+  text-decoration: none;
 }
 
 .wiki-graph-sidebar__toggle {
@@ -689,15 +691,49 @@ h6 .copy-icon {
 }
 
 .wiki-graph-sidebar-restore {
-  position: absolute;
-  top: 0.8rem;
-  right: 0.8rem;
-  z-index: 9;
   background: rgba(251, 252, 254, 0.84);
   color: #41526a;
   font-size: 0.74rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.wiki-graph-surface-controls {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.wiki-graph-surface-action {
+  color: #41526a;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-width: 2.7rem;
+  height: 2.4rem;
+  min-height: 2.4rem;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+  box-sizing: border-box;
+}
+
+.wiki-graph-surface-action svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+  overflow: visible;
+}
+
+.wiki-graph-surface-action svg path {
+  stroke: currentColor;
+  stroke-width: 3.1;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .wiki-graph-sidebar-restore[hidden] {
@@ -1314,9 +1350,24 @@ h6 .copy-icon {
   }
 
   .wiki-graph-sidebar-restore {
+    min-width: auto;
+    min-height: auto;
+    padding: 0.04rem 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #506074;
+  }
+
+  .wiki-graph-surface-controls {
     top: 0.55rem;
     right: 0.55rem;
-    min-width: auto;
+    gap: 0.35rem;
+  }
+
+  .wiki-graph-surface-action {
+    min-width: 1.6rem;
+    height: auto;
     min-height: auto;
     padding: 0.04rem 0;
     border-radius: 0;
