@@ -24,7 +24,7 @@ class Req {
     this.canonicalUrl = `${this.protocol}://${this.get('host')}${this.originalUrl}`;
     this.canonicalUrlRoot = `${this.protocol}://${this.get('host')}`;
     this.canonicalUrlDomain = `${this.get('host')}`;
-    this.user = "---"
+    this.user = SETTINGS.USER_ANON_DISPLAY
     this.prodMode = true; // running a production URL.
     this.staticMode = true; // definitely generating static content
   }
