@@ -442,16 +442,55 @@ function graphDataToSafeJson(data) {
   return JSON.stringify(data).replace(/</g, '\\u003c');
 }
 
+const wikiGraphIndexCache = new Map();
+
+function readWikiGraphIndexMaybeCached(options = {}) {
+  const {
+    wikiDir,
+    wikiEndpoint = "wiki",
+    includeImages = true,
+    changelogTopicName = WIKI_CHANGELOG_TOPICNAME,
+    cacheGraphIndex = false,
+  } = options;
+
+  if (!cacheGraphIndex) {
+    return readWikiGraphIndex({
+      wikiDir,
+      wikiEndpoint,
+      includeImages,
+      changelogTopicName,
+    });
+  }
+
+  const cacheKey = JSON.stringify({
+    wikiDir,
+    wikiEndpoint,
+    includeImages,
+    changelogTopicName,
+  });
+  if (!wikiGraphIndexCache.has(cacheKey)) {
+    wikiGraphIndexCache.set(cacheKey, readWikiGraphIndex({
+      wikiDir,
+      wikiEndpoint,
+      includeImages,
+      changelogTopicName,
+    }));
+  }
+  return wikiGraphIndexCache.get(cacheKey);
+}
+
 function buildWikiGraphData(options = {}) {
   const wikiDir = options.wikiDir || WIKI_DIR;
   const wikiEndpoint = (options.wikiEndpoint || "wiki").replace(/^\/+/, "");
   const includeImages = options.includeImages !== false;
   const changelogTopicName = options.changelogTopicName || WIKI_CHANGELOG_TOPICNAME;
-  const graphIndex = readWikiGraphIndex({
+  const cacheGraphIndex = options.cacheGraphIndex === true;
+  const graphIndex = readWikiGraphIndexMaybeCached({
     wikiDir,
     wikiEndpoint,
     includeImages,
     changelogTopicName,
+    cacheGraphIndex,
   });
   return buildSubgraphFromIndex(graphIndex, {
     rootTopic: options.topic || "",

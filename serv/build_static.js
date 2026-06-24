@@ -278,12 +278,13 @@ fs.readdirSync(inputDir).forEach(file => {
         wikiDir: inputDir,
         wikiEndpoint: SETTINGS.WIKI_ENDPOINT,
         includeImages: true,
-      changelogTopicName: SETTINGS.WIKI_CHANGELOG_TOPICNAME,
-      topic,
-      rawHops: 1,
-      includeAllPages: false,
-      t: sourceTimestamp,
-    });
+        changelogTopicName: SETTINGS.WIKI_CHANGELOG_TOPICNAME,
+        cacheGraphIndex: true,
+        topic,
+        rawHops: 1,
+        includeAllPages: false,
+        t: sourceTimestamp,
+      });
       syncer.writeFileIfChanged(fullPath, path.join(graphDir, outputFileName), topicGraphHtml, 'utf-8');
       if (topic === "index") {
         syncer.writeFileIfChanged(fullPath, path.join(graphDir, "index.html"), topicGraphHtml, 'utf-8');
@@ -340,6 +341,7 @@ const allPagesGraphHtml = require(`./router-wiki.js`).buildStaticWikiGraphPage(n
   wikiEndpoint: SETTINGS.WIKI_ENDPOINT,
   includeImages: true,
   changelogTopicName: SETTINGS.WIKI_CHANGELOG_TOPICNAME,
+  cacheGraphIndex: true,
   topic: "",
   rawHops: undefined,
   includeAllPages: true,
