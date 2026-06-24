@@ -99,7 +99,7 @@ pre {
 .wiki-graph-body #page {
   min-height: 100dvh;
   height: 100dvh;
-  padding-top: var(--page-title-height, 0px);
+  padding-top: 0;
   box-sizing: border-box;
 }
 .wiki-graph-body #page-body {
@@ -107,6 +107,8 @@ pre {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  padding-top: var(--page-title-height, 0px) !important;
+  box-sizing: border-box;
   overflow: hidden;
 }
 .wiki-graph-body .scroll-parent,
