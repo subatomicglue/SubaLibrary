@@ -98,6 +98,8 @@
   const GRAPH_LAYOUT_REFERENCE_MIN_SCALE = 1;
   const GRAPH_LAYOUT_REFERENCE_SCALE = (GRAPH_LAYOUT_REFERENCE_MIN_SCALE + GRAPH_MAX_SCALE) / 2;
   const GRAPH_TOOLTIP_DWELL_MS = 1000;
+  const GRAPH_STORAGE_LAYOUT_KEY = "wikiGraph.layout";
+  const GRAPH_STORAGE_NODE_SCALE_KEY = "wikiGraph.nodeScale";
 
   const svg = document.getElementById("wiki-graph-svg");
   const surface = document.getElementById("wiki-graph-surface");
@@ -829,6 +831,50 @@
     return Math.max(0.5, Math.min(1.5, Number(scale) || 1));
   }
 
+  function readStoredLayoutKey() {
+    try {
+      const stored = window.localStorage.getItem(GRAPH_STORAGE_LAYOUT_KEY);
+      return stored && layoutRegistry[stored] ? stored : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function storeLayoutKey(layoutKey) {
+    try {
+      window.localStorage.setItem(GRAPH_STORAGE_LAYOUT_KEY, layoutKey);
+    } catch (error) {
+    }
+  }
+
+  function readStoredNodeScale() {
+    try {
+      const stored = Number(window.localStorage.getItem(GRAPH_STORAGE_NODE_SCALE_KEY));
+      return Number.isFinite(stored) ? clampNodeScreenScale(stored) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function storeNodeScale(nodeScale) {
+    try {
+      window.localStorage.setItem(GRAPH_STORAGE_NODE_SCALE_KEY, `${nodeScale}`);
+    } catch (error) {
+    }
+  }
+
+  function updateNodeScaleUrl(nodeScale) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("scale", `${clampNodeScreenScale(nodeScale).toFixed(2)}`);
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function readNodeScaleFromUrl() {
+    const url = new URL(window.location.href);
+    const requested = Number(url.searchParams.get("scale"));
+    return Number.isFinite(requested) ? clampNodeScreenScale(requested) : null;
+  }
+
   function updateNodeScaleReadout() {
     if (nodeScaleInput) nodeScaleInput.value = `${state.nodeScreenScale}`;
   }
@@ -846,6 +892,8 @@
 
   function setNodeScreenScale(nextScale, { relayout = true } = {}) {
     state.nodeScreenScale = clampNodeScreenScale(nextScale);
+    storeNodeScale(state.nodeScreenScale);
+    updateNodeScaleUrl(state.nodeScreenScale);
     updateNodeScaleReadout();
     applyNodeScreenScaleStyle();
     if (relayout) {
@@ -2531,6 +2579,7 @@
       url.searchParams.set("hops", `${Math.min(GRAPH_CONFIG.maxDetectedHop, Math.max(1, nextHops))}`);
     }
     url.searchParams.set("layout", state.layoutKey);
+    url.searchParams.set("scale", `${state.nodeScreenScale.toFixed(2)}`);
     window.location.assign(url.toString());
   }
 
@@ -2559,6 +2608,7 @@
         const nextKey = layoutSelect.value;
         if (!layoutRegistry[nextKey]) return;
         state.layoutKey = nextKey;
+        storeLayoutKey(nextKey);
         updateLayoutUrl(nextKey);
         applyCurrentLayout({ fit: true });
       });
@@ -3046,8 +3096,18 @@
   }
 
   populateLayoutSelect();
-  state.layoutKey = getLayoutFromUrl();
+  const requestedLayoutKey = getLayoutFromUrl();
+  state.layoutKey = requestedLayoutKey !== "radial" ? requestedLayoutKey : (readStoredLayoutKey() || requestedLayoutKey);
   if (layoutSelect) layoutSelect.value = state.layoutKey;
+  const requestedNodeScale = readNodeScaleFromUrl();
+  if (requestedNodeScale !== null) {
+    state.nodeScreenScale = requestedNodeScale;
+  } else {
+    const storedNodeScale = readStoredNodeScale();
+    if (storedNodeScale !== null) {
+      state.nodeScreenScale = storedNodeScale;
+    }
+  }
   updateNodeScaleReadout();
   applyNodeScreenScaleStyle();
   resize();
