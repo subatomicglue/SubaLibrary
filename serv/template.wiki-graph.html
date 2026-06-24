@@ -169,6 +169,7 @@
 
   const imageViewerState = {
     visible: false,
+    returnFocusEl: null,
     scale: 1,
     tx: 0,
     ty: 0,
@@ -974,6 +975,7 @@
   function openImageViewer(node) {
     if (!node || node.type !== "image" || !node.imageUrl) return;
     imageViewerState.visible = true;
+    imageViewerState.returnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     imageViewerState.pointers.clear();
     imageViewerState.pointerMode = null;
     imageViewerState.pointerMoved = false;
@@ -983,6 +985,7 @@
     imageDownload.download = `${(node.label || "image").replace(/[^\w.-]+/g, "_") || "image"}`;
     resetImageViewerTransform();
     imageViewer.hidden = false;
+    imageViewer.removeAttribute("inert");
     imageViewer.setAttribute("aria-hidden", "false");
   }
 
@@ -991,12 +994,21 @@
     imageViewerState.pointers.clear();
     imageViewerState.pointerMode = null;
     imageViewerState.pointerMoved = false;
+    const activeEl = document.activeElement;
+    if (activeEl instanceof HTMLElement && imageViewer.contains(activeEl)) {
+      activeEl.blur();
+    }
+    imageViewer.setAttribute("inert", "");
     imageViewer.hidden = true;
     imageViewer.setAttribute("aria-hidden", "true");
     imageFull.removeAttribute("src");
     imageFull.alt = "";
     imageDownload.href = "#";
     imageDownload.download = "";
+    if (imageViewerState.returnFocusEl instanceof HTMLElement && document.contains(imageViewerState.returnFocusEl)) {
+      imageViewerState.returnFocusEl.focus({ preventScroll: true });
+    }
+    imageViewerState.returnFocusEl = null;
   }
 
   function stopViewportAnimation() {
@@ -2983,6 +2995,16 @@
     });
   }
 
+  function bindSafariGestureLock() {
+    const preventSafariViewportGesture = event => {
+      event.preventDefault();
+    };
+
+    ["gesturestart", "gesturechange", "gestureend"].forEach(type => {
+      document.addEventListener(type, preventSafariViewportGesture, { passive: false });
+    });
+  }
+
   function bindKeyboard() {
     document.addEventListener("keydown", event => {
       if (!imageViewer.hidden && event.key === "Escape") {
@@ -3034,6 +3056,7 @@
   setSidebarCollapsed(true);
   bindPointerEvents();
   bindImageViewerEvents();
+  bindSafariGestureLock();
   bindNodeInteractions();
   bindKeyboard();
   applyCurrentLayout({ fit: true, focusRoot: true });
