@@ -512,6 +512,35 @@ function buildStaticWikiGraphPage(req, options = {}) {
   return result.html;
 }
 
+function buildWikiViewPage(req, options = {}) {
+  const {
+    topic = "index",
+    markdown = "",
+    t,
+  } = options;
+  const graphHref = `${req.baseUrl}/graph/${encodeURIComponent(topic)}?hops=1`;
+  const pageFloatingActions = `
+    <a class="page-floating-action page-floating-action--graph" href="${graphHref}" title="Open graph for ${escapeHtml(topic)}" aria-label="Open graph for ${escapeHtml(topic)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M8 8.9 15.1 12m-7.2 2.2 7-3.1" />
+        <circle cx="6" cy="7" r="2.4" />
+        <circle cx="18" cy="12" r="2.4" />
+        <circle cx="6" cy="17" r="2.4" />
+      </svg>
+    </a>
+  `;
+  return renderPageFrame({
+    content: markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
+      userdata: USERS_WHITELIST,
+    }),
+    topic,
+    req,
+    firstimage: extractFirstImage(markdown, 10),
+    pageFloatingActions,
+    t,
+  });
+}
+
 function sendWikiGraphPage(req, res, options = {}) {
   const {
     topic = "",
@@ -598,26 +627,7 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   }
 
   let markdown = fs.readFileSync( filePath, "utf8" );
-  const graphHref = `${req.baseUrl}/graph/${encodeURIComponent(topic)}?hops=1`;
-  const pageFloatingActions = `
-    <a class="page-floating-action page-floating-action--graph" href="${graphHref}" title="Open graph for ${escapeHtml(topic)}" aria-label="Open graph for ${escapeHtml(topic)}">
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M8 8.9 15.1 12m-7.2 2.2 7-3.1" />
-        <circle cx="6" cy="7" r="2.4" />
-        <circle cx="18" cy="12" r="2.4" />
-        <circle cx="6" cy="17" r="2.4" />
-      </svg>
-    </a>
-  `;
-  const html = renderPageFrame({
-    content: markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
-      userdata: USERS_WHITELIST,
-    }),
-    topic,
-    req,
-    firstimage: extractFirstImage( markdown, 10 ),
-    pageFloatingActions,
-  });
+  const html = buildWikiViewPage(req, { topic, markdown });
   res.send( html );
 });
 
@@ -1510,5 +1520,6 @@ module.exports.init = init;
 module.exports.getSitemapEntries = getSitemapEntries;
 module.exports.buildPageSearch = buildPageSearch;
 module.exports.buildPageYoutubeSearch = buildPageYoutubeSearch;
+module.exports.buildWikiViewPage = buildWikiViewPage;
 module.exports.buildWikiGraphPage = buildWikiGraphPage;
 module.exports.buildStaticWikiGraphPage = buildStaticWikiGraphPage;
