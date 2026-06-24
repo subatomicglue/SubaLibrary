@@ -20,12 +20,15 @@ METADATA_FOR_HTML="--metadata-directive REPLACE --metadata x-amz-meta-referrer-p
 cd ../serv && ./build_static.js; cd -
 aws s3 sync ../serv/build/root/ "s3://$BUCKET_NAME/" --cache-control 'no-cache' --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/wiki/view/ "s3://$BUCKET_NAME/wiki/view/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 sync ../serv/build/wiki/graph/ "s3://$BUCKET_NAME/wiki/graph/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/wiki/markdown/ "s3://$BUCKET_NAME/wiki/markdown/" --cache-control 'no-cache' --content-type 'text/plain; charset=utf-8' $METADATA_FOR_HTML
 aws s3 sync ../serv/build/tools/ "s3://$BUCKET_NAME/tools/" --cache-control 'no-cache' --exclude "*.html" --exclude "*.png" --exclude "*.torrent" --exclude "*.sh" --exclude "*.jpg" --exclude "*.svg" --exclude "*.ico" --content-type 'text/html' $METADATA_FOR_HTML
 
 # weird s3 quirk:  /wiki doesn't point to /wiki/index.html, so have to write that index into /wiki as s3 file object
 aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/root/wiki/view/index.html "s3://$BUCKET_NAME/wiki/view" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/wiki/graph/index.html "s3://$BUCKET_NAME/wiki/graph" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
+aws s3 cp ../serv/build/root/wiki/graph-all/index.html "s3://$BUCKET_NAME/wiki/graph-all" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/root/tools/index.html "s3://$BUCKET_NAME/tools" --cache-control 'no-cache'  --content-type 'text/html' $METADATA_FOR_HTML
 aws s3 cp ../serv/build/assets/favicon.ico "s3://$BUCKET_NAME/" --cache-control 'max-age=31536000'  --content-type 'image/x-icon' $METADATA_FOR_HTML
 

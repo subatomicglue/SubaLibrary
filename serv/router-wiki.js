@@ -7,6 +7,7 @@ const { sanitize, sanitizeFloat, sanitizeInt, sanitizeTopic } = sanitizer;
 const template = require('./template');
 const { markdownToHtml, htmlToMarkdown, extractFirstImage } = require('./markdown')
 const { init: markdownTests } = require('./markdown-tests')
+const { readWikiGraphIndex, buildSubgraphFromIndex } = require('./wiki-graph');
 markdownTests();
 const { guardForProdHostOnly, redirectAnonUsersToStaticSite } = require("./router-auth");
 const { userLogDisplay, getReferrerFromReq } = require("./common")
@@ -70,23 +71,39 @@ function isLoggedIn( req ) {
 
 
 
-function wrapWithFrame(content, topic, req, firstimage = undefined, t=new Date()) {
+function renderPageFrame(options = {}) {
+  const {
+    content,
+    topic,
+    req,
+    firstimage = undefined,
+    pageTitle = `<a href="${req.baseUrl}${view_route}">/</a>${topic} ${isLoggedIn( req ) ? `(<a href="${req.baseUrl}${edit_route}/${topic}">edit</a>)`:``}`,
+    body = `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    backButtonPath = `/`,
+    backButtonVisibility = `visible`,
+    backButtonImage = `/${ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
+    pageFloatingActions = ``,
+    scrollClass = "scroll-child-wiki",
+    t = new Date(),
+  } = options;
+
   return template.file( "template.page.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
     TITLE: `${TITLE}`,
     SOCIAL_TITLE: `${TITLE}${(topic != "index") ? ` - ${topic}` : ""}`,
     SOCIAL_IMAGE: firstimage ? `${req.canonicalUrlRoot.replace(/\/+$/,'')}${firstimage}` : `${req.canonicalUrlRoot}/${require('./settings').ASSETS_MAGIC}/${require('./settings').SOCIAL_IMAGE}`, // Default social image path
     // ASSETS_MAGIC,
-    BACKBUTTON_PATH: `/`,
-    BACKBUTTON_VISIBILITY: `visible`,//`hidden`,
-    BACKBUTTON_IMAGE: `/${ASSETS_MAGIC}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`,
-    PAGE_TITLE: `<a href="${req.baseUrl}${view_route}">/</a>${topic} ${isLoggedIn( req ) ? `(<a href="${req.baseUrl}${edit_route}/${topic}">edit</a>)`:``}`,
+    BACKBUTTON_PATH: backButtonPath,
+    BACKBUTTON_VISIBILITY: backButtonVisibility,//`hidden`,
+    BACKBUTTON_IMAGE: backButtonImage,
+    PAGE_TITLE: pageTitle,
+    PAGE_FLOATING_ACTIONS: pageFloatingActions,
     USER: `${req.user}`,
-    SCROLL_CLASS: "scroll-child-wiki",
+    SCROLL_CLASS: scrollClass,
     WHITESPACE: "normal",
     REQ_BASEURL: req.baseUrl,
     SEARCH_URL: `${req.baseUrl}/search`,
-    BODY: `<%include "template.page-search.html"%><div id="the-scroll-page" style="max-width: 60rem; margin-left: auto; margin-right: auto; padding-left: 2em;padding-right: 2em;padding-top: 1em;padding-bottom: 1em;">${content}</div>`,
+    BODY: body,
     USER_LOGOUT: (!isLoggedIn( req )) ?
 `<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` :
 `<a id="signin-link" title="[signout]" alt="[signout]" style="color: grey;" href="/logout">&nbsp;<span id="username-span" style="white-space: nowrap; overflow: hidden; display: inline-block; max-width: 11ch; position: relative; vertical-align:bottom">${req.user}<span id="gradient-span" style="content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2rem; background: linear-gradient(to right, transparent, #333);"></span></span></a>
@@ -111,6 +128,10 @@ function wrapWithFrame(content, topic, req, firstimage = undefined, t=new Date()
     // REFERRER: getReferrerFromReq( req )
     ROBOTS_PREFIX: req.canonicalHost ? `` : 'NO'
   })
+}
+
+function wrapWithFrame(content, topic, req, firstimage = undefined, t=new Date()) {
+  return renderPageFrame({ content, topic, req, firstimage, t });
 }
 
 function readdirSync(dirPath, regex) {
@@ -417,6 +438,129 @@ function findNextVersion( wiki_dir, topic ) {
   return version
 }
 
+function graphDataToSafeJson(data) {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+function buildWikiGraphData(options = {}) {
+  const wikiDir = options.wikiDir || WIKI_DIR;
+  const wikiEndpoint = (options.wikiEndpoint || "wiki").replace(/^\/+/, "");
+  const includeImages = options.includeImages !== false;
+  const changelogTopicName = options.changelogTopicName || WIKI_CHANGELOG_TOPICNAME;
+  const graphIndex = readWikiGraphIndex({
+    wikiDir,
+    wikiEndpoint,
+    includeImages,
+    changelogTopicName,
+  });
+  return buildSubgraphFromIndex(graphIndex, {
+    rootTopic: options.topic || "",
+    rawHops: options.rawHops,
+    wikiEndpoint,
+    includeImages,
+    includeAllPages: !!options.includeAllPages,
+  });
+}
+
+function buildWikiGraphPageResult(req, options = {}) {
+  const graphData = buildWikiGraphData(options);
+  if (graphData.error) {
+    return {
+      error: graphData.error,
+      status: graphData.status || 404,
+    };
+  }
+  return {
+    graphData,
+    html: buildWikiGraphPage(req, graphData, options),
+  };
+}
+
+function buildWikiGraphPage(req, graphData, options = {}) {
+  const graphTopic = graphData.meta.includeAllPages ? "graph-all" : `graph/${graphData.meta.rootTopic}`;
+  const currentHopLimitJson = graphData.meta.hopLimit === null ? "null" : JSON.stringify(graphData.meta.hopLimit);
+  const body = template.file("template.wiki-graph.html", {
+    GRAPH_DATA_JSON: graphDataToSafeJson(graphData),
+    GRAPH_NODE_COUNT: `${graphData.meta.graphNodeCount}`,
+    GRAPH_PAGE_COUNT: `${graphData.meta.pageCount}`,
+    GRAPH_TOPIC_ROUTE_PREFIX: `${req.baseUrl}/graph/`,
+    GRAPH_ROOT_TOPIC: graphData.meta.rootTopic,
+    GRAPH_INCLUDE_ALL_PAGES: graphData.meta.includeAllPages ? "true" : "false",
+    GRAPH_CURRENT_HOP_LIMIT_JSON: currentHopLimitJson,
+    GRAPH_IS_FULL: graphData.meta.isFull ? "true" : "false",
+    GRAPH_MAX_DETECTED_HOP: `${graphData.meta.maxDetectedHop || 1}`,
+  });
+
+  return renderPageFrame({
+    content: body,
+    topic: graphTopic,
+    req,
+    pageTitle: graphData.meta.includeAllPages ?
+      `<a href="${req.baseUrl}${view_route}">/</a>graph-all` :
+      `<a href="${req.baseUrl}${view_route}">/</a><a href="${req.baseUrl}/graph">graph</a>/<a href="${req.baseUrl}${view_route}/${encodeURIComponent(graphData.meta.rootTopic)}">${graphData.meta.rootTopic}</a>`,
+    body,
+    backButtonPath: `${req.baseUrl}${view_route}`,
+    t: options.t,
+  });
+}
+
+function buildStaticWikiGraphPage(req, options = {}) {
+  const result = buildWikiGraphPageResult(req, options);
+  if (result.error) {
+    throw new Error(result.error);
+  }
+  return result.html;
+}
+
+function sendWikiGraphPage(req, res, options = {}) {
+  const {
+    topic = "",
+    includeAllPages = false,
+  } = options;
+  const result = buildWikiGraphPageResult(req, {
+    wikiDir: WIKI_DIR,
+    wikiEndpoint: req.baseUrl.replace(/^\/+/, ""),
+    includeImages: true,
+    changelogTopicName: WIKI_CHANGELOG_TOPICNAME,
+    topic,
+    rawHops: req.query.hops !== undefined ? req.query.hops : (!includeAllPages && topic ? 1 : undefined),
+    includeAllPages,
+  });
+
+  if (result.error) {
+    return res.status(result.status).send(result.error);
+  }
+
+  logger.info(`[wiki] ${userLogDisplay(req)} ${includeAllPages ? "/graph-all" : `/graph/${topic}`}${req.query.hops ? ` hops:${req.query.hops}` : ""}`);
+  return res.send(result.html);
+}
+
+router.get(/^\/graph$/, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
+  return sendWikiGraphPage(req, res, {
+    topic: "index",
+    includeAllPages: false,
+  });
+});
+
+router.get(/^\/graph\/$/, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
+  return res.redirect(`${req.baseUrl}/graph-all${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
+});
+
+router.get(/^\/graph-all\/?$/, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
+  return sendWikiGraphPage(req, res, {
+    topic: "",
+    includeAllPages: true,
+  });
+});
+
+router.get(`/graph/:topic`, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
+  const topic = sanitizeTopic(decodeURIComponent(req.params.topic || ""));
+  return sendWikiGraphPage(req, res, {
+    topic,
+    includeAllPages: false,
+  });
+});
+
 // VIEW
 // GET ${req.baseUrl}${view_route}/:topic?/:version?  (get the page view as HTML)
 router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOSTNAME_FOR_EDITS), (req, res) => {
@@ -454,9 +598,26 @@ router.get(`${view_route}/:topic?/:version?`, redirectAnonUsersToStaticSite(HOST
   }
 
   let markdown = fs.readFileSync( filePath, "utf8" );
-  const html = wrapWithFrame( markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
-    userdata: USERS_WHITELIST,
-  }), topic, req, extractFirstImage( markdown, 10 ) );
+  const graphHref = `${req.baseUrl}/graph/${encodeURIComponent(topic)}?hops=1`;
+  const pageFloatingActions = `
+    <a class="page-floating-action page-floating-action--graph" href="${graphHref}" title="Open graph for ${escapeHtml(topic)}" aria-label="Open graph for ${escapeHtml(topic)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M8 8.9 15.1 12m-7.2 2.2 7-3.1" />
+        <circle cx="6" cy="7" r="2.4" />
+        <circle cx="18" cy="12" r="2.4" />
+        <circle cx="6" cy="17" r="2.4" />
+      </svg>
+    </a>
+  `;
+  const html = renderPageFrame({
+    content: markdownToHtml(markdown, `${req.baseUrl}${view_route}`, {
+      userdata: USERS_WHITELIST,
+    }),
+    topic,
+    req,
+    firstimage: extractFirstImage( markdown, 10 ),
+    pageFloatingActions,
+  });
   res.send( html );
 });
 
@@ -1349,3 +1510,5 @@ module.exports.init = init;
 module.exports.getSitemapEntries = getSitemapEntries;
 module.exports.buildPageSearch = buildPageSearch;
 module.exports.buildPageYoutubeSearch = buildPageYoutubeSearch;
+module.exports.buildWikiGraphPage = buildWikiGraphPage;
+module.exports.buildStaticWikiGraphPage = buildStaticWikiGraphPage;

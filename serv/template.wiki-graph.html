@@ -1,0 +1,3019 @@
+<%include "template.page-search.html"%>
+  <div class="wiki-graph-page">
+  <div class="wiki-graph-toolbar">
+    <div class="wiki-graph-toolbar__row wiki-graph-toolbar__row--primary">
+      <div class="wiki-graph-toolbar__group">
+        <button type="button" id="graph-hop-dec" class="wiki-graph-button" aria-label="Decrease hop count">&lt;-</button>
+        <span id="graph-hop-label" class="wiki-graph-chip"></span>
+        <button type="button" id="graph-hop-inc" class="wiki-graph-button" aria-label="Increase hop count">-&gt;</button>
+      </div>
+      <div class="wiki-graph-toolbar__layout">
+        <select id="graph-layout-select" class="wiki-graph-select wiki-graph-select--toolbar" aria-label="Graph arrangement"></select>
+      </div>
+      <div class="wiki-graph-toolbar__group">
+        <button type="button" id="graph-layout-apply" class="wiki-graph-button" aria-label="Pack graph layout">Pack</button>
+        <button type="button" id="graph-zoom-fit" class="wiki-graph-button">Fit</button>
+      </div>
+    </div>
+    <div class="wiki-graph-toolbar__row wiki-graph-toolbar__row--secondary">
+      <div class="wiki-graph-toolbar__scale">
+        <label class="wiki-graph-settings__label wiki-graph-settings__label--inline" for="graph-node-scale">Scale</label>
+        <input id="graph-node-scale" class="wiki-graph-range" type="range" min="0.5" max="1.5" step="0.01" value="1" aria-label="Scale node size in screen space">
+      </div>
+      <div class="wiki-graph-toolbar__stats">
+        <span class="wiki-graph-chip"><%=GRAPH_NODE_COUNT%> children</span>
+        <span class="wiki-graph-chip"><%=GRAPH_PAGE_COUNT%> pages</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wiki-graph-layout">
+    <div class="wiki-graph-surface" id="wiki-graph-surface">
+      <svg id="wiki-graph-svg" class="wiki-graph-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-label="Wiki graph">
+        <g id="wiki-graph-pan">
+          <g id="wiki-graph-viewport">
+            <g id="wiki-graph-links"></g>
+            <g id="wiki-graph-nodes"></g>
+            <g id="wiki-graph-clusters"></g>
+          </g>
+        </g>
+      </svg>
+      <div id="wiki-graph-label-overlay" class="wiki-graph-label-overlay"></div>
+      <aside id="wiki-graph-sidebar" class="wiki-graph-sidebar">
+        <div class="wiki-graph-sidebar__header">
+          <span class="wiki-graph-sidebar__title">Info</span>
+          <button type="button" id="wiki-graph-sidebar-toggle" class="wiki-graph-sidebar__toggle" aria-label="Collapse info panel" aria-expanded="true">−</button>
+        </div>
+        <div class="wiki-graph-sidebar__body">
+          <div class="wiki-graph-sidebar__section">
+            <h3>Selected</h3>
+            <div id="wiki-graph-selected" class="wiki-graph-selected">Tap or click a node to open it.</div>
+          </div>
+          <div class="wiki-graph-sidebar__section">
+            <h3>Controls</h3>
+            <p>Drag background to pan. Wheel or pinch to zoom. Arrow keys pan. <tt>+</tt>, <tt>-</tt>, and <tt>0</tt> zoom/reset.</p>
+          </div>
+          <div class="wiki-graph-sidebar__section">
+            <h3>Legend</h3>
+            <div class="wiki-graph-legend">
+              <span class="wiki-graph-legend__item"><span class="wiki-graph-legend__dot wiki-graph-legend__dot--page"></span>Wiki page</span>
+              <span class="wiki-graph-legend__item"><span class="wiki-graph-legend__dot wiki-graph-legend__dot--ghost"></span>Dangling topic</span>
+              <span class="wiki-graph-legend__item"><span class="wiki-graph-legend__dot wiki-graph-legend__dot--image"></span>Local image</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <button type="button" id="wiki-graph-sidebar-restore" class="wiki-graph-sidebar-restore" aria-label="Expand info panel" hidden>Info</button>
+  </div>
+  <div id="wiki-graph-image-viewer" class="wiki-graph-image-viewer" hidden aria-hidden="true">
+    <a id="wiki-graph-image-download" class="wiki-graph-image-viewer__download" href="#" download>DOWNLOAD</a>
+    <div id="wiki-graph-image-stage" class="wiki-graph-image-viewer__stage">
+      <img id="wiki-graph-image-full" class="wiki-graph-image-viewer__image" alt="">
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const GRAPH_DATA = <%=GRAPH_DATA_JSON%>;
+  const GRAPH_CONFIG = {
+    topicRoutePrefix: "<%=GRAPH_TOPIC_ROUTE_PREFIX%>",
+    rootTopic: "<%=GRAPH_ROOT_TOPIC%>",
+    includeAllPages: <%=GRAPH_INCLUDE_ALL_PAGES%>,
+    currentHopLimit: <%=GRAPH_CURRENT_HOP_LIMIT_JSON%>,
+    isFull: <%=GRAPH_IS_FULL%>,
+    maxDetectedHop: Math.max(1, Number(<%=GRAPH_MAX_DETECTED_HOP%>) || 1),
+  };
+  const GRAPH_MIN_SCALE = 0.08;
+  const GRAPH_MAX_SCALE = 16;
+  const GRAPH_LAYOUT_REFERENCE_MIN_SCALE = 1;
+  const GRAPH_LAYOUT_REFERENCE_SCALE = (GRAPH_LAYOUT_REFERENCE_MIN_SCALE + GRAPH_MAX_SCALE) / 2;
+  const GRAPH_TOOLTIP_DWELL_MS = 1000;
+
+  const svg = document.getElementById("wiki-graph-svg");
+  const surface = document.getElementById("wiki-graph-surface");
+  const panLayer = document.getElementById("wiki-graph-pan");
+  const viewport = document.getElementById("wiki-graph-viewport");
+  const linksLayer = document.getElementById("wiki-graph-links");
+  const nodesLayer = document.getElementById("wiki-graph-nodes");
+  const clustersLayer = document.getElementById("wiki-graph-clusters");
+  const labelOverlay = document.getElementById("wiki-graph-label-overlay");
+  const imageViewer = document.getElementById("wiki-graph-image-viewer");
+  const imageStage = document.getElementById("wiki-graph-image-stage");
+  const imageFull = document.getElementById("wiki-graph-image-full");
+  const imageDownload = document.getElementById("wiki-graph-image-download");
+  const sidebarPanel = document.getElementById("wiki-graph-sidebar");
+  const sidebarToggle = document.getElementById("wiki-graph-sidebar-toggle");
+  const sidebarRestore = document.getElementById("wiki-graph-sidebar-restore");
+  const selectedPanel = document.getElementById("wiki-graph-selected");
+  const hopLabel = document.getElementById("graph-hop-label");
+  const layoutSelect = document.getElementById("graph-layout-select");
+  const nodeScaleInput = document.getElementById("graph-node-scale");
+
+  if (!svg || !surface || !panLayer || !viewport || !labelOverlay || !clustersLayer || !imageViewer || !imageStage || !imageFull || !imageDownload || !sidebarPanel || !sidebarToggle || !sidebarRestore || !GRAPH_DATA || !Array.isArray(GRAPH_DATA.nodes)) return;
+
+  const state = {
+    tx: 0,
+    ty: 0,
+    scale: 1,
+    targetTx: 0,
+    targetTy: 0,
+    targetScale: 1,
+    zoomAnimationFrame: 0,
+    zoomAnimationToken: 0,
+    width: 1,
+    height: 1,
+    pointers: new Map(),
+    pointerMode: null,
+    dragNodeId: "",
+    dragMoved: false,
+    graphJumpHref: "",
+    dragStartClientX: 0,
+    dragStartClientY: 0,
+    dragStartNodeX: 0,
+    dragStartNodeY: 0,
+    suppressNodeClickUntil: 0,
+    panStartTx: 0,
+    panStartTy: 0,
+    panAnchor: null,
+    pinchStartDistance: 0,
+    pinchStartScale: 1,
+    pinchStartTx: 0,
+    pinchStartTy: 0,
+    pinchStartMidpoint: null,
+    selectedNodeId: "",
+    layoutKey: "radial",
+    layoutMeta: {},
+    nodeScreenScale: 1,
+    hoverTooltipNodeId: "",
+    hoverTooltipTimer: 0,
+    tooltipPinned: false,
+    longPressNodeId: "",
+    longPressPointerId: 0,
+    longPressStartX: 0,
+    longPressStartY: 0,
+    longPressActivated: false,
+    sidebarCollapsed: true,
+  };
+
+  const imageViewerState = {
+    visible: false,
+    scale: 1,
+    tx: 0,
+    ty: 0,
+    minScale: 1,
+    maxScale: 5,
+    pointers: new Map(),
+    pointerMode: null,
+    pointerMoved: false,
+    panStartTx: 0,
+    panStartTy: 0,
+    panAnchorX: 0,
+    panAnchorY: 0,
+    pinchStartScale: 1,
+    pinchStartTx: 0,
+    pinchStartTy: 0,
+    pinchStartDistance: 0,
+    pinchStartMidpointX: 0,
+    pinchStartMidpointY: 0,
+    pinchImageAX: 0,
+    pinchImageAY: 0,
+    pinchImageBX: 0,
+    pinchImageBY: 0,
+  };
+
+  let overlayRenderScheduled = false;
+
+  const IMAGE_CARD_TARGET = {
+    width: 176,
+    height: 132,
+    minWidth: 124,
+    minHeight: 92,
+  };
+
+  const nodeMap = new Map();
+  GRAPH_DATA.nodes.forEach((node, index) => {
+    const boxSize = node.type === "image" ? 26 : node.type === "ghost" ? 28 : node.isRoot ? 34 : 30;
+    const spacing = node.type === "image" ? 56 : node.type === "ghost" ? 62 : 68;
+    node.index = index;
+    node.boxSize = boxSize;
+    node.baseCollisionWidth = boxSize + spacing;
+    node.baseCollisionHeight = boxSize + spacing;
+    node.collisionWidth = node.baseCollisionWidth;
+    node.collisionHeight = node.baseCollisionHeight;
+    node.mass = 1 + Math.min(3, Number(node.degree || 0) * 0.07);
+    node.card = null;
+    node.componentIndex = -1;
+    node.depth = Number.isFinite(node.depth) ? node.depth : 0;
+    node.sccIndex = -1;
+    node.sccSize = 1;
+    node.x = 0;
+    node.y = 0;
+    nodeMap.set(node.id, node);
+  });
+
+  const links = GRAPH_DATA.links.map((link, index) => ({
+    ...link,
+    index,
+    sourceNode: nodeMap.get(link.source),
+    targetNode: nodeMap.get(link.target),
+    intraScc: false,
+  })).filter(link => link.sourceNode && link.targetNode);
+
+  const directedOut = new Map();
+  const directedIn = new Map();
+  const undirected = new Map();
+  nodeMap.forEach((node, id) => {
+    directedOut.set(id, []);
+    directedIn.set(id, []);
+    undirected.set(id, new Set());
+  });
+  links.forEach(link => {
+    directedOut.get(link.source).push(link.target);
+    directedIn.get(link.target).push(link.source);
+    undirected.get(link.source).add(link.target);
+    undirected.get(link.target).add(link.source);
+  });
+
+  function buildComponents() {
+    const seen = new Set();
+    const components = [];
+    GRAPH_DATA.nodes.forEach(node => {
+      if (seen.has(node.id)) return;
+      const queue = [node.id];
+      const ids = [];
+      seen.add(node.id);
+      while (queue.length) {
+        const current = queue.shift();
+        ids.push(current);
+        (undirected.get(current) || []).forEach(next => {
+          if (seen.has(next)) return;
+          seen.add(next);
+          queue.push(next);
+        });
+      }
+      const componentNodes = ids.map(id => nodeMap.get(id)).filter(Boolean);
+      const componentIndex = components.length;
+      componentNodes.forEach(node => { node.componentIndex = componentIndex; });
+      components.push({
+        index: componentIndex,
+        nodeIds: ids,
+        nodes: componentNodes,
+      });
+    });
+    return components.sort((a, b) => b.nodes.length - a.nodes.length);
+  }
+
+  const components = buildComponents();
+
+  function createSvgNode(tagName, attrs = {}) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tagName);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+    return el;
+  }
+
+  function estimateWrapChars(node) {
+    const titleLength = (node.label || "").length;
+    if (titleLength <= 18) return 18;
+    if (titleLength <= 34) return 16;
+    if (titleLength <= 52) return 20;
+    if (titleLength <= 84) return 24;
+    return 28;
+  }
+
+  function wrapTitleToLines(title, maxChars) {
+    const words = `${title || ""}`.split(/\s+/).filter(Boolean);
+    if (!words.length) return [title || ""];
+    const lines = [];
+    let current = "";
+
+    function pushChunk(chunk) {
+      if (!chunk) return;
+      if (chunk.length <= maxChars) {
+        lines.push(chunk);
+        return;
+      }
+      let rest = chunk;
+      while (rest.length > maxChars) {
+        let splitIndex = rest.lastIndexOf("-", maxChars);
+        if (splitIndex < Math.floor(maxChars * 0.55)) splitIndex = maxChars;
+        lines.push(rest.slice(0, splitIndex).trim());
+        rest = rest.slice(splitIndex).trim();
+      }
+      if (rest) lines.push(rest);
+    }
+
+    words.forEach(word => {
+      const candidate = current ? `${current} ${word}` : word;
+      if (candidate.length <= maxChars) {
+        current = candidate;
+        return;
+      }
+      if (current) lines.push(current);
+      current = "";
+      if (word.length > maxChars) {
+        pushChunk(word);
+      } else {
+        current = word;
+      }
+    });
+    if (current) lines.push(current);
+    return lines.slice(0, 6);
+  }
+
+  function buildCardLayout(node) {
+    if (node.type === "image") {
+      const aspect = Number(node.imageAspect || (4 / 3)) || (4 / 3);
+      let width = IMAGE_CARD_TARGET.width;
+      let height = Math.round(width / aspect);
+      if (height > IMAGE_CARD_TARGET.height) {
+        height = IMAGE_CARD_TARGET.height;
+        width = Math.round(height * aspect);
+      }
+      width = Math.max(IMAGE_CARD_TARGET.minWidth, width);
+      height = Math.max(IMAGE_CARD_TARGET.minHeight, height);
+      return { lines: [], width, height, isImage: true };
+    }
+    const maxChars = estimateWrapChars(node);
+    const lines = wrapTitleToLines(node.label || "", maxChars);
+    const longest = lines.reduce((max, line) => Math.max(max, line.length), 0);
+    const textWidth = Math.max(node.boxSize + 10, Math.min(280, Math.round((longest * 7.2) + 18)));
+    const textHeight = Math.max(node.boxSize + 8, Math.round((lines.length * 16) + 12));
+    if (node.type === "page" && node.heroImageUrl) {
+      const aspect = Number(node.heroImageAspect || (16 / 9)) || (16 / 9);
+      const previewWidth = Math.max(148, Math.min(220, Math.max(textWidth, 176)));
+      let previewHeight = Math.round(previewWidth / aspect);
+      previewHeight = Math.max(78, Math.min(132, previewHeight));
+      return {
+        lines,
+        width: previewWidth,
+        height: previewHeight + textHeight + 10,
+        isImage: false,
+        hasPreview: true,
+        previewWidth,
+        previewHeight,
+      };
+    }
+    const width = textWidth;
+    const height = textHeight;
+    return { lines, width, height, isImage: false };
+  }
+
+  function applyCardLayout(node, element, cardLayout) {
+    node.card = cardLayout;
+    node.shapeSizeCache = {};
+    node.collisionWidth = Math.max(node.baseCollisionWidth, Math.round(cardLayout.width + 20));
+    node.collisionHeight = Math.max(node.baseCollisionHeight, Math.round(cardLayout.height + 28));
+    element.style.width = `${cardLayout.width}px`;
+    element.style.minHeight = `${cardLayout.height}px`;
+    element.classList.toggle("has-preview", !!cardLayout.hasPreview);
+    if (cardLayout.hasPreview && Number.isFinite(cardLayout.previewHeight)) {
+      element.style.setProperty("--wiki-graph-preview-bottom", `${Math.round(cardLayout.previewHeight + 2)}px`);
+    } else {
+      element.style.removeProperty("--wiki-graph-preview-bottom");
+    }
+    element._graphSizeCache = {};
+  }
+
+  function deriveGraphHref(node) {
+    if (!node || node.type !== "page") return "";
+    const href = node.topic
+      ? `${GRAPH_CONFIG.topicRoutePrefix}${encodeURIComponent(node.topic)}`
+      : "";
+    if (!href) return "";
+    try {
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set("hops", "1");
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch (error) {
+      return `${href}${href.includes("?") ? "&" : "?"}hops=1`;
+    }
+  }
+
+  function derivePrimaryNodeHref(node) {
+    if (!node) return "";
+    if (node.type === "page") return deriveGraphHref(node) || node.href || "";
+    if (node.type === "ghost") return node.parentSearchHref || node.href || "";
+    return node.href || "";
+  }
+
+  function shouldUseNativeNodeLink(node, href) {
+    if (!href) return false;
+    if (!node) return false;
+    return node.type !== "ghost";
+  }
+
+  function createImageFlowerBadge(isMini = false) {
+    const badge = document.createElement("span");
+    badge.className = `wiki-graph-image-flower${isMini ? " wiki-graph-image-flower--mini" : ""}`;
+    badge.setAttribute("aria-hidden", "true");
+    badge.innerHTML = `
+      <svg viewBox="0 0 24 24" class="wiki-graph-image-flower__svg" focusable="false">
+        <circle cx="12" cy="4.6" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="17.25" cy="6.75" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="19.4" cy="12" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="17.25" cy="17.25" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="12" cy="19.4" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="6.75" cy="17.25" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="4.6" cy="12" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="6.75" cy="6.75" r="2.35" class="wiki-graph-image-flower__petal"></circle>
+        <circle cx="12" cy="12" r="2.1" class="wiki-graph-image-flower__core"></circle>
+      </svg>
+    `;
+    return badge;
+  }
+
+  const linkEls = [];
+  links.forEach(link => {
+    const basePath = createSvgNode("path", {
+      class: `wiki-graph-link wiki-graph-link--base wiki-graph-link--${link.type}`,
+      "stroke-width": Math.max(1.2, Math.min(4, 1 + (link.weight || 1) * 0.4)),
+    });
+    linksLayer.appendChild(basePath);
+
+    const accentPath = createSvgNode("path", {
+      class: `wiki-graph-link wiki-graph-link--accent wiki-graph-link--${link.type}`,
+      "stroke-width": Math.max(1.2, Math.min(4, 1 + (link.weight || 1) * 0.4)),
+    });
+    linksLayer.appendChild(accentPath);
+
+    linkEls.push({ data: link, baseEl: basePath, accentEl: accentPath });
+  });
+
+  const nodeEls = [];
+  const cardEls = [];
+  const markerEls = [];
+  const clusterBadgeEls = [];
+  const nodeAnchorMap = new Map();
+  const cardElMap = new Map();
+  const markerElMap = new Map();
+
+  function invalidateNodeShapeCache(nodeId) {
+    const node = nodeMap.get(nodeId);
+    if (node) node.shapeSizeCache = {};
+  }
+
+  GRAPH_DATA.nodes.forEach(node => {
+    const group = createSvgNode("g", {
+      class: "wiki-graph-node-anchor",
+      "data-node-id": node.id,
+    });
+    const title = createSvgNode("title");
+    title.textContent = node.label;
+    group.appendChild(title);
+
+    const marker = createSvgNode("rect", {
+      x: -7,
+      y: -7,
+      width: 14,
+      height: 14,
+      rx: node.type === "image" ? 3 : 2.5,
+      ry: node.type === "image" ? 3 : 2.5,
+      class: `wiki-graph-marker wiki-graph-marker--${node.type === "image" ? "image" : node.type === "ghost" ? "ghost" : "page"}`,
+    });
+    group.appendChild(marker);
+
+    if (node.type === "image") {
+      group.appendChild(createSvgNode("path", {
+        d: "M -4 3 L -1 -1 L 1 1 L 4 -3 L 5 3 Z",
+        class: "wiki-graph-marker__glyph",
+      }));
+      group.appendChild(createSvgNode("circle", {
+        cx: -4,
+        cy: -4,
+        r: 1.4,
+        class: "wiki-graph-marker__glyph",
+      }));
+    }
+
+    nodesLayer.appendChild(group);
+    nodeEls.push({ data: node, el: group });
+    nodeAnchorMap.set(node.id, group);
+
+    const cardLayout = buildCardLayout(node);
+
+    const primaryHref = derivePrimaryNodeHref(node);
+    const label = document.createElement(shouldUseNativeNodeLink(node, primaryHref) ? "a" : "div");
+    label.className = `wiki-graph-overlay-label wiki-graph-overlay-label--${node.type}`;
+    if (node.type === "page" && node.isRoot) label.classList.add("is-root-page");
+    label.dataset.nodeId = node.id;
+    if (shouldUseNativeNodeLink(node, primaryHref)) label.href = primaryHref;
+    label.draggable = false;
+    label.setAttribute("aria-label", node.label);
+    applyCardLayout(node, label, cardLayout);
+
+    if (node.type === "image" && node.imageUrl) {
+      const image = document.createElement("img");
+      image.className = "wiki-graph-overlay-label__image";
+      image.src = node.imageUrl;
+      image.alt = node.label || "image";
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.draggable = false;
+      image.addEventListener("load", () => {
+        if (!image.naturalWidth || !image.naturalHeight) return;
+        const nextAspect = image.naturalWidth / image.naturalHeight;
+        if (Math.abs((node.imageAspect || 0) - nextAspect) < 0.01) return;
+        node.imageAspect = nextAspect;
+        const nextLayout = buildCardLayout(node);
+        applyCardLayout(node, label, nextLayout);
+        applyCurrentLayout({ fit: false });
+      });
+      label.appendChild(image);
+      label.appendChild(createImageFlowerBadge(false));
+    } else if (node.type === "page" && node.heroImageUrl) {
+      const image = document.createElement("img");
+      image.className = "wiki-graph-overlay-label__preview";
+      image.src = node.heroImageUrl;
+      image.alt = node.heroImageLabel || node.label || "preview";
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.draggable = false;
+      image.addEventListener("load", () => {
+        if (!image.naturalWidth || !image.naturalHeight) return;
+        const nextAspect = image.naturalWidth / image.naturalHeight;
+        if (Math.abs((node.heroImageAspect || 0) - nextAspect) < 0.01) return;
+        node.heroImageAspect = nextAspect;
+        const nextLayout = buildCardLayout(node);
+        applyCardLayout(node, label, nextLayout);
+        applyCurrentLayout({ fit: false });
+      });
+      label.appendChild(image);
+
+      const textWrap = document.createElement("span");
+      textWrap.className = "wiki-graph-overlay-label__text";
+      cardLayout.lines.forEach((line, lineIndex) => {
+        const span = document.createElement("span");
+        span.className = "wiki-graph-overlay-label__line";
+        span.textContent = line;
+        textWrap.appendChild(span);
+        if (lineIndex < cardLayout.lines.length - 1) textWrap.appendChild(document.createElement("br"));
+      });
+      label.appendChild(textWrap);
+    } else {
+      cardLayout.lines.forEach((line, lineIndex) => {
+        const span = document.createElement("span");
+        span.className = "wiki-graph-overlay-label__line";
+        span.textContent = line;
+        label.appendChild(span);
+        if (lineIndex < cardLayout.lines.length - 1) label.appendChild(document.createElement("br"));
+      });
+    }
+    if (node.type === "page") {
+      const graphJump = document.createElement("button");
+      graphJump.type = "button";
+      graphJump.className = "wiki-graph-node-jump";
+      graphJump.title = `Open page for ${node.label}`;
+      graphJump.setAttribute("aria-label", `Open page for ${node.label}`);
+      graphJump.dataset.graphHref = node.href || "";
+      label.appendChild(graphJump);
+    }
+    labelOverlay.appendChild(label);
+    cardEls.push({ data: node, el: label });
+    cardElMap.set(node.id, label);
+
+    const markerLabel = document.createElement(shouldUseNativeNodeLink(node, primaryHref) ? "a" : "div");
+    markerLabel.className = `wiki-graph-mini wiki-graph-mini--${node.type}`;
+    if (node.type === "page" && node.isRoot) markerLabel.classList.add("is-root-page");
+    markerLabel.dataset.nodeId = node.id;
+    markerLabel.setAttribute("aria-label", node.label);
+    markerLabel.title = node.label;
+    if (shouldUseNativeNodeLink(node, primaryHref)) markerLabel.href = primaryHref;
+    markerLabel.draggable = false;
+
+    if (node.type === "image" && node.imageUrl) {
+      const image = document.createElement("img");
+      image.className = "wiki-graph-mini__image";
+      image.src = node.imageUrl;
+      image.alt = node.label || "image";
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.draggable = false;
+      markerLabel.appendChild(image);
+      markerLabel.appendChild(createImageFlowerBadge(true));
+    } else {
+      const text = document.createElement("span");
+      text.className = "wiki-graph-mini__text";
+      text.textContent = (node.label || "?").slice(0, node.type === "ghost" ? 2 : 1).toUpperCase();
+      markerLabel.appendChild(text);
+    }
+    if (node.type === "page") {
+      const graphJump = document.createElement("button");
+      graphJump.type = "button";
+      graphJump.className = "wiki-graph-node-jump wiki-graph-node-jump--mini";
+      graphJump.title = `Open page for ${node.label}`;
+      graphJump.setAttribute("aria-label", `Open page for ${node.label}`);
+      graphJump.dataset.graphHref = node.href || "";
+      markerLabel.appendChild(graphJump);
+    }
+
+    labelOverlay.appendChild(markerLabel);
+    markerEls.push({ data: node, el: markerLabel });
+    markerElMap.set(node.id, markerLabel);
+  });
+
+  const overlayResizeObserver = typeof ResizeObserver === "function"
+    ? new ResizeObserver(entries => {
+      entries.forEach(entry => {
+        entry.target._graphSizeCache = {};
+        invalidateNodeShapeCache(entry.target.dataset.nodeId);
+      });
+      if (!overlayRenderScheduled) {
+        overlayRenderScheduled = true;
+        requestAnimationFrame(() => {
+          overlayRenderScheduled = false;
+          render();
+        });
+      }
+    })
+    : null;
+
+  cardEls.forEach(({ el }) => {
+    if (overlayResizeObserver) overlayResizeObserver.observe(el);
+  });
+  markerEls.forEach(({ el }) => {
+    if (overlayResizeObserver) overlayResizeObserver.observe(el);
+  });
+
+  const hoverTooltipEl = document.createElement("div");
+  hoverTooltipEl.className = "wiki-graph-hover-tooltip";
+  hoverTooltipEl.hidden = true;
+  hoverTooltipEl.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  hoverTooltipEl.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    hideHoverTooltip({ force: true });
+  });
+  labelOverlay.appendChild(hoverTooltipEl);
+
+  function updateSelectedPanel(node) {
+    if (!selectedPanel) return;
+    if (!node) {
+      selectedPanel.innerHTML = "Tap or click a node to open it.";
+      return;
+    }
+    const typeLabel = node.type === "ghost" ? "Dangling topic" : node.type === "image" ? "Local image" : "Wiki page";
+    const openHint = node.href ? `<a href="${node.href}">Open ${node.label}</a>` : `${node.label} has no page yet.`;
+    const topicHint = (node.topic && node.topic !== node.label) ? `<span class="wiki-graph-selected__topic">${node.topic}</span><br>` : "";
+    const sccHint = node.sccSize > 1 ? `<span class="wiki-graph-selected__topic">Cycle group: ${node.sccSize} pages</span><br>` : "";
+    selectedPanel.innerHTML = `
+      <strong>${node.label}</strong><br>
+      ${topicHint}
+      ${sccHint}
+      ${typeLabel}<br>
+      In: ${node.incoming || 0} &nbsp; Out: ${node.outgoing || 0} &nbsp; Degree: ${node.degree || 0}<br>
+      ${openHint}
+    `;
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    state.sidebarCollapsed = !!collapsed;
+    sidebarPanel.classList.toggle("is-collapsed", state.sidebarCollapsed);
+    sidebarRestore.hidden = !state.sidebarCollapsed;
+    sidebarToggle.textContent = state.sidebarCollapsed ? "+" : "−";
+    sidebarToggle.setAttribute("aria-expanded", state.sidebarCollapsed ? "false" : "true");
+  }
+
+  function applySelection(nodeId) {
+    state.selectedNodeId = nodeId || "";
+    cardEls.forEach(({ data, el }) => {
+      el.classList.toggle("is-selected", data.id === state.selectedNodeId);
+    });
+    markerEls.forEach(({ data, el }) => {
+      el.classList.toggle("is-selected", data.id === state.selectedNodeId);
+    });
+    updateSelectedPanel(nodeMap.get(state.selectedNodeId));
+    render();
+  }
+
+  function clearHoverTooltipTimer() {
+    if (state.hoverTooltipTimer) {
+      clearTimeout(state.hoverTooltipTimer);
+      state.hoverTooltipTimer = 0;
+    }
+  }
+
+  function hideHoverTooltip(options = {}) {
+    const { force = false } = options;
+    if (state.tooltipPinned && !force) return;
+    clearHoverTooltipTimer();
+    state.hoverTooltipNodeId = "";
+    state.tooltipPinned = false;
+    hoverTooltipEl.hidden = true;
+    hoverTooltipEl.style.display = "none";
+    hoverTooltipEl.innerHTML = "";
+  }
+
+  function formatHoverTooltip(node) {
+    const typeLabel = node.type === "ghost" ? "Dangling topic" : node.type === "image" ? "Local image" : "Wiki page";
+    const topicLine = (node.topic && node.topic !== node.label)
+      ? `<div class="wiki-graph-hover-tooltip__topic">${node.topic}</div>`
+      : "";
+    return `
+      <div class="wiki-graph-hover-tooltip__title">${node.label}</div>
+      ${topicLine}
+      <div class="wiki-graph-hover-tooltip__meta">${typeLabel}</div>
+      <div class="wiki-graph-hover-tooltip__meta">In ${node.incoming || 0}  Out ${node.outgoing || 0}  Degree ${node.degree || 0}</div>
+    `;
+  }
+
+  function positionHoverTooltip(node) {
+    if (!node || hoverTooltipEl.hidden) return;
+    const screen = getNodeScreenPoint(node);
+    hoverTooltipEl.style.display = "block";
+    const size = {
+      width: Math.max(1, hoverTooltipEl.offsetWidth || 0),
+      height: Math.max(1, hoverTooltipEl.offsetHeight || 0),
+    };
+    const margin = 12;
+    const left = Math.min(
+      Math.max(margin, screen.x - (size.width / 2)),
+      Math.max(margin, state.width - size.width - margin)
+    );
+    let top = screen.y - size.height - 18;
+    if (top < margin) top = Math.min(state.height - size.height - margin, screen.y + 18);
+    hoverTooltipEl.style.left = `${left}px`;
+    hoverTooltipEl.style.top = `${Math.max(margin, top)}px`;
+  }
+
+  function showHoverTooltip(nodeId) {
+    const node = nodeMap.get(nodeId);
+    if (!node) return;
+    state.hoverTooltipNodeId = nodeId;
+    hoverTooltipEl.innerHTML = formatHoverTooltip(node);
+    hoverTooltipEl.hidden = false;
+    hoverTooltipEl.style.display = "block";
+    positionHoverTooltip(node);
+  }
+
+  function scheduleHoverTooltip(nodeId) {
+    clearHoverTooltipTimer();
+    state.tooltipPinned = false;
+    state.hoverTooltipNodeId = nodeId || "";
+    if (!nodeId) {
+      hoverTooltipEl.hidden = true;
+      hoverTooltipEl.innerHTML = "";
+      return;
+    }
+    hoverTooltipEl.hidden = true;
+    state.hoverTooltipTimer = window.setTimeout(() => {
+      state.hoverTooltipTimer = 0;
+      showHoverTooltip(nodeId);
+    }, GRAPH_TOOLTIP_DWELL_MS);
+  }
+
+  function clearLongPressTracking() {
+    state.longPressNodeId = "";
+    state.longPressPointerId = 0;
+    state.longPressStartX = 0;
+    state.longPressStartY = 0;
+    state.longPressActivated = false;
+  }
+
+  function cancelLongPress(options = {}) {
+    clearHoverTooltipTimer();
+    if (!options.keepPinned) state.tooltipPinned = false;
+    clearLongPressTracking();
+  }
+
+  function scheduleHoldTooltip(nodeId, pointerId, clientX, clientY) {
+    clearHoverTooltipTimer();
+    state.tooltipPinned = false;
+    state.longPressNodeId = nodeId;
+    state.longPressPointerId = pointerId;
+    state.longPressStartX = clientX;
+    state.longPressStartY = clientY;
+    state.longPressActivated = false;
+    state.hoverTooltipTimer = window.setTimeout(() => {
+      state.hoverTooltipTimer = 0;
+      state.longPressActivated = true;
+      state.tooltipPinned = true;
+      showHoverTooltip(nodeId);
+      state.suppressNodeClickUntil = Date.now() + 800;
+    }, GRAPH_TOOLTIP_DWELL_MS);
+  }
+
+  function applyTransform() {
+    panLayer.setAttribute("transform", `translate(${state.tx} ${state.ty})`);
+    viewport.setAttribute("transform", `scale(${state.scale})`);
+  }
+
+  function applyImageViewerTransform() {
+    imageStage.style.transform = `translate3d(${imageViewerState.tx}px, ${imageViewerState.ty}px, 0) scale(${imageViewerState.scale})`;
+  }
+
+  function clampScale(scale) {
+    return Math.max(GRAPH_MIN_SCALE, Math.min(GRAPH_MAX_SCALE, scale));
+  }
+
+  function clampImageViewerScale(scale) {
+    return Math.max(imageViewerState.minScale, Math.min(imageViewerState.maxScale, scale));
+  }
+
+  function clampNodeScreenScale(scale) {
+    return Math.max(0.5, Math.min(1.5, Number(scale) || 1));
+  }
+
+  function updateNodeScaleReadout() {
+    if (nodeScaleInput) nodeScaleInput.value = `${state.nodeScreenScale}`;
+  }
+
+  function applyNodeScreenScaleStyle() {
+    labelOverlay.style.setProperty("--wiki-graph-node-scale", `${state.nodeScreenScale}`);
+  }
+
+  function scaleNodeSize(size) {
+    return {
+      width: Math.max(1, size.width * state.nodeScreenScale),
+      height: Math.max(1, size.height * state.nodeScreenScale),
+    };
+  }
+
+  function setNodeScreenScale(nextScale, { relayout = true } = {}) {
+    state.nodeScreenScale = clampNodeScreenScale(nextScale);
+    updateNodeScaleReadout();
+    applyNodeScreenScaleStyle();
+    if (relayout) {
+      applyCurrentLayout({ fit: false });
+    } else {
+      render();
+    }
+  }
+
+  function getRenderModeForScale(scale) {
+    const count = GRAPH_DATA.nodes.length;
+    const denseBias = count > 600 ? 0.1 : count > 300 ? 0.06 : count > 150 ? 0.03 : 0;
+    if (scale >= (0.64 + denseBias)) return "card";
+    if (scale >= (0.31 + denseBias)) return "chip";
+    if (scale >= (0.14 + denseBias)) return "marker";
+    return "cluster";
+  }
+
+  function worldToScreen(x, y) {
+    const ctm = viewport.getScreenCTM();
+    if (ctm) {
+      const point = svg.createSVGPoint();
+      point.x = x;
+      point.y = y;
+      const screenPoint = point.matrixTransform(ctm);
+      const overlayRect = labelOverlay.getBoundingClientRect();
+      return {
+        x: screenPoint.x - overlayRect.left,
+        y: screenPoint.y - overlayRect.top,
+      };
+    }
+    return {
+      x: state.tx + (x * state.scale),
+      y: state.ty + (y * state.scale),
+    };
+  }
+
+  function getAnchorScreenPoint(nodeId) {
+    const anchor = nodeAnchorMap.get(nodeId);
+    if (!anchor) return null;
+    const ctm = anchor.getScreenCTM();
+    if (!ctm) return null;
+    const point = svg.createSVGPoint();
+    point.x = 0;
+    point.y = 0;
+    const screenPoint = point.matrixTransform(ctm);
+    const overlayRect = labelOverlay.getBoundingClientRect();
+    return {
+      x: screenPoint.x - overlayRect.left,
+      y: screenPoint.y - overlayRect.top,
+    };
+  }
+
+  function getNodeScreenPoint(node) {
+    if (state.pointerMode === "drag-node" && state.dragNodeId === node.id) {
+      return worldToScreen(node.x, node.y);
+    }
+    return getAnchorScreenPoint(node.id) || worldToScreen(node.x, node.y);
+  }
+
+  function screenToWorld(clientX, clientY) {
+    const ctm = viewport.getScreenCTM();
+    if (ctm) {
+      const point = svg.createSVGPoint();
+      point.x = clientX;
+      point.y = clientY;
+      const worldPoint = point.matrixTransform(ctm.inverse());
+      return {
+        x: worldPoint.x,
+        y: worldPoint.y,
+      };
+    }
+    const rect = svg.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    return {
+      x: (sx - state.tx) / state.scale,
+      y: (sy - state.ty) / state.scale,
+    };
+  }
+
+  function svgClientCenter() {
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: rect.left + (rect.width / 2),
+      y: rect.top + (rect.height / 2),
+    };
+  }
+
+  function imageViewerLocalPoint(clientX, clientY) {
+    const rect = imageViewer.getBoundingClientRect();
+    return {
+      x: clientX - rect.left - (rect.width / 2),
+      y: clientY - rect.top - (rect.height / 2),
+    };
+  }
+
+  function imageViewerMidpoint(points) {
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2,
+    };
+  }
+
+  function imageViewerDistance(points) {
+    const dx = points[1].x - points[0].x;
+    const dy = points[1].y - points[0].y;
+    return Math.sqrt((dx * dx) + (dy * dy)) || 1;
+  }
+
+  function zoomImageViewerAt(factor, localX, localY) {
+    const nextScale = clampImageViewerScale(imageViewerState.scale * factor);
+    const appliedFactor = nextScale / imageViewerState.scale;
+    imageViewerState.tx = localX - ((localX - imageViewerState.tx) * appliedFactor);
+    imageViewerState.ty = localY - ((localY - imageViewerState.ty) * appliedFactor);
+    imageViewerState.scale = nextScale;
+    applyImageViewerTransform();
+  }
+
+  function resetImageViewerTransform() {
+    imageViewerState.scale = 1;
+    imageViewerState.tx = 0;
+    imageViewerState.ty = 0;
+    applyImageViewerTransform();
+  }
+
+  function openImageViewer(node) {
+    if (!node || node.type !== "image" || !node.imageUrl) return;
+    imageViewerState.visible = true;
+    imageViewerState.pointers.clear();
+    imageViewerState.pointerMode = null;
+    imageViewerState.pointerMoved = false;
+    imageFull.src = node.imageUrl;
+    imageFull.alt = node.label || "image";
+    imageDownload.href = node.imageUrl;
+    imageDownload.download = `${(node.label || "image").replace(/[^\w.-]+/g, "_") || "image"}`;
+    resetImageViewerTransform();
+    imageViewer.hidden = false;
+    imageViewer.setAttribute("aria-hidden", "false");
+  }
+
+  function closeImageViewer() {
+    imageViewerState.visible = false;
+    imageViewerState.pointers.clear();
+    imageViewerState.pointerMode = null;
+    imageViewerState.pointerMoved = false;
+    imageViewer.hidden = true;
+    imageViewer.setAttribute("aria-hidden", "true");
+    imageFull.removeAttribute("src");
+    imageFull.alt = "";
+    imageDownload.href = "#";
+    imageDownload.download = "";
+  }
+
+  function stopViewportAnimation() {
+    if (state.zoomAnimationFrame) {
+      cancelAnimationFrame(state.zoomAnimationFrame);
+      state.zoomAnimationFrame = 0;
+    }
+    state.zoomAnimationToken += 1;
+    state.targetScale = state.scale;
+    state.targetTx = state.tx;
+    state.targetTy = state.ty;
+  }
+
+  function setViewport(nextScale, nextTx, nextTy) {
+    state.scale = nextScale;
+    state.tx = nextTx;
+    state.ty = nextTy;
+    state.targetScale = nextScale;
+    state.targetTx = nextTx;
+    state.targetTy = nextTy;
+  }
+
+  function animateViewportTo(nextScale, nextTx, nextTy, options = {}) {
+    const {
+      duration = 180,
+      immediate = false,
+    } = options;
+
+    if (immediate) {
+      stopViewportAnimation();
+      setViewport(nextScale, nextTx, nextTy);
+      render();
+      return;
+    }
+
+    stopViewportAnimation();
+    const startScale = state.scale;
+    const startTx = state.tx;
+    const startTy = state.ty;
+    const targetScale = nextScale;
+    const targetTx = nextTx;
+    const targetTy = nextTy;
+    const token = state.zoomAnimationToken;
+    const startedAt = performance.now();
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function step(now) {
+      if (token !== state.zoomAnimationToken) return;
+      const elapsed = now - startedAt;
+      const progress = duration <= 0 ? 1 : Math.min(1, elapsed / duration);
+      const eased = easeOutCubic(progress);
+      state.scale = startScale + ((targetScale - startScale) * eased);
+      state.tx = startTx + ((targetTx - startTx) * eased);
+      state.ty = startTy + ((targetTy - startTy) * eased);
+      state.targetScale = targetScale;
+      state.targetTx = targetTx;
+      state.targetTy = targetTy;
+      render();
+
+      if (progress < 1) {
+        state.zoomAnimationFrame = requestAnimationFrame(step);
+      } else {
+        state.zoomAnimationFrame = 0;
+        setViewport(targetScale, targetTx, targetTy);
+        render();
+      }
+    }
+
+    state.zoomAnimationFrame = requestAnimationFrame(step);
+  }
+
+  function zoomAt(factor, clientX, clientY, options = {}) {
+    const rect = svg.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const useAnimatedBase = !options.immediate && state.zoomAnimationFrame;
+    const baseScale = useAnimatedBase ? state.targetScale : state.scale;
+    const baseTx = useAnimatedBase ? state.targetTx : state.tx;
+    const baseTy = useAnimatedBase ? state.targetTy : state.ty;
+    const nextScale = clampScale(baseScale * factor);
+    const worldX = (px - baseTx) / baseScale;
+    const worldY = (py - baseTy) / baseScale;
+    const nextTx = px - worldX * nextScale;
+    const nextTy = py - worldY * nextScale;
+    animateViewportTo(nextScale, nextTx, nextTy, options);
+  }
+
+  function wheelZoomFactor(input) {
+    const event = (typeof input === "number")
+      ? { deltaY: input, deltaMode: 0, ctrlKey: false }
+      : input;
+    const unitScale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? Math.max(window.innerHeight, 1) : 1;
+    const normalizedDelta = event.deltaY * unitScale;
+    const clamped = Math.max(-220, Math.min(220, normalizedDelta));
+    const sensitivity = event.ctrlKey ? 0.006 : 0.0024;
+    return Math.exp(-clamped * sensitivity);
+  }
+
+  function rootEmPixels(multiplier = 1) {
+    const rootFontSize = parseFloat(window.getComputedStyle(document.documentElement).fontSize || "16");
+    return rootFontSize * multiplier;
+  }
+
+  function measureNodeElementSize(node, mode, force = false) {
+    const cache = node.shapeSizeCache || (node.shapeSizeCache = {});
+    const cacheKey = `${mode}`;
+    if (!force && cache[cacheKey]) return cache[cacheKey];
+
+    const element = mode === "marker" ? markerElMap.get(node.id) : cardElMap.get(node.id);
+    if (!element) return null;
+
+    const previousDisplay = element.style.display;
+    const previousVisibility = element.style.visibility;
+    const previousLeft = element.style.left;
+    const previousTop = element.style.top;
+    const hadChip = element.classList.contains("is-chip");
+
+    if (mode === "chip") element.classList.add("is-chip");
+    if (mode === "card") element.classList.remove("is-chip");
+    if (mode === "marker") {
+      element.style.display = "flex";
+    } else {
+      element.style.display = "block";
+    }
+    element.style.visibility = "hidden";
+    element.style.left = "-10000px";
+    element.style.top = "-10000px";
+
+    const size = {
+      width: Math.max(1, element.offsetWidth || 0),
+      height: Math.max(1, element.offsetHeight || 0),
+    };
+
+    element.style.display = previousDisplay;
+    element.style.visibility = previousVisibility;
+    element.style.left = previousLeft;
+    element.style.top = previousTop;
+    if (hadChip) {
+      element.classList.add("is-chip");
+    } else {
+      element.classList.remove("is-chip");
+    }
+
+    cache[cacheKey] = size;
+    return size;
+  }
+
+  function getFitNodeSize(node, scale = GRAPH_LAYOUT_REFERENCE_SCALE) {
+    const renderMode = getRenderModeForScale(scale);
+    if (renderMode === "marker" || renderMode === "cluster") {
+      return scaleNodeSize(measureNodeElementSize(node, "marker") || (node.type === "image"
+        ? { width: 24, height: 18 }
+        : { width: 18, height: 18 }));
+    }
+
+    if (renderMode === "chip") {
+      const exactChip = measureNodeElementSize(node, "chip");
+      if (exactChip) return scaleNodeSize(exactChip);
+      const card = node.card || buildCardLayout(node);
+      if (node.type === "image") {
+        return scaleNodeSize({ width: 67.2, height: 48 });
+      }
+      return scaleNodeSize({
+        width: Math.max(28, Math.min(card.width, 160)),
+        height: 28,
+      });
+    }
+
+    return scaleNodeSize(measureNodeElementSize(node, "card") || (() => {
+      const card = node.card || buildCardLayout(node);
+      return {
+        width: Math.max(1, Number(card?.width || node.boxSize || 24)),
+        height: Math.max(1, Number(card?.height || node.boxSize || 24)),
+      };
+    })());
+  }
+
+  function buildLayoutMetrics(targetScale = 1) {
+    const safeScale = Math.max(GRAPH_MIN_SCALE, Number(targetScale) || GRAPH_LAYOUT_REFERENCE_SCALE);
+    return {
+      targetScale: safeScale,
+      paddingPx: rootEmPixels(1),
+      nodeGutterPx: rootEmPixels(0.25),
+      rowGapWorld: rootEmPixels(0.25) / safeScale,
+      columnGapWorld: rootEmPixels(0.4) / safeScale,
+      ringGapWorld: rootEmPixels(0.5) / safeScale,
+      clusterCellGapWorld: rootEmPixels(0.25) / safeScale,
+      clusterLayerGapWorld: rootEmPixels(0.35) / safeScale,
+      componentGapWorld: rootEmPixels(1.2) / safeScale,
+    };
+  }
+
+  function measureFitBounds(scale, gutterPx = 0) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    GRAPH_DATA.nodes.forEach(node => {
+      const visual = getFitNodeSize(node, GRAPH_LAYOUT_REFERENCE_SCALE);
+      const halfW = (visual.width / 2) + (gutterPx / 2);
+      const halfH = (visual.height / 2) + (gutterPx / 2);
+      const x = node.x * scale;
+      const y = node.y * scale;
+      minX = Math.min(minX, x - halfW);
+      minY = Math.min(minY, y - halfH);
+      maxX = Math.max(maxX, x + halfW);
+      maxY = Math.max(maxY, y + halfH);
+    });
+
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
+    };
+  }
+
+  function computeFitTransform(padding = rootEmPixels(1)) {
+    if (!GRAPH_DATA.nodes.length) return null;
+    const gutterPx = rootEmPixels(0.25);
+    const availableWidth = Math.max(1, state.width - (padding * 2));
+    const availableHeight = Math.max(1, state.height - (padding * 2));
+    let low = GRAPH_MIN_SCALE;
+    let high = GRAPH_MAX_SCALE;
+
+    for (let i = 0; i < 28; i += 1) {
+      const mid = (low + high) / 2;
+      const bounds = measureFitBounds(mid, gutterPx);
+      if (bounds.width <= availableWidth && bounds.height <= availableHeight) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+
+    const nextScale = clampScale(low);
+    const bounds = measureFitBounds(nextScale, gutterPx);
+    return {
+      scale: nextScale,
+      tx: (state.width / 2) - ((bounds.minX + bounds.maxX) / 2),
+      ty: (state.height / 2) - ((bounds.minY + bounds.maxY) / 2),
+    };
+  }
+
+  function fitGraph(padding = rootEmPixels(1), options = {}) {
+    const transform = computeFitTransform(padding);
+    if (!transform) return;
+    const { scale, tx, ty } = transform;
+    animateViewportTo(scale, tx, ty, options);
+  }
+
+  function computeCenteredTransformAtScale(scale, padding = rootEmPixels(1)) {
+    if (!GRAPH_DATA.nodes.length) return null;
+    const nextScale = clampScale(scale);
+    const bounds = measureFitBounds(nextScale, rootEmPixels(0.25));
+    return {
+      scale: nextScale,
+      tx: (state.width / 2) - ((bounds.minX + bounds.maxX) / 2),
+      ty: (state.height / 2) - ((bounds.minY + bounds.maxY) / 2),
+      padding,
+    };
+  }
+
+  function computeNodeCenteredTransformAtScale(node, scale) {
+    if (!node) return null;
+    const nextScale = clampScale(scale);
+    return {
+      scale: nextScale,
+      tx: (state.width / 2) - (node.x * nextScale),
+      ty: (state.height / 2) - (node.y * nextScale),
+    };
+  }
+
+  function applyLayoutCollisionSize(node, metrics) {
+    const visual = getFitNodeSize(node, GRAPH_LAYOUT_REFERENCE_SCALE);
+    node.collisionWidth = Math.max(1, (visual.width + metrics.nodeGutterPx) / metrics.targetScale);
+    node.collisionHeight = Math.max(1, (visual.height + metrics.nodeGutterPx) / metrics.targetScale);
+  }
+
+  function fitGraphFromTransform(scale, tx, ty, options = {}) {
+    animateViewportTo(scale, tx, ty, options);
+  }
+
+  function resetView(options = {}) {
+    animateViewportTo(1, state.width / 2, state.height / 2, options);
+  }
+
+  function getRenderMode() {
+    return getRenderModeForScale(state.scale);
+  }
+
+  function ensureClusterBadges(count) {
+    while (clusterBadgeEls.length < count) {
+      const badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "wiki-graph-cluster-badge";
+      const countEl = document.createElement("span");
+      countEl.className = "wiki-graph-cluster-badge__count";
+      const labelEl = document.createElement("span");
+      labelEl.className = "wiki-graph-cluster-badge__label";
+      badge.appendChild(countEl);
+      badge.appendChild(labelEl);
+      badge.addEventListener("click", event => {
+        const clusterBadge = clusterBadgeEls.find(item => item.el === event.currentTarget);
+        if (!clusterBadge || !clusterBadge.cluster) return;
+        focusCluster(clusterBadge.cluster);
+      });
+      labelOverlay.appendChild(badge);
+      clusterBadgeEls.push({ el: badge, countEl, labelEl, cluster: null });
+      if (overlayResizeObserver) overlayResizeObserver.observe(badge);
+    }
+  }
+
+  function buildCollapsedCluster() {
+    const nodes = GRAPH_DATA.nodes.slice().sort((a, b) => {
+      const aScore = (a.isRoot ? 1000 : 0) + (a.type === "page" ? 100 : 0) + (a.degree || 0);
+      const bScore = (b.isRoot ? 1000 : 0) + (b.type === "page" ? 100 : 0) + (b.degree || 0);
+      return bScore - aScore || a.label.localeCompare(b.label);
+    });
+    const primary = nodes[0] || null;
+    const worldX = nodes.length ? nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length : 0;
+    const worldY = nodes.length ? nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length : 0;
+    const screen = worldToScreen(worldX, worldY);
+    return {
+      nodes,
+      primary,
+      worldX,
+      worldY,
+      screenX: screen.x,
+      screenY: screen.y,
+    };
+  }
+
+  function getOverlaySize(el, cacheKey, force = false) {
+    const cache = el._graphSizeCache || (el._graphSizeCache = {});
+    if (!force && cache[cacheKey]) return cache[cacheKey];
+    const size = {
+      width: Math.max(0, el.offsetWidth || 0),
+      height: Math.max(0, el.offsetHeight || 0),
+    };
+    cache[cacheKey] = size;
+    return size;
+  }
+
+  function placeOverlayAtPoint(el, screenX, screenY, cacheKey, force = false) {
+    const size = getOverlaySize(el, cacheKey, force);
+    el.style.left = `${screenX - (size.width / 2)}px`;
+    el.style.top = `${screenY - (size.height / 2)}px`;
+  }
+
+  function showNodeCard(el, screenX, screenY, compact) {
+    el.style.display = "block";
+    el.classList.toggle("is-chip", compact);
+    placeOverlayAtPoint(el, screenX, screenY, compact ? "chip" : "card");
+  }
+
+  function showNodeMarker(node, el, screenX, screenY) {
+    el.style.display = "flex";
+    placeOverlayAtPoint(el, screenX, screenY, `mini-${node.type}`);
+  }
+
+  function hideElements(items) {
+    items.forEach(({ el }) => {
+      el.style.display = "none";
+    });
+  }
+
+  function clearClusterBadges() {
+    clusterBadgeEls.forEach(({ el }) => {
+      el.style.display = "none";
+      el.dataset.clusterIndex = "";
+    });
+  }
+
+  function setLinksVisible(visible) {
+    linkEls.forEach(({ baseEl, accentEl }) => {
+      const display = visible ? "" : "none";
+      baseEl.style.display = display;
+      accentEl.style.display = display;
+    });
+  }
+
+  function focusCluster(cluster) {
+    const nextScale = clampScale(Math.max(0.32, state.scale * 2.1));
+    const nextTx = (state.width / 2) - (cluster.worldX * nextScale);
+    const nextTy = (state.height / 2) - (cluster.worldY * nextScale);
+    animateViewportTo(nextScale, nextTx, nextTy, { duration: 220 });
+  }
+
+  function renderClusters() {
+    const cluster = buildCollapsedCluster();
+    ensureClusterBadges(1);
+    const badge = clusterBadgeEls[0];
+    badge.cluster = cluster;
+    badge.countEl.textContent = `${cluster.nodes.length}`;
+    badge.labelEl.textContent = cluster.primary?.label || (GRAPH_CONFIG.includeAllPages ? "All pages" : "Graph");
+    badge.el.title = cluster.nodes.slice(0, 8).map(node => node.label).join(", ");
+    badge.el.style.display = "flex";
+    placeOverlayAtPoint(badge.el, cluster.screenX, cluster.screenY, `cluster-all-${cluster.nodes.length}-${cluster.primary?.id || "root"}`, true);
+    badge.el.dataset.clusterIndex = "0";
+    clusterBadgeEls.slice(1).forEach(({ el }) => {
+      el.style.display = "none";
+      el.dataset.clusterIndex = "";
+    });
+    hideElements(markerEls);
+  }
+
+  function computeDepths(component, rootId) {
+    const depths = new Map(component.nodeIds.map(id => [id, Number.POSITIVE_INFINITY]));
+    if (!rootId || !depths.has(rootId)) return depths;
+
+    const queue = [rootId];
+    depths.set(rootId, 0);
+
+    while (queue.length) {
+      const current = queue.shift();
+      const currentDepth = depths.get(current);
+      (directedOut.get(current) || []).forEach(next => {
+        if (!depths.has(next)) return;
+        if (depths.get(next) <= currentDepth + 1) return;
+        depths.set(next, currentDepth + 1);
+        queue.push(next);
+      });
+    }
+
+    const fallbackQueue = component.nodeIds.filter(id => Number.isFinite(depths.get(id)));
+    while (fallbackQueue.length) {
+      const current = fallbackQueue.shift();
+      const currentDepth = depths.get(current);
+      (undirected.get(current) || []).forEach(next => {
+        if (!depths.has(next)) return;
+        if (depths.get(next) <= currentDepth + 1) return;
+        depths.set(next, currentDepth + 1);
+        fallbackQueue.push(next);
+      });
+    }
+
+    component.nodeIds.forEach(id => {
+      if (!Number.isFinite(depths.get(id))) depths.set(id, 0);
+    });
+    return depths;
+  }
+
+  function chooseComponentRoot(component) {
+    if (GRAPH_CONFIG.rootTopic) {
+      const rootNode = component.nodes.find(node => node.topic === GRAPH_CONFIG.rootTopic || node.id === GRAPH_CONFIG.rootTopic);
+      if (rootNode) return rootNode;
+    }
+    return component.nodes
+      .slice()
+      .sort((a, b) => {
+        const aScore = (a.isRoot ? 1000 : 0) + (a.type === "page" ? 100 : 0) + (a.degree || 0);
+        const bScore = (b.isRoot ? 1000 : 0) + (b.type === "page" ? 100 : 0) + (b.degree || 0);
+        return bScore - aScore || a.label.localeCompare(b.label);
+      })[0];
+  }
+
+  function computeParentsMap(component, depths) {
+    const parents = new Map();
+    component.nodeIds.forEach(id => parents.set(id, []));
+    component.nodeIds.forEach(id => {
+      const myDepth = depths.get(id);
+      (directedIn.get(id) || []).forEach(parentId => {
+        if (!depths.has(parentId)) return;
+        const parentDepth = depths.get(parentId);
+        if (parentDepth < myDepth) parents.get(id).push(parentId);
+      });
+      if (parents.get(id).length === 0) {
+        (undirected.get(id) || []).forEach(parentId => {
+          if (!depths.has(parentId)) return;
+          const parentDepth = depths.get(parentId);
+          if (parentDepth < myDepth) parents.get(id).push(parentId);
+        });
+      }
+    });
+    return parents;
+  }
+
+  function computeComponentBounds(nodes) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    nodes.forEach(node => {
+      const halfW = node.collisionWidth / 2;
+      const halfH = node.collisionHeight / 2;
+      minX = Math.min(minX, node.x - halfW);
+      minY = Math.min(minY, node.y - halfH);
+      maxX = Math.max(maxX, node.x + halfW);
+      maxY = Math.max(maxY, node.y + halfH);
+    });
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
+    };
+  }
+
+  function scaleNodePositions(nodes, scaleX = 1, scaleY = scaleX, centerX = 0, centerY = 0) {
+    nodes.forEach(node => {
+      node.x = centerX + ((node.x - centerX) * scaleX);
+      node.y = centerY + ((node.y - centerY) * scaleY);
+    });
+  }
+
+  function packComponentLayouts(layouts, preferredColumns = 1, metrics = buildLayoutMetrics(1)) {
+    if (!layouts.length) return;
+    const columns = Math.max(1, Math.min(preferredColumns, layouts.length));
+    const rows = Math.ceil(layouts.length / columns);
+    const colWidths = Array(columns).fill(0);
+    const rowHeights = Array(rows).fill(0);
+
+    layouts.forEach((layout, index) => {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      colWidths[col] = Math.max(colWidths[col], layout.bounds.width + metrics.componentGapWorld);
+      rowHeights[row] = Math.max(rowHeights[row], layout.bounds.height + metrics.componentGapWorld);
+    });
+
+    const totalWidth = colWidths.reduce((sum, width) => sum + width, 0);
+    const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0);
+
+    layouts.forEach((layout, index) => {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      const xBefore = colWidths.slice(0, col).reduce((sum, width) => sum + width, 0);
+      const yBefore = rowHeights.slice(0, row).reduce((sum, height) => sum + height, 0);
+      const cellCenterX = xBefore + (colWidths[col] / 2) - (totalWidth / 2);
+      const cellCenterY = yBefore + (rowHeights[row] / 2) - (totalHeight / 2);
+      const layoutCenterX = (layout.bounds.minX + layout.bounds.maxX) / 2;
+      const layoutCenterY = (layout.bounds.minY + layout.bounds.maxY) / 2;
+      const shiftX = cellCenterX - layoutCenterX;
+      const shiftY = cellCenterY - layoutCenterY;
+      layout.nodes.forEach(node => {
+        node.x += shiftX;
+        node.y += shiftY;
+      });
+      layout.bounds = computeComponentBounds(layout.nodes);
+    });
+  }
+
+  function orderLayerByParents(nodes, parentsMap) {
+    return nodes.slice().sort((a, b) => {
+      const aParents = parentsMap.get(a.id) || [];
+      const bParents = parentsMap.get(b.id) || [];
+      const aScore = aParents.length ? aParents.map(id => nodeMap.get(id)?.y || 0).reduce((sum, value) => sum + value, 0) / aParents.length : a.y;
+      const bScore = bParents.length ? bParents.map(id => nodeMap.get(id)?.y || 0).reduce((sum, value) => sum + value, 0) / bParents.length : b.y;
+      return aScore - bScore || a.label.localeCompare(b.label);
+    });
+  }
+
+  function sumWithGap(items, sizeAccessor, gap = 0) {
+    if (!items.length) return 0;
+    return items.reduce((sum, item) => sum + sizeAccessor(item), 0) + (Math.max(0, items.length - 1) * gap);
+  }
+
+  function estimateBandCount(items, primarySpan, secondarySpan, maxBands = 6) {
+    if (!items.length) return 1;
+    const safeSecondary = Math.max(1, secondarySpan);
+    const estimated = Math.ceil(Math.sqrt(Math.max(1, primarySpan) / safeSecondary));
+    return Math.max(1, Math.min(items.length, maxBands, estimated));
+  }
+
+  function partitionSequentialByWeight(items, bandCount, weightAccessor) {
+    if (bandCount <= 1 || items.length <= 1) return [items.slice()];
+    const totalWeight = items.reduce((sum, item) => sum + Math.max(0.0001, weightAccessor(item)), 0);
+    const targetWeight = totalWeight / bandCount;
+    const bands = [];
+    let currentBand = [];
+    let currentWeight = 0;
+
+    items.forEach((item, index) => {
+      const remainingItems = items.length - index;
+      const remainingBands = bandCount - bands.length;
+      if (currentBand.length && currentWeight >= targetWeight && remainingItems >= remainingBands) {
+        bands.push(currentBand);
+        currentBand = [];
+        currentWeight = 0;
+      }
+      currentBand.push(item);
+      currentWeight += Math.max(0.0001, weightAccessor(item));
+    });
+
+    if (currentBand.length) bands.push(currentBand);
+    return bands.filter(band => band.length);
+  }
+
+  function computeCenteredBandOffsets(widths, gap = 0) {
+    const total = widths.reduce((sum, width) => sum + width, 0) + (Math.max(0, widths.length - 1) * gap);
+    let cursor = -(total / 2);
+    return widths.map(width => {
+      const center = cursor + (width / 2);
+      cursor += width + gap;
+      return center;
+    });
+  }
+
+  function layoutComponentLayered(component, metrics) {
+    const root = chooseComponentRoot(component);
+    const depths = computeDepths(component, root?.id);
+    const parentsMap = computeParentsMap(component, depths);
+    const layers = new Map();
+
+    component.nodes.forEach(node => {
+      const depth = depths.get(node.id) || 0;
+      node.depth = depth;
+      if (!layers.has(depth)) layers.set(depth, []);
+      layers.get(depth).push(node);
+    });
+
+    const depthList = Array.from(layers.keys()).sort((a, b) => a - b);
+    const columnWidths = new Map();
+    depthList.forEach(depth => {
+      const maxWidth = Math.max(...layers.get(depth).map(node => node.collisionWidth));
+      columnWidths.set(depth, maxWidth + metrics.columnGapWorld);
+    });
+
+    let currentX = 0;
+    depthList.forEach((depth, depthIndex) => {
+      const layerNodes = depthIndex === 0 ? layers.get(depth).slice() : orderLayerByParents(layers.get(depth), parentsMap);
+      const layerHeight = sumWithGap(layerNodes, node => node.collisionHeight, metrics.rowGapWorld);
+      const layerWidth = Math.max(...layerNodes.map(node => node.collisionWidth));
+      const bandCount = depthIndex === 0
+        ? 1
+        : estimateBandCount(layerNodes, layerHeight, layerWidth, 5);
+      const bands = partitionSequentialByWeight(
+        layerNodes,
+        bandCount,
+        node => node.collisionHeight + metrics.rowGapWorld
+      );
+      const bandWidths = bands.map(band => Math.max(...band.map(node => node.collisionWidth)));
+      const bandGap = metrics.columnGapWorld * 0.72;
+      const bandOffsets = computeCenteredBandOffsets(bandWidths, bandGap);
+
+      bands.forEach((band, bandIndex) => {
+        const bandHeight = sumWithGap(band, node => node.collisionHeight, metrics.rowGapWorld);
+        let currentY = -(bandHeight / 2);
+        band.forEach(node => {
+          node.x = currentX + bandOffsets[bandIndex];
+          node.y = currentY + (node.collisionHeight / 2);
+          currentY += node.collisionHeight + metrics.rowGapWorld;
+        });
+      });
+      const bandBundleWidth = bandWidths.reduce((sum, width) => sum + width, 0) + (Math.max(0, bandWidths.length - 1) * bandGap);
+      currentX += Math.max(columnWidths.get(depth), bandBundleWidth + metrics.columnGapWorld);
+    });
+
+    const bounds = computeComponentBounds(component.nodes);
+    component.nodes.forEach(node => { node.x -= bounds.minX; });
+    return {
+      nodes: component.nodes,
+      bounds: computeComponentBounds(component.nodes),
+    };
+  }
+
+  function normalizeAngle(angle) {
+    while (angle <= -Math.PI) angle += Math.PI * 2;
+    while (angle > Math.PI) angle -= Math.PI * 2;
+    return angle;
+  }
+
+  function getRectTangentialSpan(node, angle) {
+    const sin = Math.abs(Math.sin(angle));
+    const cos = Math.abs(Math.cos(angle));
+    return (node.collisionWidth * sin) + (node.collisionHeight * cos);
+  }
+
+  function getRectRadialSpan(node, angle) {
+    const sin = Math.abs(Math.sin(angle));
+    const cos = Math.abs(Math.cos(angle));
+    return (node.collisionWidth * cos) + (node.collisionHeight * sin);
+  }
+
+  function getCircularMean(angles) {
+    if (!angles.length) return -Math.PI / 2;
+    const x = angles.reduce((sum, angle) => sum + Math.cos(angle), 0);
+    const y = angles.reduce((sum, angle) => sum + Math.sin(angle), 0);
+    if (Math.abs(x) < 1e-6 && Math.abs(y) < 1e-6) return -Math.PI / 2;
+    return Math.atan2(y, x);
+  }
+
+  function resolveRectCollisions(nodes, iterations = 64) {
+    if (nodes.length < 2) return;
+    const anchors = new Map(nodes.map(node => [node.id, { x: node.x, y: node.y }]));
+
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+      let moved = false;
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const overlapX = ((a.collisionWidth + b.collisionWidth) / 2) - Math.abs(dx);
+          const overlapY = ((a.collisionHeight + b.collisionHeight) / 2) - Math.abs(dy);
+
+          if (overlapX <= 0 || overlapY <= 0) continue;
+          moved = true;
+
+          if (overlapX < overlapY) {
+            const direction = dx === 0 ? (i < j ? 1 : -1) : Math.sign(dx);
+            const shift = (overlapX / 2) + 0.0001;
+            a.x -= direction * shift;
+            b.x += direction * shift;
+          } else {
+            const direction = dy === 0 ? (i < j ? 1 : -1) : Math.sign(dy);
+            const shift = (overlapY / 2) + 0.0001;
+            a.y -= direction * shift;
+            b.y += direction * shift;
+          }
+        }
+      }
+
+      nodes.forEach(node => {
+        const anchor = anchors.get(node.id);
+        node.x = (node.x * 0.97) + (anchor.x * 0.03);
+        node.y = (node.y * 0.97) + (anchor.y * 0.03);
+      });
+
+      if (!moved) break;
+    }
+  }
+
+  function detectCommunities(component) {
+    const ids = new Set(component.nodeIds);
+    const labels = new Map(component.nodeIds.map(id => [id, id]));
+    const order = component.nodes
+      .slice()
+      .sort((a, b) => (b.degree || 0) - (a.degree || 0) || a.label.localeCompare(b.label))
+      .map(node => node.id);
+
+    for (let iteration = 0; iteration < 10; iteration += 1) {
+      let changed = false;
+      order.forEach(id => {
+        const neighborScores = new Map();
+        (undirected.get(id) || []).forEach(neighborId => {
+          if (!ids.has(neighborId)) return;
+          const label = labels.get(neighborId);
+          neighborScores.set(label, (neighborScores.get(label) || 0) + 1);
+        });
+        if (!neighborScores.size) return;
+        const bestLabel = Array.from(neighborScores.entries()).sort((a, b) => {
+          return b[1] - a[1] || `${a[0]}`.localeCompare(`${b[0]}`);
+        })[0][0];
+        if (labels.get(id) !== bestLabel) {
+          labels.set(id, bestLabel);
+          changed = true;
+        }
+      });
+      if (!changed) break;
+    }
+
+    const rawCommunities = new Map();
+    component.nodes.forEach(node => {
+      const label = labels.get(node.id);
+      if (!rawCommunities.has(label)) rawCommunities.set(label, []);
+      rawCommunities.get(label).push(node);
+    });
+
+    const communities = Array.from(rawCommunities.values())
+      .map(nodes => nodes.sort((a, b) => (b.degree || 0) - (a.degree || 0) || a.label.localeCompare(b.label)))
+      .sort((a, b) => b.length - a.length || b.reduce((sum, node) => sum + (node.degree || 0), 0) - a.reduce((sum, node) => sum + (node.degree || 0), 0));
+
+    if (communities.length <= 1) return communities;
+
+    const communityIndexById = new Map();
+    communities.forEach((nodes, communityIndex) => {
+      nodes.forEach(node => communityIndexById.set(node.id, communityIndex));
+    });
+
+    communities.forEach((nodes, communityIndex) => {
+      if (nodes.length > 1) return;
+      const node = nodes[0];
+      const neighborCounts = new Map();
+      (undirected.get(node.id) || []).forEach(neighborId => {
+        const neighborCommunity = communityIndexById.get(neighborId);
+        if (neighborCommunity === undefined || neighborCommunity === communityIndex) return;
+        neighborCounts.set(neighborCommunity, (neighborCounts.get(neighborCommunity) || 0) + 1);
+      });
+      if (!neighborCounts.size) return;
+      const targetCommunityIndex = Array.from(neighborCounts.entries()).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+      communities[targetCommunityIndex].push(node);
+      communities[communityIndex] = [];
+      communityIndexById.set(node.id, targetCommunityIndex);
+    });
+
+    return communities
+      .filter(nodes => nodes.length)
+      .map(nodes => nodes.sort((a, b) => (b.degree || 0) - (a.degree || 0) || a.label.localeCompare(b.label)));
+  }
+
+  function layoutIslandCommunity(nodes, metrics) {
+    if (!nodes.length) return { nodes, bounds: computeComponentBounds(nodes) };
+    const centerNode = nodes[0];
+    centerNode.x = 0;
+    centerNode.y = 0;
+    const remaining = nodes.slice(1);
+    let previousOuterRadius = Math.max(centerNode.collisionWidth, centerNode.collisionHeight) / 2;
+
+    while (remaining.length) {
+      const ringNodes = [];
+      const targetLoad = Math.PI * 1.7 * Math.max(1, previousOuterRadius);
+      let accumulatedLoad = 0;
+      while (remaining.length) {
+        const nextNode = remaining[0];
+        const span = Math.max(nextNode.collisionWidth, nextNode.collisionHeight) + metrics.columnGapWorld;
+        if (ringNodes.length && accumulatedLoad >= targetLoad) break;
+        ringNodes.push(remaining.shift());
+        accumulatedLoad += span;
+      }
+
+      const maxSpan = Math.max(...ringNodes.map(node => Math.max(node.collisionWidth, node.collisionHeight)));
+      let ringRadius = previousOuterRadius + metrics.ringGapWorld + (maxSpan / 2);
+
+      for (let iteration = 0; iteration < 6; iteration += 1) {
+        const spans = ringNodes.map(node => (Math.max(node.collisionWidth, node.collisionHeight) + metrics.columnGapWorld) / Math.max(ringRadius, 1));
+        const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+        const requiredRadius = totalSpan > (Math.PI * 2) ? ringRadius * (totalSpan / (Math.PI * 2)) : ringRadius;
+        if (requiredRadius <= ringRadius + 0.0001) break;
+        ringRadius = requiredRadius;
+      }
+
+      const spans = ringNodes.map(node => (Math.max(node.collisionWidth, node.collisionHeight) + metrics.columnGapWorld) / Math.max(ringRadius, 1));
+      const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+      const extraGap = totalSpan < (Math.PI * 2) ? ((Math.PI * 2) - totalSpan) / ringNodes.length : 0;
+      let cursor = -Math.PI / 2 - (totalSpan / 2);
+      ringNodes.forEach((node, index) => {
+        const angle = cursor + (spans[index] / 2);
+        node.x = Math.cos(angle) * ringRadius;
+        node.y = Math.sin(angle) * ringRadius;
+        cursor += spans[index] + extraGap;
+      });
+
+      resolveRectCollisions(ringNodes);
+      previousOuterRadius = Math.max(previousOuterRadius, ...ringNodes.map(node => {
+        const angle = Math.atan2(node.y, node.x);
+        const distance = Math.sqrt((node.x * node.x) + (node.y * node.y));
+        return distance + (getRectRadialSpan(node, angle) / 2);
+      }));
+    }
+
+    return {
+      nodes,
+      bounds: computeComponentBounds(nodes),
+    };
+  }
+
+  function layoutComponentIslands(component, metrics) {
+    const communities = detectCommunities(component);
+    const communityLayouts = communities.map((communityNodes, communityIndex) => {
+      const localLayout = layoutIslandCommunity(communityNodes, metrics);
+      return {
+        communityIndex,
+        nodes: communityNodes,
+        bounds: localLayout.bounds,
+        width: localLayout.bounds.width,
+        height: localLayout.bounds.height,
+        degree: communityNodes.reduce((sum, node) => sum + (node.degree || 0), 0),
+        anchorNode: communityNodes[0],
+      };
+    });
+
+    if (communityLayouts.length === 1) {
+      return {
+        nodes: component.nodes,
+        bounds: computeComponentBounds(component.nodes),
+      };
+    }
+
+    const communityIndexByNode = new Map();
+    communityLayouts.forEach(layout => {
+      layout.nodes.forEach(node => communityIndexByNode.set(node.id, layout.communityIndex));
+    });
+
+    const communityLinks = new Map(communityLayouts.map(layout => [layout.communityIndex, new Map()]));
+    links.forEach(link => {
+      if (!communityIndexByNode.has(link.source) || !communityIndexByNode.has(link.target)) return;
+      const sourceCommunity = communityIndexByNode.get(link.source);
+      const targetCommunity = communityIndexByNode.get(link.target);
+      if (sourceCommunity === targetCommunity) return;
+      const sourceEdges = communityLinks.get(sourceCommunity);
+      const targetEdges = communityLinks.get(targetCommunity);
+      sourceEdges.set(targetCommunity, (sourceEdges.get(targetCommunity) || 0) + 1);
+      targetEdges.set(sourceCommunity, (targetEdges.get(sourceCommunity) || 0) + 1);
+    });
+
+    const root = chooseComponentRoot(component);
+    const rootCommunityIndex = root ? (communityIndexByNode.get(root.id) || 0) : 0;
+    const communityDepths = new Map(communityLayouts.map(layout => [layout.communityIndex, Number.POSITIVE_INFINITY]));
+    communityDepths.set(rootCommunityIndex, 0);
+    const queue = [rootCommunityIndex];
+    while (queue.length) {
+      const current = queue.shift();
+      const currentDepth = communityDepths.get(current);
+      communityLinks.get(current).forEach((weight, next) => {
+        if (communityDepths.get(next) <= currentDepth + 1) return;
+        communityDepths.set(next, currentDepth + 1);
+        queue.push(next);
+      });
+    }
+    communityLayouts.forEach(layout => {
+      if (!Number.isFinite(communityDepths.get(layout.communityIndex))) communityDepths.set(layout.communityIndex, 0);
+      layout.depth = communityDepths.get(layout.communityIndex);
+    });
+
+    const layers = new Map();
+    communityLayouts.forEach(layout => {
+      if (!layers.has(layout.depth)) layers.set(layout.depth, []);
+      layers.get(layout.depth).push(layout);
+    });
+
+    const depthList = Array.from(layers.keys()).sort((a, b) => a - b);
+    let previousOuterRadius = 0;
+    depthList.forEach(depth => {
+      const layerCommunities = layers.get(depth).slice().sort((a, b) => b.degree - a.degree || a.anchorNode.label.localeCompare(b.anchorNode.label));
+      if (depth === 0) {
+        const rootCommunity = layerCommunities[0];
+        rootCommunity.cx = 0;
+        rootCommunity.cy = 0;
+        previousOuterRadius = Math.max(rootCommunity.width, rootCommunity.height) / 2;
+        return;
+      }
+
+      const maxSpan = Math.max(...layerCommunities.map(layout => Math.max(layout.width, layout.height)));
+      let ringRadius = previousOuterRadius + metrics.componentGapWorld + (maxSpan / 2);
+
+      for (let iteration = 0; iteration < 6; iteration += 1) {
+        const spans = layerCommunities.map(layout => (Math.max(layout.width, layout.height) + metrics.componentGapWorld) / Math.max(ringRadius, 1));
+        const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+        const requiredRadius = totalSpan > (Math.PI * 2) ? ringRadius * (totalSpan / (Math.PI * 2)) : ringRadius;
+        if (requiredRadius <= ringRadius + 0.0001) break;
+        ringRadius = requiredRadius;
+      }
+
+      const spans = layerCommunities.map(layout => (Math.max(layout.width, layout.height) + metrics.componentGapWorld) / Math.max(ringRadius, 1));
+      const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+      const extraGap = totalSpan < (Math.PI * 2) ? ((Math.PI * 2) - totalSpan) / layerCommunities.length : 0;
+      let cursor = -Math.PI / 2 - (totalSpan / 2);
+      layerCommunities.forEach((layout, index) => {
+        const angle = cursor + (spans[index] / 2);
+        layout.cx = Math.cos(angle) * ringRadius;
+        layout.cy = Math.sin(angle) * ringRadius;
+        cursor += spans[index] + extraGap;
+      });
+
+      previousOuterRadius = Math.max(previousOuterRadius, ...layerCommunities.map(layout => {
+        const angle = Math.atan2(layout.cy, layout.cx);
+        const radialSpan = (layout.width * Math.abs(Math.cos(angle))) + (layout.height * Math.abs(Math.sin(angle)));
+        const distance = Math.sqrt((layout.cx * layout.cx) + (layout.cy * layout.cy));
+        return distance + (radialSpan / 2);
+      }));
+    });
+
+    communityLayouts.forEach(layout => {
+      const localCenterX = (layout.bounds.minX + layout.bounds.maxX) / 2;
+      const localCenterY = (layout.bounds.minY + layout.bounds.maxY) / 2;
+      const shiftX = (layout.cx || 0) - localCenterX;
+      const shiftY = (layout.cy || 0) - localCenterY;
+      layout.nodes.forEach(node => {
+        node.x += shiftX;
+        node.y += shiftY;
+      });
+    });
+
+    return {
+      nodes: component.nodes,
+      bounds: computeComponentBounds(component.nodes),
+    };
+  }
+
+  function layoutComponentRadial(component, metrics) {
+    const radialColumnGap = metrics.columnGapWorld * 2.1;
+    const radialRingGap = metrics.ringGapWorld * 2.0;
+    const root = chooseComponentRoot(component);
+    const depths = computeDepths(component, root?.id);
+    const parentsMap = computeParentsMap(component, depths);
+    const layers = new Map();
+
+    component.nodes.forEach(node => {
+      const depth = depths.get(node.id) || 0;
+      node.depth = depth;
+      if (!layers.has(depth)) layers.set(depth, []);
+      layers.get(depth).push(node);
+    });
+
+    root.x = 0;
+    root.y = 0;
+    const depthList = Array.from(layers.keys()).sort((a, b) => a - b);
+    let previousOuterRadius = Math.max(root.collisionWidth, root.collisionHeight) / 2;
+
+    depthList.forEach(depth => {
+      if (depth === 0) return;
+      const layerNodes = layers.get(depth).slice();
+      const preferredAngles = new Map();
+
+      layerNodes.forEach(node => {
+        const parentAngles = (parentsMap.get(node.id) || [])
+          .map(id => nodeMap.get(id))
+          .filter(Boolean)
+          .map(parent => Math.atan2(parent.y, parent.x));
+        preferredAngles.set(node.id, getCircularMean(parentAngles));
+      });
+
+      layerNodes.sort((a, b) => {
+        return normalizeAngle(preferredAngles.get(a.id)) - normalizeAngle(preferredAngles.get(b.id)) || a.label.localeCompare(b.label);
+      });
+
+      const maxRadialSpan = Math.max(...layerNodes.map(node => getRectRadialSpan(node, preferredAngles.get(node.id))));
+      const minimumRadiusFromDepth = previousOuterRadius + radialRingGap + (maxRadialSpan / 2);
+      const targetAngles = layerNodes.map(node => preferredAngles.get(node.id));
+      const estimatedAngularLoad = layerNodes.reduce((sum, node, index) => {
+        const angle = targetAngles[index];
+        return sum + ((getRectTangentialSpan(node, angle) + radialColumnGap) / Math.max(minimumRadiusFromDepth, 1));
+      }, 0);
+      const bandCount = depth === 1
+        ? Math.max(1, Math.min(layerNodes.length, 5, Math.ceil(estimatedAngularLoad / (Math.PI * 1.1))))
+        : Math.max(1, Math.min(layerNodes.length, 5, Math.ceil(estimatedAngularLoad / (Math.PI * 1.45))));
+      const bands = partitionSequentialByWeight(
+        layerNodes,
+        bandCount,
+        node => (getRectTangentialSpan(node, preferredAngles.get(node.id)) + radialColumnGap)
+      );
+
+      let bandOuterRadius = previousOuterRadius;
+      bands.forEach((band, bandIndex) => {
+        const bandAngles = band.map(node => preferredAngles.get(node.id));
+        const bandMaxRadialSpan = Math.max(...band.map((node, index) => getRectRadialSpan(node, bandAngles[index])));
+        let ringRadius = bandOuterRadius + radialRingGap + (bandMaxRadialSpan / 2);
+
+        for (let iteration = 0; iteration < 6; iteration += 1) {
+          const spans = band.map((node, index) => {
+            const angle = bandAngles[index];
+            return (getRectTangentialSpan(node, angle) + radialColumnGap) / Math.max(ringRadius, 1);
+          });
+          const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+          const requiredRadius = totalSpan > (Math.PI * 2)
+            ? ringRadius * (totalSpan / (Math.PI * 2))
+            : ringRadius;
+          if (requiredRadius <= ringRadius + 0.0001) break;
+          ringRadius = requiredRadius;
+        }
+
+        const spans = band.map((node, index) => {
+          const angle = bandAngles[index];
+          return (getRectTangentialSpan(node, angle) + radialColumnGap) / Math.max(ringRadius, 1);
+        });
+        const totalSpan = spans.reduce((sum, span) => sum + span, 0);
+        const extraGap = totalSpan < (Math.PI * 2)
+          ? ((Math.PI * 2) - totalSpan) / band.length
+          : 0;
+        let cursor = -totalSpan / 2;
+        const placedAngles = [];
+
+        band.forEach((node, index) => {
+          const angle = cursor + (spans[index] / 2);
+          placedAngles.push(angle);
+          cursor += spans[index] + extraGap;
+        });
+
+        const desiredCenterAngle = getCircularMean(bandAngles);
+        const actualCenterAngle = getCircularMean(placedAngles);
+        const averageSpan = totalSpan / Math.max(1, band.length);
+        const staggerOffset = bandCount > 1 && (bandIndex % 2 === 1) ? (averageSpan / 2) : 0;
+        const rotationOffset = normalizeAngle(desiredCenterAngle - actualCenterAngle + staggerOffset);
+
+        band.forEach((node, index) => {
+          const angle = normalizeAngle(placedAngles[index] + rotationOffset);
+          node.x = Math.cos(angle) * ringRadius;
+          node.y = Math.sin(angle) * ringRadius;
+        });
+
+        resolveRectCollisions(band);
+        bandOuterRadius = Math.max(bandOuterRadius, ...band.map(node => {
+          const angle = Math.atan2(node.y, node.x);
+          const distance = Math.sqrt((node.x * node.x) + (node.y * node.y));
+          return distance + (getRectRadialSpan(node, angle) / 2);
+        }));
+      });
+
+      previousOuterRadius = bandOuterRadius;
+    });
+
+    resolveRectCollisions(component.nodes, 96);
+    scaleNodePositions(component.nodes, 1.26, 1.26, 0, 0);
+
+    return {
+      nodes: component.nodes,
+      bounds: computeComponentBounds(component.nodes),
+    };
+  }
+
+  function computeSccForComponent(component) {
+    const ids = new Set(component.nodeIds);
+    const indexMap = new Map();
+    const lowLink = new Map();
+    const onStack = new Set();
+    const stack = [];
+    const sccs = [];
+    let indexCounter = 0;
+
+    function strongConnect(id) {
+      indexMap.set(id, indexCounter);
+      lowLink.set(id, indexCounter);
+      indexCounter += 1;
+      stack.push(id);
+      onStack.add(id);
+
+      (directedOut.get(id) || []).forEach(next => {
+        if (!ids.has(next)) return;
+        if (!indexMap.has(next)) {
+          strongConnect(next);
+          lowLink.set(id, Math.min(lowLink.get(id), lowLink.get(next)));
+        } else if (onStack.has(next)) {
+          lowLink.set(id, Math.min(lowLink.get(id), indexMap.get(next)));
+        }
+      });
+
+      if (lowLink.get(id) === indexMap.get(id)) {
+        const members = [];
+        let nodeId = null;
+        do {
+          nodeId = stack.pop();
+          onStack.delete(nodeId);
+          members.push(nodeId);
+        } while (nodeId !== id);
+        sccs.push(members);
+      }
+    }
+
+    component.nodeIds.forEach(id => {
+      if (!indexMap.has(id)) strongConnect(id);
+    });
+
+    return sccs;
+  }
+
+  function layoutComponentScc(component, metrics) {
+    const sccCellGap = metrics.clusterCellGapWorld * 3.2;
+    const sccLayerGap = metrics.clusterLayerGapWorld * 2.8;
+    const sccColumnGap = metrics.columnGapWorld * 2.35;
+    const sccs = computeSccForComponent(component);
+    const sccIndexByNode = new Map();
+    sccs.forEach((members, sccIndex) => {
+      members.forEach(id => {
+        sccIndexByNode.set(id, sccIndex);
+        const node = nodeMap.get(id);
+        if (node) {
+          node.sccIndex = sccIndex;
+          node.sccSize = members.length;
+        }
+      });
+    });
+
+    const sccNodes = sccs.map((members, sccIndex) => {
+      const membersNodes = members.map(id => nodeMap.get(id)).filter(Boolean).sort((a, b) => a.label.localeCompare(b.label));
+      const cols = Math.max(1, Math.ceil(Math.sqrt(membersNodes.length)));
+      const rows = Math.ceil(membersNodes.length / cols);
+      const cellW = Math.max(...membersNodes.map(node => node.collisionWidth)) + sccCellGap;
+      const cellH = Math.max(...membersNodes.map(node => node.collisionHeight)) + sccCellGap;
+      const gridWidth = cols * cellW;
+      const gridHeight = rows * cellH;
+
+      membersNodes.forEach((node, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        node.localX = (col * cellW) - (gridWidth / 2) + (cellW / 2);
+        node.localY = (row * cellH) - (gridHeight / 2) + (cellH / 2);
+      });
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      membersNodes.forEach(node => {
+        minX = Math.min(minX, node.localX - (node.collisionWidth / 2));
+        minY = Math.min(minY, node.localY - (node.collisionHeight / 2));
+        maxX = Math.max(maxX, node.localX + (node.collisionWidth / 2));
+        maxY = Math.max(maxY, node.localY + (node.collisionHeight / 2));
+      });
+      const clusterWidth = Math.max(1, maxX - minX);
+      const clusterHeight = Math.max(1, maxY - minY);
+      const localCenterX = (minX + maxX) / 2;
+      const localCenterY = (minY + maxY) / 2;
+
+      return {
+        sccIndex,
+        members: membersNodes,
+        clusterWidth,
+        clusterHeight,
+        localCenterX,
+        localCenterY,
+        degree: membersNodes.reduce((sum, node) => sum + (node.degree || 0), 0),
+      };
+    });
+
+    const dagOut = new Map(sccNodes.map(cluster => [cluster.sccIndex, new Set()]));
+    const dagIn = new Map(sccNodes.map(cluster => [cluster.sccIndex, new Set()]));
+    links.forEach(link => {
+      if (!sccIndexByNode.has(link.source) || !sccIndexByNode.has(link.target)) return;
+      const sourceScc = sccIndexByNode.get(link.source);
+      const targetScc = sccIndexByNode.get(link.target);
+      link.intraScc = sourceScc === targetScc;
+      if (sourceScc === targetScc) return;
+      dagOut.get(sourceScc).add(targetScc);
+      dagIn.get(targetScc).add(sourceScc);
+    });
+
+    const root = chooseComponentRoot(component);
+    const rootScc = root ? sccIndexByNode.get(root.id) : 0;
+    const depths = new Map(sccNodes.map(cluster => [cluster.sccIndex, Number.POSITIVE_INFINITY]));
+    const queue = [];
+    if (rootScc !== undefined) {
+      depths.set(rootScc, 0);
+      queue.push(rootScc);
+    }
+    while (queue.length) {
+      const current = queue.shift();
+      const currentDepth = depths.get(current);
+      dagOut.get(current).forEach(next => {
+        if (depths.get(next) <= currentDepth + 1) return;
+        depths.set(next, currentDepth + 1);
+        queue.push(next);
+      });
+    }
+
+    const fallbackQueue = Array.from(depths.keys()).filter(key => Number.isFinite(depths.get(key)));
+    while (fallbackQueue.length) {
+      const current = fallbackQueue.shift();
+      const currentDepth = depths.get(current);
+      const neighbors = new Set([...(dagOut.get(current) || []), ...(dagIn.get(current) || [])]);
+      neighbors.forEach(next => {
+        if (depths.get(next) <= currentDepth + 1) return;
+        depths.set(next, currentDepth + 1);
+        fallbackQueue.push(next);
+      });
+    }
+    sccNodes.forEach(cluster => {
+      if (!Number.isFinite(depths.get(cluster.sccIndex))) depths.set(cluster.sccIndex, 0);
+    });
+
+    const layers = new Map();
+    sccNodes.forEach(cluster => {
+      const depth = depths.get(cluster.sccIndex) || 0;
+      cluster.depth = depth;
+      if (!layers.has(depth)) layers.set(depth, []);
+      layers.get(depth).push(cluster);
+    });
+
+    const depthList = Array.from(layers.keys()).sort((a, b) => a - b);
+    const colWidths = new Map();
+    depthList.forEach(depth => {
+      colWidths.set(depth, Math.max(...layers.get(depth).map(cluster => cluster.clusterWidth)) + sccColumnGap);
+    });
+
+    let currentX = 0;
+    depthList.forEach((depth, depthIndex) => {
+      const layerClusters = layers.get(depth).slice().sort((a, b) => {
+        const aParents = Array.from(dagIn.get(a.sccIndex) || []).filter(id => (depths.get(id) || 0) < depth);
+        const bParents = Array.from(dagIn.get(b.sccIndex) || []).filter(id => (depths.get(id) || 0) < depth);
+        const aScore = aParents.length ? aParents.map(parentId => sccNodes[parentId]?.y || 0).reduce((sum, value) => sum + value, 0) / aParents.length : 0;
+        const bScore = bParents.length ? bParents.map(parentId => sccNodes[parentId]?.y || 0).reduce((sum, value) => sum + value, 0) / bParents.length : 0;
+        return aScore - bScore || b.degree - a.degree;
+      });
+      const layerHeight = sumWithGap(layerClusters, cluster => cluster.clusterHeight, metrics.clusterLayerGapWorld);
+      const layerWidth = Math.max(...layerClusters.map(cluster => cluster.clusterWidth));
+      const bandCount = depthIndex === 0
+        ? 1
+        : estimateBandCount(layerClusters, layerHeight, layerWidth, 4);
+      const bands = partitionSequentialByWeight(
+        layerClusters,
+        bandCount,
+        cluster => cluster.clusterHeight + sccLayerGap
+      );
+      const bandWidths = bands.map(band => Math.max(...band.map(cluster => cluster.clusterWidth)));
+      const bandGap = sccColumnGap * 0.92;
+      const bandOffsets = computeCenteredBandOffsets(bandWidths, bandGap);
+
+      bands.forEach((band, bandIndex) => {
+        const bandHeight = sumWithGap(band, cluster => cluster.clusterHeight, sccLayerGap);
+        let currentY = -(bandHeight / 2);
+        band.forEach(cluster => {
+          cluster.x = currentX + bandOffsets[bandIndex];
+          cluster.y = currentY + (cluster.clusterHeight / 2);
+          currentY += cluster.clusterHeight + sccLayerGap;
+        });
+      });
+      const bandBundleWidth = bandWidths.reduce((sum, width) => sum + width, 0) + (Math.max(0, bandWidths.length - 1) * bandGap);
+      currentX += Math.max(colWidths.get(depth), bandBundleWidth + sccColumnGap);
+    });
+
+    const clusterRects = sccNodes.map(cluster => ({
+      x: cluster.x,
+      y: cluster.y,
+      collisionWidth: cluster.clusterWidth + sccColumnGap,
+      collisionHeight: cluster.clusterHeight + sccLayerGap,
+    }));
+    resolveRectCollisions(clusterRects, 96);
+    clusterRects.forEach((rect, index) => {
+      sccNodes[index].x = rect.x;
+      sccNodes[index].y = rect.y;
+    });
+
+    component.nodes.forEach(node => {
+      const cluster = sccNodes[node.sccIndex];
+      node.depth = cluster.depth;
+      node.x = cluster.x + node.localX - cluster.localCenterX;
+      node.y = cluster.y + node.localY - cluster.localCenterY;
+    });
+    const condensedBounds = computeComponentBounds(component.nodes);
+    scaleNodePositions(
+      component.nodes,
+      1.22,
+      1.18,
+      (condensedBounds.minX + condensedBounds.maxX) / 2,
+      (condensedBounds.minY + condensedBounds.maxY) / 2
+    );
+
+    return {
+      nodes: component.nodes,
+      bounds: computeComponentBounds(component.nodes),
+    };
+  }
+
+  const layoutRegistry = {
+    layered: {
+      label: "Islands",
+      description: "Clusters related pages into topical islands, then packs those islands into a 2D concept map.",
+      apply(component, metrics) {
+        return layoutComponentIslands(component, metrics);
+      },
+    },
+    radial: {
+      label: "Radial",
+      description: "Shortest-path rings around the chosen root. This handles cycles better visually than a spring graph.",
+      apply(component, metrics) {
+        return layoutComponentRadial(component, metrics);
+      },
+    },
+    scc: {
+      label: "Condensed",
+      description: "Groups strongly connected components into cycle clusters, then lays those clusters out as a higher-level graph.",
+      apply(component, metrics) {
+        return layoutComponentScc(component, metrics);
+      },
+    },
+  };
+
+  function populateLayoutSelect() {
+    if (!layoutSelect) return;
+    Object.entries(layoutRegistry).forEach(([key, layout]) => {
+      const option = document.createElement("option");
+      option.value = key;
+      option.textContent = layout.label;
+      layoutSelect.appendChild(option);
+    });
+  }
+
+  function updateLayoutUrl(layoutKey) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("layout", layoutKey);
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function getLayoutFromUrl() {
+    const url = new URL(window.location.href);
+    const requested = url.searchParams.get("layout");
+    return requested && layoutRegistry[requested] ? requested : "radial";
+  }
+
+  function applyCurrentLayout({ fit = true, focusRoot = false } = {}) {
+    const layout = layoutRegistry[state.layoutKey] || layoutRegistry.radial;
+    const layoutScale = GRAPH_LAYOUT_REFERENCE_SCALE;
+    const metrics = buildLayoutMetrics(layoutScale);
+
+    GRAPH_DATA.nodes.forEach(node => {
+      applyLayoutCollisionSize(node, metrics);
+      node.sccIndex = -1;
+      node.sccSize = 1;
+    });
+    links.forEach(link => { link.intraScc = false; });
+
+    const componentLayouts = components.map(component => layout.apply(component, metrics));
+    packComponentLayouts(componentLayouts, GRAPH_CONFIG.includeAllPages ? Math.ceil(Math.sqrt(componentLayouts.length)) : 1, metrics);
+
+    const layoutTransform = computeCenteredTransformAtScale(layoutScale, metrics.paddingPx);
+    const rootNode = GRAPH_DATA.nodes.find(node => node.isRoot) || null;
+    const rootTransform = focusRoot && rootNode
+      ? computeNodeCenteredTransformAtScale(rootNode, layoutScale)
+      : null;
+    const fitTransform = computeFitTransform(metrics.paddingPx);
+
+    state.layoutMeta = {
+      layoutKey: state.layoutKey,
+      layoutScale,
+      layoutTransform,
+      rootTransform,
+      fitTransform,
+    };
+    const initialTransform = rootTransform || layoutTransform;
+    if (fit && initialTransform) {
+      fitGraphFromTransform(initialTransform.scale, initialTransform.tx, initialTransform.ty);
+    } else {
+      render();
+    }
+  }
+
+  function buildLinkPath(link) {
+    const sx = link.sourceNode.x;
+    const sy = link.sourceNode.y;
+    const tx = link.targetNode.x;
+    const ty = link.targetNode.y;
+
+    if (state.layoutKey === "radial") {
+      const mx = (sx + tx) / 2;
+      const my = (sy + ty) / 2;
+      const nx = ty - sy;
+      const ny = -(tx - sx);
+      const length = Math.sqrt((nx * nx) + (ny * ny)) || 1;
+      const curve = Math.min(110, Math.max(20, Math.sqrt(((tx - sx) ** 2) + ((ty - sy) ** 2)) * (link.sourceNode.depth === link.targetNode.depth ? 0.24 : 0.1)));
+      const cx = mx + (nx / length) * curve;
+      const cy = my + (ny / length) * curve;
+      return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
+    }
+
+    const dx = tx - sx;
+    const curve = Math.max(24, Math.abs(dx) * 0.52);
+    const direction = dx === 0 ? 1 : Math.sign(dx);
+    const c1x = sx + (curve * direction);
+    const c2x = tx - (curve * direction);
+    return `M ${sx} ${sy} C ${c1x} ${sy}, ${c2x} ${ty}, ${tx} ${ty}`;
+  }
+
+  function render() {
+    applyTransform();
+
+    const renderMode = getRenderMode();
+    setLinksVisible(renderMode !== "cluster");
+
+    linkEls.forEach(({ data, baseEl, accentEl }) => {
+      const path = buildLinkPath(data);
+      baseEl.setAttribute("d", path);
+      accentEl.setAttribute("d", path);
+      baseEl.classList.toggle("wiki-graph-link--intra-scc", !!data.intraScc);
+      accentEl.classList.toggle("wiki-graph-link--intra-scc", !!data.intraScc);
+    });
+
+    nodeEls.forEach(({ data, el }) => {
+      el.setAttribute("transform", `translate(${data.x} ${data.y})`);
+    });
+
+    if (state.hoverTooltipNodeId && !hoverTooltipEl.hidden) {
+      positionHoverTooltip(nodeMap.get(state.hoverTooltipNodeId));
+    }
+
+    labelOverlay.classList.remove("is-hidden");
+    clearClusterBadges();
+
+    if (renderMode === "card" || renderMode === "chip") {
+      hideElements(markerEls);
+      cardEls.forEach(({ data, el }) => {
+        const screen = getNodeScreenPoint(data);
+        showNodeCard(el, screen.x, screen.y, renderMode === "chip");
+      });
+      return;
+    }
+
+    hideElements(cardEls);
+
+    if (renderMode === "marker") {
+      markerEls.forEach(({ data, el }) => {
+        const screen = getNodeScreenPoint(data);
+        showNodeMarker(data, el, screen.x, screen.y);
+      });
+      return;
+    }
+
+    hideElements(cardEls);
+    renderClusters();
+  }
+
+  function resize() {
+    const rect = svg.getBoundingClientRect();
+    state.width = Math.max(1, rect.width);
+    state.height = Math.max(1, rect.height);
+    svg.setAttribute("viewBox", `0 0 ${state.width} ${state.height}`);
+    GRAPH_DATA.nodes.forEach(node => { node.shapeSizeCache = {}; });
+    cardEls.forEach(({ el }) => { el._graphSizeCache = {}; });
+    markerEls.forEach(({ el }) => { el._graphSizeCache = {}; });
+    clusterBadgeEls.forEach(({ el }) => { el._graphSizeCache = {}; });
+  }
+
+  function setHopLabel() {
+    if (!hopLabel) return;
+    if (GRAPH_CONFIG.includeAllPages) {
+      hopLabel.textContent = "All pages";
+      return;
+    }
+    hopLabel.textContent = GRAPH_CONFIG.isFull
+      ? `Full recursion (max ${GRAPH_CONFIG.maxDetectedHop})`
+      : `${GRAPH_CONFIG.currentHopLimit} hops`;
+  }
+
+  function updateGraphUrl(nextHops) {
+    const url = new URL(window.location.href);
+    if (nextHops === null || nextHops === undefined) {
+      url.searchParams.delete("hops");
+    } else if (nextHops === "full") {
+      url.searchParams.set("hops", "full");
+    } else {
+      url.searchParams.set("hops", `${Math.min(GRAPH_CONFIG.maxDetectedHop, Math.max(1, nextHops))}`);
+    }
+    url.searchParams.set("layout", state.layoutKey);
+    window.location.assign(url.toString());
+  }
+
+  function currentHopValue() {
+    return GRAPH_CONFIG.isFull ? null : Math.min(GRAPH_CONFIG.maxDetectedHop, Math.max(1, Number(GRAPH_CONFIG.currentHopLimit || 1)));
+  }
+
+  function bindButtons() {
+    const byId = id => document.getElementById(id);
+    const disabledForAllPages = !!GRAPH_CONFIG.includeAllPages;
+    ["graph-hop-dec", "graph-hop-inc"].forEach(id => {
+      const el = byId(id);
+      if (el) el.disabled = disabledForAllPages;
+    });
+
+    const hopDec = byId("graph-hop-dec");
+    const hopInc = byId("graph-hop-inc");
+    if (!disabledForAllPages) {
+      const current = currentHopValue();
+      if (hopDec) hopDec.disabled = current !== null && current <= 1;
+      if (hopInc) hopInc.disabled = current !== null && current >= GRAPH_CONFIG.maxDetectedHop;
+    }
+
+    if (layoutSelect) {
+      layoutSelect.addEventListener("change", () => {
+        const nextKey = layoutSelect.value;
+        if (!layoutRegistry[nextKey]) return;
+        state.layoutKey = nextKey;
+        updateLayoutUrl(nextKey);
+        applyCurrentLayout({ fit: true });
+      });
+    }
+
+    if (nodeScaleInput) {
+      nodeScaleInput.addEventListener("input", () => {
+        setNodeScreenScale(nodeScaleInput.value, { relayout: true });
+      });
+    }
+
+    if (byId("graph-hop-dec")) byId("graph-hop-dec").addEventListener("click", () => {
+      const current = currentHopValue();
+      updateGraphUrl(current === null ? GRAPH_CONFIG.maxDetectedHop : Math.max(1, current - 1));
+    });
+    if (byId("graph-hop-inc")) byId("graph-hop-inc").addEventListener("click", () => {
+      const current = currentHopValue();
+      updateGraphUrl(current === null ? GRAPH_CONFIG.maxDetectedHop : Math.min(GRAPH_CONFIG.maxDetectedHop, current + 1));
+    });
+    if (byId("graph-layout-apply")) byId("graph-layout-apply").addEventListener("click", () => applyCurrentLayout({ fit: true }));
+    if (byId("graph-zoom-fit")) byId("graph-zoom-fit").addEventListener("click", () => fitGraph());
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener("click", event => {
+        event.stopPropagation();
+        setSidebarCollapsed(!state.sidebarCollapsed);
+      });
+    }
+    if (sidebarRestore) {
+      sidebarRestore.addEventListener("click", event => {
+        event.stopPropagation();
+        setSidebarCollapsed(false);
+      });
+    }
+    if (sidebarPanel) {
+      sidebarPanel.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+      });
+      sidebarPanel.addEventListener("click", event => {
+        if (state.sidebarCollapsed) return;
+        const interactiveTarget = event.target.closest("a, button");
+        if (interactiveTarget && interactiveTarget !== sidebarToggle) return;
+        setSidebarCollapsed(true);
+      });
+    }
+  }
+
+  function pointerCount() {
+    return state.pointers.size;
+  }
+
+  function midpoint(points) {
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2,
+    };
+  }
+
+  function distance(points) {
+    const dx = points[1].x - points[0].x;
+    const dy = points[1].y - points[0].y;
+    return Math.sqrt((dx * dx) + (dy * dy)) || 1;
+  }
+
+  function pointerDeltaDistance(clientX, clientY, startX, startY) {
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    return Math.sqrt((dx * dx) + (dy * dy)) || 0;
+  }
+
+  function onPointerDown(event) {
+    stopViewportAnimation();
+    if (!event.target.closest(".wiki-graph-hover-tooltip")) hideHoverTooltip();
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    surface.setPointerCapture(event.pointerId);
+
+    const graphJump = event.target.closest(".wiki-graph-node-jump");
+    const nodeGroup = event.target.closest("[data-node-id]");
+    if (pointerCount() === 1 && nodeGroup) {
+      event.preventDefault();
+      state.pointerMode = "drag-node";
+      state.dragNodeId = nodeGroup.getAttribute("data-node-id") || "";
+      state.graphJumpHref = graphJump ? (graphJump.dataset.graphHref || "") : "";
+      state.dragMoved = false;
+      const node = nodeMap.get(state.dragNodeId);
+      state.dragStartClientX = event.clientX;
+      state.dragStartClientY = event.clientY;
+      state.dragStartNodeX = node ? node.x : 0;
+      state.dragStartNodeY = node ? node.y : 0;
+      applySelection(state.dragNodeId);
+    } else if (pointerCount() === 1) {
+      state.pointerMode = "pan";
+      state.panAnchor = { x: event.clientX, y: event.clientY };
+      state.panStartTx = state.tx;
+      state.panStartTy = state.ty;
+    } else if (pointerCount() === 2) {
+      state.pointerMode = "pinch";
+      const points = Array.from(state.pointers.values()).slice(0, 2);
+      state.pinchStartDistance = distance(points);
+      state.pinchStartMidpoint = midpoint(points);
+      state.pinchStartScale = state.scale;
+      state.pinchStartTx = state.tx;
+      state.pinchStartTy = state.ty;
+      state.dragNodeId = "";
+      state.graphJumpHref = "";
+      state.dragStartClientX = 0;
+      state.dragStartClientY = 0;
+    }
+  }
+
+  function onPointerMove(event) {
+    if (!state.pointers.has(event.pointerId)) return;
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (state.longPressPointerId === event.pointerId && !state.longPressActivated) {
+      const dragDistance = pointerDeltaDistance(
+        event.clientX,
+        event.clientY,
+        state.longPressStartX,
+        state.longPressStartY
+      );
+      if (dragDistance > 10) cancelLongPress();
+    }
+
+    if (state.pointerMode === "pinch" && pointerCount() >= 2) {
+      stopViewportAnimation();
+      const points = Array.from(state.pointers.values()).slice(0, 2);
+      const currentDistance = distance(points);
+      const currentMidpoint = midpoint(points);
+      state.scale = clampScale(state.pinchStartScale * (currentDistance / state.pinchStartDistance));
+      state.tx = state.pinchStartTx + (currentMidpoint.x - state.pinchStartMidpoint.x);
+      state.ty = state.pinchStartTy + (currentMidpoint.y - state.pinchStartMidpoint.y);
+      render();
+      return;
+    }
+
+    if (state.pointerMode === "pan" && pointerCount() === 1 && state.panAnchor) {
+      stopViewportAnimation();
+      state.tx = state.panStartTx + (event.clientX - state.panAnchor.x);
+      state.ty = state.panStartTy + (event.clientY - state.panAnchor.y);
+      state.targetTx = state.tx;
+      state.targetTy = state.ty;
+      render();
+      return;
+    }
+
+    if (state.pointerMode === "drag-node" && state.dragNodeId && pointerCount() === 1) {
+      stopViewportAnimation();
+      const node = nodeMap.get(state.dragNodeId);
+      if (!node) return;
+      const dragDistance = pointerDeltaDistance(
+        event.clientX,
+        event.clientY,
+        state.dragStartClientX,
+        state.dragStartClientY
+      );
+      if (!state.dragMoved && dragDistance < 6) return;
+      node.x = state.dragStartNodeX + ((event.clientX - state.dragStartClientX) / state.scale);
+      node.y = state.dragStartNodeY + ((event.clientY - state.dragStartClientY) / state.scale);
+      state.dragMoved = true;
+      render();
+    }
+  }
+
+  function onPointerUp(event) {
+    const hadPointer = state.pointers.has(event.pointerId);
+    const nodeId = state.dragNodeId;
+    state.pointers.delete(event.pointerId);
+    if (!hadPointer) return;
+
+    const longPressWasActive = state.longPressPointerId === event.pointerId && state.longPressActivated;
+    if (state.longPressPointerId === event.pointerId) {
+      if (longPressWasActive) {
+        clearHoverTooltipTimer();
+        clearLongPressTracking();
+      } else {
+        cancelLongPress();
+      }
+    }
+
+    if (state.pointerMode === "drag-node" && nodeId) {
+      const node = nodeMap.get(nodeId);
+      const graphJumpHref = state.graphJumpHref;
+      if (!state.dragMoved && !longPressWasActive) {
+        if (graphJumpHref) {
+          window.location.assign(graphJumpHref);
+        } else if (node && node.type === "image" && node.imageUrl) {
+          openImageViewer(node);
+        } else if (node) {
+          const primaryHref = derivePrimaryNodeHref(node);
+          if (primaryHref) window.location.assign(primaryHref);
+        }
+      } else {
+        state.suppressNodeClickUntil = Date.now() + 250;
+        render();
+      }
+      state.dragNodeId = "";
+      state.dragMoved = false;
+      state.graphJumpHref = "";
+      state.dragStartClientX = 0;
+      state.dragStartClientY = 0;
+    }
+
+    if (pointerCount() === 0) {
+      state.pointerMode = null;
+      state.panAnchor = null;
+      return;
+    }
+
+    if (pointerCount() === 1) {
+      state.pointerMode = "pan";
+      const remaining = Array.from(state.pointers.values())[0];
+      state.panAnchor = remaining ? { x: remaining.x, y: remaining.y } : null;
+      state.panStartTx = state.tx;
+      state.panStartTy = state.ty;
+    }
+  }
+
+  function bindPointerEvents() {
+    surface.addEventListener("pointerdown", onPointerDown);
+    surface.addEventListener("pointermove", onPointerMove);
+    surface.addEventListener("pointerup", onPointerUp);
+    surface.addEventListener("pointercancel", onPointerUp);
+    surface.addEventListener("wheel", event => {
+      event.preventDefault();
+      hideHoverTooltip();
+      const factor = wheelZoomFactor(event);
+      zoomAt(factor, event.clientX, event.clientY, { immediate: true });
+    }, { passive: false });
+  }
+
+  function bindImageViewerEvents() {
+    imageDownload.addEventListener("pointerdown", event => {
+      event.stopPropagation();
+    });
+    imageDownload.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+    imageViewer.addEventListener("pointerdown", event => {
+      if (imageViewer.hidden) return;
+      event.preventDefault();
+      event.stopPropagation();
+      imageViewer.setPointerCapture(event.pointerId);
+      const local = imageViewerLocalPoint(event.clientX, event.clientY);
+      imageViewerState.pointers.set(event.pointerId, { x: local.x, y: local.y });
+      imageViewerState.pointerMoved = false;
+
+      if (imageViewerState.pointers.size === 1) {
+        imageViewerState.pointerMode = "pan";
+        imageViewerState.panStartTx = imageViewerState.tx;
+        imageViewerState.panStartTy = imageViewerState.ty;
+        imageViewerState.panAnchorX = local.x;
+        imageViewerState.panAnchorY = local.y;
+      } else if (imageViewerState.pointers.size >= 2) {
+        imageViewerState.pointerMode = "pinch";
+        const points = Array.from(imageViewerState.pointers.values()).slice(0, 2);
+        const midpoint = imageViewerMidpoint(points);
+        imageViewerState.pinchStartDistance = imageViewerDistance(points);
+        imageViewerState.pinchStartMidpointX = midpoint.x;
+        imageViewerState.pinchStartMidpointY = midpoint.y;
+        imageViewerState.pinchStartScale = imageViewerState.scale;
+        imageViewerState.pinchStartTx = imageViewerState.tx;
+        imageViewerState.pinchStartTy = imageViewerState.ty;
+        imageViewerState.pinchImageAX = (points[0].x - imageViewerState.tx) / imageViewerState.scale;
+        imageViewerState.pinchImageAY = (points[0].y - imageViewerState.ty) / imageViewerState.scale;
+        imageViewerState.pinchImageBX = (points[1].x - imageViewerState.tx) / imageViewerState.scale;
+        imageViewerState.pinchImageBY = (points[1].y - imageViewerState.ty) / imageViewerState.scale;
+      }
+    });
+
+    imageViewer.addEventListener("pointermove", event => {
+      if (imageViewer.hidden || !imageViewerState.pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const local = imageViewerLocalPoint(event.clientX, event.clientY);
+      imageViewerState.pointers.set(event.pointerId, { x: local.x, y: local.y });
+
+      if (imageViewerState.pointerMode === "pinch" && imageViewerState.pointers.size >= 2) {
+        const points = Array.from(imageViewerState.pointers.values()).slice(0, 2);
+        const nextScale = clampImageViewerScale(imageViewerState.pinchStartScale * (imageViewerDistance(points) / imageViewerState.pinchStartDistance));
+        imageViewerState.scale = nextScale;
+        const txA = points[0].x - (nextScale * imageViewerState.pinchImageAX);
+        const tyA = points[0].y - (nextScale * imageViewerState.pinchImageAY);
+        const txB = points[1].x - (nextScale * imageViewerState.pinchImageBX);
+        const tyB = points[1].y - (nextScale * imageViewerState.pinchImageBY);
+        imageViewerState.tx = (txA + txB) / 2;
+        imageViewerState.ty = (tyA + tyB) / 2;
+        imageViewerState.pointerMoved = true;
+        applyImageViewerTransform();
+        return;
+      }
+
+      if (imageViewerState.pointerMode === "pan" && imageViewerState.pointers.size === 1) {
+        imageViewerState.tx = imageViewerState.panStartTx + (local.x - imageViewerState.panAnchorX);
+        imageViewerState.ty = imageViewerState.panStartTy + (local.y - imageViewerState.panAnchorY);
+        if (Math.abs(local.x - imageViewerState.panAnchorX) > 2 || Math.abs(local.y - imageViewerState.panAnchorY) > 2) {
+          imageViewerState.pointerMoved = true;
+        }
+        applyImageViewerTransform();
+      }
+    });
+
+    function releaseImageViewerPointer(event, isCancel = false) {
+      if (!imageViewerState.pointers.has(event.pointerId)) return;
+      if (!isCancel) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      imageViewerState.pointers.delete(event.pointerId);
+
+      if (!isCancel && !imageViewerState.pointerMoved && imageViewerState.pointers.size === 0) {
+        closeImageViewer();
+        return;
+      }
+
+      if (imageViewerState.pointers.size === 0) {
+        imageViewerState.pointerMode = null;
+        imageViewerState.pointerMoved = false;
+        return;
+      }
+
+      if (imageViewerState.pointers.size === 1) {
+        const remaining = Array.from(imageViewerState.pointers.values())[0];
+        imageViewerState.pointerMode = "pan";
+        imageViewerState.panStartTx = imageViewerState.tx;
+        imageViewerState.panStartTy = imageViewerState.ty;
+        imageViewerState.panAnchorX = remaining.x;
+        imageViewerState.panAnchorY = remaining.y;
+      }
+    }
+
+    imageViewer.addEventListener("pointerup", event => releaseImageViewerPointer(event, false));
+    imageViewer.addEventListener("pointercancel", event => releaseImageViewerPointer(event, true));
+    imageViewer.addEventListener("wheel", event => {
+      if (imageViewer.hidden) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const local = imageViewerLocalPoint(event.clientX, event.clientY);
+      zoomImageViewerAt(wheelZoomFactor(event), local.x, local.y);
+    }, { passive: false });
+  }
+
+  function bindNodeInteractions() {
+    function bindNodeTarget(data, el) {
+      el.addEventListener("dragstart", event => {
+        event.preventDefault();
+      });
+      const graphJump = el.querySelector(".wiki-graph-node-jump");
+      if (graphJump) {
+        graphJump.addEventListener("click", event => {
+          hideHoverTooltip();
+          if (Date.now() < state.suppressNodeClickUntil) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          const href = graphJump.dataset.graphHref;
+          if (href) window.location.assign(href);
+        });
+      }
+      el.addEventListener("mouseenter", () => applySelection(data.id));
+      el.addEventListener("mouseenter", () => scheduleHoverTooltip(data.id));
+      el.addEventListener("mousemove", () => scheduleHoverTooltip(data.id));
+      el.addEventListener("mouseleave", () => hideHoverTooltip());
+      el.addEventListener("focus", () => applySelection(data.id));
+      el.addEventListener("pointerdown", event => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        applySelection(data.id);
+        scheduleHoldTooltip(data.id, event.pointerId, event.clientX, event.clientY);
+      });
+      el.addEventListener("pointermove", event => {
+        if (state.longPressPointerId !== event.pointerId || state.longPressActivated) return;
+        const dragDistance = pointerDeltaDistance(
+          event.clientX,
+          event.clientY,
+          state.longPressStartX,
+          state.longPressStartY
+        );
+        if (dragDistance > 10) cancelLongPress();
+      });
+      el.addEventListener("pointerup", event => {
+        if (state.longPressPointerId !== event.pointerId) return;
+        if (state.longPressActivated) {
+          clearHoverTooltipTimer();
+          clearLongPressTracking();
+        } else {
+          cancelLongPress();
+        }
+      });
+      el.addEventListener("pointercancel", event => {
+        if (state.longPressPointerId !== event.pointerId) return;
+        cancelLongPress();
+      });
+      el.addEventListener("click", event => {
+        if (Date.now() < state.suppressNodeClickUntil) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        hideHoverTooltip();
+        applySelection(data.id);
+        if (data.type === "image" && data.imageUrl) {
+          event.preventDefault();
+          openImageViewer(data);
+          return;
+        }
+        if (!data.href) event.preventDefault();
+      });
+    }
+
+    cardEls.forEach(({ data, el }) => {
+      bindNodeTarget(data, el);
+    });
+    markerEls.forEach(({ data, el }) => {
+      bindNodeTarget(data, el);
+    });
+  }
+
+  function bindKeyboard() {
+    document.addEventListener("keydown", event => {
+      if (!imageViewer.hidden && event.key === "Escape") {
+        event.preventDefault();
+        closeImageViewer();
+        return;
+      }
+      const tagName = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : "";
+      if (tagName === "input" || tagName === "textarea" || tagName === "select") return;
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        const center = svgClientCenter();
+        zoomAt(1.18, center.x, center.y);
+      } else if (event.key === "-") {
+        event.preventDefault();
+        const center = svgClientCenter();
+        zoomAt(1 / 1.18, center.x, center.y);
+      } else if (event.key === "0") {
+        event.preventDefault();
+        fitGraph();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        state.tx += 40;
+        render();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        state.tx -= 40;
+        render();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        state.ty += 40;
+        render();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        state.ty -= 40;
+        render();
+      }
+    });
+  }
+
+  populateLayoutSelect();
+  state.layoutKey = getLayoutFromUrl();
+  if (layoutSelect) layoutSelect.value = state.layoutKey;
+  updateNodeScaleReadout();
+  applyNodeScreenScaleStyle();
+  resize();
+  setHopLabel();
+  bindButtons();
+  setSidebarCollapsed(true);
+  bindPointerEvents();
+  bindImageViewerEvents();
+  bindNodeInteractions();
+  bindKeyboard();
+  applyCurrentLayout({ fit: true, focusRoot: true });
+  applySelection(GRAPH_DATA.nodes.find(node => node.isRoot)?.id || GRAPH_DATA.nodes[0]?.id || "");
+  window.addEventListener("resize", () => {
+    resize();
+    fitGraph();
+  });
+})();
+</script>

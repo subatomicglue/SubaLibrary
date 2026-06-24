@@ -262,6 +262,11 @@ const viewDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/view` );
 makeDir( viewDir )
 const mdDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/markdown` );
 makeDir( mdDir )
+const graphDir = path.join(outputDir, `${SETTINGS.WIKI_ENDPOINT}/graph` );
+makeDir( graphDir )
+const graphAllDir = path.join(outputDir, "root/wiki/graph-all");
+makeDir( graphAllDir )
+let latestWikiTimestamp = new Date(0);
 
 // Convert .md files to .html, copy image files
 fs.readdirSync(inputDir).forEach(file => {
@@ -274,6 +279,10 @@ fs.readdirSync(inputDir).forEach(file => {
     const outputFileName = topic;
     const outputPath = path.join(viewDir, outputFileName);
     let markdown = fs.readFileSync(fullPath, 'utf-8');
+    const sourceTimestamp = syncer.getFileTimestamp(fullPath) || new Date(0);
+    if (sourceTimestamp > latestWikiTimestamp) {
+      latestWikiTimestamp = sourceTimestamp;
+    }
 
     // special case: sanitize ChangeLog.md for static consumption
     if (topic == "ChangeLog") {
@@ -285,9 +294,27 @@ fs.readdirSync(inputDir).forEach(file => {
       link_relative_callback: (baseUrl, link_topic) => `${baseUrl}/${link_topic}`,
       link_absolute_callback: (baseUrl, url) => url,
       userdata: SETTINGS.USERS_WHITELIST,
-    }), topic, req, extractFirstImage( markdown, 10 ), syncer.getFileTimestamp(fullPath) );
+    }), topic, req, extractFirstImage( markdown, 10 ), sourceTimestamp );
     syncer.writeFileIfChanged( fullPath, outputPath, html, 'utf-8' )                                  // copy the topic html over
     syncer.writeFileIfChanged( fullPath, path.join(mdDir, outputFileName + ".md"), markdown, 'utf8' ) // copy the topic.md over
+
+    if (topic !== SETTINGS.WIKI_CHANGELOG_TOPICNAME) {
+      const topicGraphReq = new Req(topic, "/wiki", "/graph/");
+      const topicGraphHtml = require(`./router-wiki.js`).buildStaticWikiGraphPage(topicGraphReq, {
+        wikiDir: inputDir,
+        wikiEndpoint: SETTINGS.WIKI_ENDPOINT,
+        includeImages: true,
+      changelogTopicName: SETTINGS.WIKI_CHANGELOG_TOPICNAME,
+      topic,
+      rawHops: 1,
+      includeAllPages: false,
+      t: sourceTimestamp,
+    });
+      syncer.writeFileIfChanged(fullPath, path.join(graphDir, outputFileName), topicGraphHtml, 'utf-8');
+      if (topic === "index") {
+        syncer.writeFileIfChanged(fullPath, path.join(graphDir, "index.html"), topicGraphHtml, 'utf-8');
+      }
+    }
 
     // special case: webservers may need there to be a index.html
     // if (topic == "index")
@@ -331,6 +358,20 @@ require( `./sitemap.js` ).siteMap( "https://" + SETTINGS.DOMAINS[1] ).then( site
 const searchPath = path.join(outputDir, "wiki/search")
 const searchHTML = require( `./router-wiki.js` ).buildPageSearch( new Req("search", "/wiki", "/") )
 syncer.writeFileIfChanged(undefined, searchPath, searchHTML )
+
+// write out graph pages
+makeDir(path.join(outputDir, "root/wiki/graph"));
+const allPagesGraphHtml = require(`./router-wiki.js`).buildStaticWikiGraphPage(new Req("", "/wiki", "/graph-all/"), {
+  wikiDir: inputDir,
+  wikiEndpoint: SETTINGS.WIKI_ENDPOINT,
+  includeImages: true,
+  changelogTopicName: SETTINGS.WIKI_CHANGELOG_TOPICNAME,
+  topic: "",
+  rawHops: undefined,
+  includeAllPages: true,
+  t: latestWikiTimestamp,
+});
+syncer.writeFileIfChanged(undefined, path.join(graphAllDir, "index.html"), allPagesGraphHtml, 'utf-8');
 
 // write out search-youtube
 const searchYoutubePath = path.join(outputDir, "wiki/search-youtube")
@@ -377,12 +418,14 @@ function genRedirectPage(link) {
 }
 // mechanical stuff
 makeDir( path.join(outputDir, "root/wiki/view") )
+makeDir( path.join(outputDir, "root/wiki/graph") )
 makeDir( path.join(outputDir, "root/tools") )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/forbidden.html"), "403 forbidden" )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/notfound.html"), "404 not found" )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/view/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/view/index` ) )
+syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/wiki/graph/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/wiki/graph-all` ) )
 syncer.writeFileIfChanged(undefined, path.join(outputDir, "root/tools/index.html"), genRedirectPage( `https://${SETTINGS.DOMAINS[1]}/tools/index` ) )
 
 
