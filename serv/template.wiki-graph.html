@@ -76,6 +76,7 @@
 
 <script>
 (() => {
+  document.body.classList.add("wiki-graph-body");
   const GRAPH_DATA = <%=GRAPH_DATA_JSON%>;
   const GRAPH_CONFIG = {
     topicRoutePrefix: "<%=GRAPH_TOPIC_ROUTE_PREFIX%>",

@@ -89,6 +89,33 @@ pre {
   display: flex;
   flex-direction: column;
 }
+.wiki-graph-body,
+.wiki-graph-body html {
+  overflow: hidden;
+}
+.wiki-graph-body {
+  padding-top: 0 !important;
+}
+.wiki-graph-body #page {
+  min-height: 100dvh;
+  height: 100dvh;
+  padding-top: var(--page-title-height, 0px);
+  box-sizing: border-box;
+}
+.wiki-graph-body #page-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.wiki-graph-body .scroll-parent,
+.wiki-graph-body .scroll-child-wiki,
+.wiki-graph-body .page-body-wrapper--flush {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 .scroll-child-wiki {
   overflow-x: hidden; /* Disable horizontal scrolling */
 }
