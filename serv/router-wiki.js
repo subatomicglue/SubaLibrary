@@ -89,6 +89,10 @@ function renderPageFrame(options = {}) {
   } = options;
   const assetsMagic = req.staticMode ? "assets" : ASSETS_MAGIC;
   const resolvedBackButtonImage = backButtonImage || `/${assetsMagic}/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg`;
+  const useEditHostForAuth = req.prodMode && HOSTNAME_FOR_EDITS != HOSTNAME_FOR_STATIC;
+  const authDomainPrefix = useEditHostForAuth ? `https://${HOSTNAME_FOR_EDITS}.${DOMAINS[0]}` : "";
+  const signinHref = `${authDomainPrefix}/login`;
+  const signoutHref = `${authDomainPrefix}/logout`;
 
   return template.file( "template.page.html", {
     ...require('./settings'), ...{ CANONICAL_URL: req.canonicalUrl, CANONICAL_URL_ROOT: req.canonicalUrlRoot, CANONICAL_URL_DOMAIN: req.canonicalUrlDomain, CURRENT_DATETIME: t.toISOString().replace(/\.\d{3}Z$/, '+0000') },
@@ -109,8 +113,8 @@ function renderPageFrame(options = {}) {
     SEARCH_URL: `${req.baseUrl}/search`,
     BODY: body,
     USER_LOGOUT: (!isLoggedIn( req )) ?
-`<a id="signin-link" style="color: grey;" href="/login">&nbsp;signin</a>` :
-`<a id="signin-link" title="[signout]" alt="[signout]" style="color: grey;" href="/logout">&nbsp;<span id="username-span" style="white-space: nowrap; overflow: hidden; display: inline-block; max-width: 11ch; position: relative; vertical-align:bottom">${req.user}<span id="gradient-span" style="content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2rem; background: linear-gradient(to right, transparent, #333);"></span></span></a>
+`<a id="signin-link" style="color: grey;" href="${signinHref}">&nbsp;signin</a>` :
+`<a id="signin-link" title="[signout]" alt="[signout]" style="color: grey;" href="${signoutHref}">&nbsp;<span id="username-span" style="white-space: nowrap; overflow: hidden; display: inline-block; max-width: 11ch; position: relative; vertical-align:bottom">${req.user}<span id="gradient-span" style="content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2rem; background: linear-gradient(to right, transparent, #333);"></span></span></a>
 <script>
   // current username is constrained by max-width, overflow of that width results in gradient (because elipsis is really wide).
   // here, we add/remove the gradient based on overflow
